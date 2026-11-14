@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0c0e15">
-  <meta name="description" content="Rag Showdown - a 1v1 ragdoll fighting game. Nine anime-inspired fighters, cinematic supers with impact-frame finishers, Arcade, Versus, Survival and Training.">
+  <meta name="description" content="Rag Showdown - a 1v1 ragdoll fighting game. 16 stickman fighters with anime-style powers, cinematic supers with impact-frame finishers, a 48-level campaign, Versus, Survival and Training.">
   <title>Rag Showdown</title>
-  <link rel="stylesheet" href="css/style.css?v=1">
+  <link rel="stylesheet" href="css/style.css?v=2">
 </head>
 <body>
   <canvas id="stage" aria-label="Game"></canvas>
@@ -25,6 +25,13 @@
     <div class="sm p1" id="sm0"><b>SUPER</b><div class="trk"><i></i></div></div>
     <div class="sm p2" id="sm1"><b>SUPER</b><div class="trk"><i></i></div></div>
     <div class="skillbar" id="skillbar"></div>
+    <div class="coach hidden" id="coach"><p id="coachText"></p></div>
+    <div class="tut hidden" id="tut">
+      <div class="tut-dots" id="tutDots"></div>
+      <div class="tut-vis" id="tutVis"></div>
+      <div class="tut-label"><b id="tutText">MOVE</b><span id="tutCount"></span></div>
+      <button class="tut-skip" id="tutSkip">SKIP<span class="ic" data-icon="next"></span></button>
+    </div>
     <div class="tpad" id="tpad">
       <div class="joy" id="joy"><div class="joy-base"></div><div class="joy-knob" id="joyKnob"></div></div>
       <div class="orbs" id="orbs"></div>
@@ -36,24 +43,38 @@
     <div class="home-panel">
       <h1 class="title" aria-label="Rag Showdown"><span class="t1" aria-hidden="true"><i style="--i:0">R</i><i style="--i:1">A</i><i style="--i:2">G</i></span><span class="t2" aria-hidden="true"><i>SHOWDOWN</i></span><span class="tag">ANIME RAGDOLL FIGHTER</span></h1>
       <div class="home-menu">
-        <button class="btn primary big" id="btnArcade"><span class="ic" data-icon="play"></span><span class="bt"><b>ARCADE</b><small id="arcadeSub">6 FIGHTS · NORMAL</small></span></button>
+        <button class="btn primary big" id="btnPlay"><span class="ic" data-icon="play"></span><span class="bt"><b>PLAY</b><small id="playSub">LEVEL 1-1</small></span></button>
         <div class="btn-row">
           <button class="btn mode" id="btnVersus"><span class="ic" data-icon="swords"></span><span class="bt"><b>VERSUS</b><small>CPU OR 2 PLAYERS</small></span></button>
           <button class="btn mode" id="btnSurvival"><span class="ic" data-icon="infinity"></span><span class="bt"><b>SURVIVAL</b><small id="survSub">BEST 0</small></span></button>
         </div>
         <div class="btn-row">
+          <button class="btn tile" id="btnLevels"><span class="ic" data-icon="map"></span><b>LEVELS</b></button>
           <button class="btn tile" id="btnRoster"><span class="ic" data-icon="user"></span><b>FIGHTERS</b><i class="note hidden" id="rosterNote"></i></button>
           <button class="btn tile" id="btnTraining"><span class="ic" data-icon="target"></span><b>TRAINING</b></button>
-          <button class="btn tile" id="btnHow"><span class="ic" data-icon="book"></span><b>HOW TO PLAY</b></button>
         </div>
       </div>
       <div class="pick-card" id="homePick"></div>
       <div class="daily" id="daily"></div>
     </div>
     <div class="corner tr">
+      <div class="pill stars"><span class="ic star" data-icon="star"></span><b id="homeStars">0</b></div>
       <div class="pill"><span class="ic coin" data-icon="coins"></span><b class="coin-val">0</b></div>
+      <button class="round" id="btnHow" aria-label="How to play"><span class="ic" data-icon="book"></span></button>
       <button class="round" id="btnSettings" aria-label="Settings"><span class="ic" data-icon="gear"></span></button>
     </div>
+  </section>
+
+  <!-- ============================== LEVELS ============================== -->
+  <section id="levels" class="screen hidden">
+    <header class="bar">
+      <button class="round" data-back aria-label="Back"><span class="ic" data-icon="back"></span></button>
+      <nav class="seg" id="chapterTabs"></nav>
+      <div class="pill stars"><span class="ic star" data-icon="star"></span><b id="levelStars">0</b></div>
+    </header>
+    <div class="realm-head" id="chapterHead"></div>
+    <div class="stage-grid six" id="levelGrid"></div>
+    <div class="lv-foot" id="levelFoot"></div>
   </section>
 
   <!-- ============================== SELECT ============================== -->
@@ -74,18 +95,19 @@
   <div id="bars" aria-hidden="true"><i style="--i:4"></i><i style="--i:3"></i><i style="--i:5"></i><i style="--i:2"></i><i style="--i:6"></i><i style="--i:1"></i><i style="--i:7"></i><i style="--i:0"></i><i style="--i:8"></i></div>
   <div id="rotate" class="hidden"><div><span class="ic" data-icon="rotate"></span><p>TURN YOUR DEVICE SIDEWAYS</p><button class="btn primary" id="btnRotateOk"><b>PLAY ANYWAY</b></button></div></div>
 
-  <script src="js/util.js?v=1"></script>
-  <script src="js/icons.js?v=1"></script>
-  <script src="js/audio.js?v=1"></script>
-  <script src="js/rag.js?v=1"></script>
-  <script src="js/fx.js?v=1"></script>
-  <script src="js/fighters.js?v=1"></script>
-  <script src="js/save.js?v=1"></script>
-  <script src="js/stage.js?v=1"></script>
-  <script src="js/input.js?v=1"></script>
-  <script src="js/ai.js?v=1"></script>
-  <script src="js/game.js?v=1"></script>
-  <script src="js/ui.js?v=1"></script>
-  <script src="js/main.js?v=1"></script>
+  <script src="js/util.js?v=2"></script>
+  <script src="js/icons.js?v=2"></script>
+  <script src="js/audio.js?v=2"></script>
+  <script src="js/rag.js?v=2"></script>
+  <script src="js/fx.js?v=2"></script>
+  <script src="js/fighters.js?v=2"></script>
+  <script src="js/save.js?v=2"></script>
+  <script src="js/campaign.js?v=2"></script>
+  <script src="js/stage.js?v=2"></script>
+  <script src="js/input.js?v=2"></script>
+  <script src="js/ai.js?v=2"></script>
+  <script src="js/game.js?v=2"></script>
+  <script src="js/ui.js?v=2"></script>
+  <script src="js/main.js?v=2"></script>
 </body>
 </html>

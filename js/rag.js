@@ -34,6 +34,7 @@ const JOINT_LIMITS = [
 ];
 const HEAD_R = 13;
 const GRAV = 2700;
+let WORLD_G = 1;              // gravity multiplier (Low Gravity levels)
 
 /* ------------------------------------------------------------------ poses
    Facing-space, unscaled: +x is toward the way the fighter faces, -y is up.
@@ -75,6 +76,7 @@ function lerpPose(a, b, k) {
   const o = {};
   for (const key of ['fh', 'bh', 'ff', 'bf']) o[key] = [lerp(a[key][0], b[key][0], k), lerp(a[key][1], b[key][1], k)];
   o.lean = lerp(a.lean, b.lean, k); o.crouch = lerp(a.crouch, b.crouch, k);
+  o.spin = lerp(a.spin || 0, b.spin || 0, k); o.lift = lerp(a.lift || 0, b.lift || 0, k);
   return o;
 }
 
@@ -293,7 +295,7 @@ class Rag {
     }
     if (r.hover) { r.vy = this.action && this.action.vy != null ? this.action.vy : 0; }
     else if (this.action && this.action.vy != null) r.vy = this.action.vy;
-    else r.vy += GRAV * this.s * dt * (r.vy > 0 ? 1.15 : 1);
+    else r.vy += GRAV * WORLD_G * this.s * dt * (r.vy > 0 ? 1.15 : 1);
     r.x += r.vx * dt;
     r.y += r.vy * dt;
     const wasGrounded = r.grounded;
@@ -376,11 +378,21 @@ class Rag {
     ik(nx, ny, nx + f * pose.bh[0] * s, ny + pose.bh[1] * s, arm, arm, P.BHAND, P.BELB, -f * 0.3, 1);
     ik(px, py, gx + f * pose.ff[0] * s, gy + pose.ff[1] * s, th, sh, P.FFOOT, P.FKNEE, f, -0.2);
     ik(px, py, gx + f * pose.bf[0] * s, gy + pose.bf[1] * s, th, sh, P.BFOOT, P.BKNEE, f, -0.2);
+    // whole-body flips and spins: rotate the pose around the middle of the body
+    const spin = (pose.spin || 0) * f, lift = (pose.lift || 0) * s;
+    if (spin || lift) {
+      const cx = (px + nx) / 2, cy = (py + ny) / 2 - lift;
+      const cs = Math.cos(spin), sn = Math.sin(spin);
+      for (let i = 0; i < 11; i++) {
+        const dx = T[i].x - (px + nx) / 2, dy = T[i].y - (py + ny) / 2;
+        T[i].x = cx + dx * cs - dy * sn; T[i].y = cy + dx * sn + dy * cs;
+      }
+    }
   }
 
   stepBody(dt) {
     const m = this.m, pts = this.pts, T = this.T, Tp = this.Tp, s = this.s;
-    const g = GRAV * s * dt * dt * (1 - 0.92 * m);
+    const g = GRAV * WORLD_G * s * dt * dt * (1 - 0.92 * m);
     const air = m < 0.5 ? 0.997 : 0.99;
     for (let i = 0; i < 11; i++) {
       const p = pts[i];
@@ -632,9 +644,9 @@ class Rag {
     }
   }
 
-  weaponLine() {
+  weaponLine(back) {
     // the blade runs along the forearm, out of the fist
-    const E = this.pts[P.FELB], Hh = this.pts[P.FHAND], s = this.s;
+    const E = this.pts[back ? P.BELB : P.FELB], Hh = this.pts[back ? P.BHAND : P.FHAND], s = this.s;
     let dx = Hh.x - E.x, dy = Hh.y - E.y; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
     const len = (this.def.look.weaponLen || 58) * s;
     return { x0: Hh.x - dx * 6 * s, y0: Hh.y - dy * 6 * s, x1: Hh.x + dx * len, y1: Hh.y + dy * len, dx, dy };
@@ -642,8 +654,33 @@ class Rag {
 
   // a plain energy blade in the fighter's colour (wider for the cleaver)
   drawWeapon(ctx, acc, mono) {
-    const w = this.weaponLine(), s = this.s;
-    const wide = this.def.look.weapon === 'cleaver';
+    const kind = this.def.look.weapon;
+    if (kind === 'tri') {
+      // a blade in each hand and one held in the teeth
+      this.drawBlade(ctx, this.weaponLine(), acc, mono, false);
+      this.drawBlade(ctx, this.weaponLine(true), acc, mono, false);
+      const hd = this.pts[P.HEAD], f = this.facing, s = this.s;
+      this.drawBlade(ctx, { x0: hd.x - f * 4 * s, y0: hd.y + 5 * s, x1: hd.x + f * 46 * s, y1: hd.y + 2 * s }, acc, mono, false);
+      return;
+    }
+    this.drawBlade(ctx, this.weaponLine(), acc, mono, kind === 'cleaver', kind === 'saw');
+  }
+
+  drawBlade(ctx, w, acc, mono, wide, saw) {
+    const s = this.s;
+    if (saw) {
+      // a chainsaw bar: a dark body with running teeth
+      ctx.strokeStyle = mono || '#3a3d4a'; ctx.lineWidth = 9 * s;
+      ctx.beginPath(); ctx.moveTo(w.x0, w.y0); ctx.lineTo(w.x1, w.y1); ctx.stroke();
+      const dx = w.x1 - w.x0, dy = w.y1 - w.y0, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+      ctx.fillStyle = mono || acc;
+      const ph = (this.t * 14) % 1;
+      for (let i = 0; i < 9; i++) {
+        const u = (i + ph) / 9, x = w.x0 + dx * u, y = w.y0 + dy * u;
+        for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(x + nx * sd * 4 * s, y + ny * sd * 4 * s); ctx.lineTo(x + nx * sd * 8 * s + dx / L * 3 * s, y + ny * sd * 8 * s + dy / L * 3 * s); ctx.lineTo(x + nx * sd * 4 * s + dx / L * 5 * s, y + ny * sd * 4 * s + dy / L * 5 * s); ctx.fill(); }
+      }
+      return;
+    }
     if (!mono) {
       ctx.globalCompositeOperation = 'lighter';
       ctx.strokeStyle = acc; ctx.globalAlpha *= 0.5; ctx.lineWidth = (wide ? 16 : 10) * s;

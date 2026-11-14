@@ -34,6 +34,26 @@ function arcPose(a0, a1, extra) {
     return o;
   };
 }
+// keyframed animation over the whole move: frames are [u (0..1 of w+a+r), pose fields]
+// missing fields come from the guard stance; spin is a whole-body rotation (radians, + = forward)
+function animPose(frames) {
+  return (f, act, base) => {
+    const u = clamp(act.t / Math.max(1e-3, act.w + act.a + act.r), 0, 1);
+    let i = 0;
+    while (i < frames.length - 2 && u > frames[i + 1][0]) i++;
+    const [u0, p0] = frames[i], [u1, p1] = frames[Math.min(i + 1, frames.length - 1)];
+    const k = u1 > u0 ? easeInOut(clamp((u - u0) / (u1 - u0), 0, 1)) : 1;
+    return lerpPose(mergePose(base, p0), mergePose(base, p1), k);
+  };
+}
+// a pose frame list keyed to the move's own phases: wind-up end, active end
+function phasePose(f0, wind, strike, follow) {
+  return (f, act, base) => {
+    const T = act.w + act.a + act.r;
+    return animPose([[0, f0 || {}], [act.w / T, wind], [(act.w + act.a) / T, strike], [1, follow || {}]])(f, act, base);
+  };
+}
+
 // rapid alternating fists (barrages)
 function barragePose(rate = 18) {
   return (f, act, base) => {
@@ -271,7 +291,7 @@ fighter({
 /* ------------------------------------------------------------- RYO */
 fighter({
   id: 'ryo', name: 'RYO', title: 'SHINOBI', color: '#ffd23f', aura: '#ffe27a', jumps: 2,
-  hp: 1080, walk: 345, power: 1.1, stats: [3, 5, 4], price: 0, stage: 'temple',
+  hp: 1080, walk: 345, power: 1.16, stats: [3, 5, 4], price: 0, stage: 'temple',
   blurb: 'A loud ninja who never gives up. Double jumps, drills in with a vortex palm and swarms you with mirror clones.',
   look: { gear: 'headband' },
   ai: { style: 'rush', range: 180 },
@@ -516,7 +536,7 @@ fighter({
 /* ------------------------------------------------------------- MUGI */
 fighter({
   id: 'mugi', name: 'MUGI', title: 'RUBBER BRAWLER', color: '#ff4fa3', aura: '#ffffff',
-  hp: 1000, walk: 305, power: 1, stats: [4, 4, 5], price: 0, stage: 'dojo',
+  hp: 960, walk: 305, power: 0.95, stats: [4, 4, 5], price: 0, stage: 'dojo',
   blurb: 'A rubber-bodied brawler who laughs through every fight. His fists stretch across the arena, and his awakening goes giant.',
   look: { gear: 'band', surge: { accent: '#ffffff' } },
   ai: { style: 'balanced', range: 300 },
@@ -743,7 +763,7 @@ fighter({
 fighter({
   id: 'saibo', name: 'SAIBO', title: 'BORED HERO', color: '#e8323f', aura: '#ffffff',
   hp: 1050, walk: 265, power: 1.05, stats: [5, 3, 3], price: 1500, unlockByClear: true, stage: 'crater', boss: true,
-  blurb: 'A hero who got too strong to enjoy a fight. He fights bored, until he stops holding back. Unlock by clearing Arcade.',
+  blurb: 'A hero who got too strong to enjoy a fight. He fights bored, until he stops holding back. Recruit him in the final level of the Grand Arena.',
   look: { gear: 'crest', cape: true },
   ai: { style: 'balanced', range: 240 },
   moves: {
@@ -789,6 +809,588 @@ fighter({
   },
 });
 
+
+/* =========================================================================
+   Animation pass: every special gets a real wind-up, a committed strike and
+   follow-through. Flips and spins rotate the whole body (pose.spin).
+   ========================================================================= */
+// add a whole-body spin over the active window to any pose function
+function withSpin(fn, turns, lift = 30, from = 0, to = 1) {
+  return (f, act, base) => {
+    const p = fn(f, act, base);
+    const k = clamp((act.t - act.w - act.a * from) / Math.max(1e-3, act.a * (to - from)), 0, 1);
+    p.spin = easeInOut(k) * TAU * turns;
+    p.lift = Math.sin(k * Math.PI) * lift;
+    return p;
+  };
+}
+const CROUCH_WIND = { crouch: 22, lean: -6 };
+(function animate() {
+  const M = id => BY_ID[id].moves;
+  // Kaze: cup the ki at the hip, then thrust both palms
+  M('kaze').sp1.poseFn = phasePose({}, { fh: [-24, 44], bh: [-20, 48], crouch: 16, lean: -8, ff: [30, 0], bf: [-34, 0] }, { fh: [50, 4], bh: [46, 12], lean: 14, ff: [34, 0], bf: [-36, 0], crouch: 8 }, { lean: 4 });
+  // Kaze: vanish low, then a front-flip axe kick
+  M('kaze').sp2.poseFn = withSpin(phasePose({}, { crouch: 24, fh: [-12, 26], bh: [-18, 28], lean: 10 }, { ff: [56, -96], bf: [-14, -20], fh: [34, 30], bh: [-22, 20], lean: 6 }, {}), 1, 46);
+  // Ryo: gather the sphere low in both hands, then drive the palm through
+  M('ryo').sp1.poseFn = phasePose({}, { fh: [-16, 24], bh: [-8, 30], crouch: 20, lean: -4 }, { fh: [52, 6], bh: [-28, 20], lean: 22, crouch: 14, ff: [38, 0], bf: [-38, 0] }, { lean: 6 });
+  // Ryo: a two-handed seal
+  M('ryo').sp2.poseFn = phasePose({}, { fh: [16, 8], bh: [13, 10], crouch: 8 }, { fh: [16, 4], bh: [13, 6], crouch: 14, lean: -2 }, {});
+  // Ryo: hold the star overhead, then hurl it
+  M('ryo').super.poseFn = phasePose({}, { fh: [4, -50], bh: [-8, -48], lean: -8, crouch: 6 }, { fh: [50, -6], bh: [20, 10], lean: 20, ff: [38, 0], bf: [-38, 0] }, { lean: 6 });
+  // Aoi: two fingers raised, then pointed
+  M('aoi').sp1.poseFn = phasePose({}, { fh: [8, -10], bh: [-12, 20], lean: -5 }, { fh: [46, -20], bh: [-14, 22], lean: 8 }, {});
+  // Aoi: a flick at point blank, the recoil throws him back
+  M('aoi').sp2.poseFn = phasePose({}, { fh: [-6, 2], bh: [-14, 16], crouch: 10, lean: -6 }, { fh: [50, -2], bh: [-22, 12], lean: 16, ff: [36, 0] }, { lean: -10, fh: [30, 6] });
+  // Aoi: a hand sign, then both palms push out for the violet
+  M('aoi').super.poseFn = (f, act, base) => {
+    const k = act.t - act.w;
+    if (k < 0.85) return mergePose(base, { fh: [14, -8], bh: [10, 0], crouch: 8, lean: -2 });
+    return lerpPose(mergePose(base, { fh: [14, -8], bh: [10, 0], crouch: 8 }), mergePose(base, { fh: [50, -4], bh: [46, 6], lean: 16, ff: [36, 0], bf: [-36, 0] }), clamp((k - 0.85) / 0.1, 0, 1));
+  };
+  // Homura: a full front flip with the blade
+  M('homura').sp1.poseFn = withSpin(arcPose(-2.6, 1.6, ph => ({ crouch: ph === 1 ? -6 : 16, ff: [12, -40], bf: [-18, -30] })), 1, 40);
+  // Jin: the blink slash spins through
+  M('jin').sp2.poseFn = withSpin(arcPose(-0.8, 1.3), 1, 10);
+  // Kohei: wind the finger back to the chest, then flick
+  M('kohei').sp1.poseFn = phasePose({}, { fh: [14, 14], bh: [-10, 22], lean: -6 }, { fh: [52, -4], bh: [-16, 20], lean: 14, ff: [32, 0] }, {});
+  // Kohei: front flip on the way up, then the axe kick down
+  M('kohei').sp2.poseFn = (f, act, base) => {
+    const k = clamp((act.t - act.w) / act.a, 0, 1);
+    const p = mergePose(base, k < 0.55 ? { ff: [20, -40], bf: [-10, -30], fh: [20, 10], bh: [-10, 16] } : { ff: [44, -10], bf: [-20, -40], fh: [36, 26], bh: [-24, 10], lean: 12 });
+    p.spin = easeInOut(clamp(k / 0.55, 0, 1)) * TAU;
+    return p;
+  };
+  M('kohei').super.poseFn = phasePose({}, { fh: [-24, 18], bh: [22, 0], lean: -14, crouch: 22, ff: [42, 0], bf: [-42, 0] }, { fh: [56, 0], bh: [-26, 16], lean: 24, crouch: 8, ff: [48, 0], bf: [-46, 0] }, { lean: 10 });
+  M('kaze').super.poseFn = phasePose({}, { fh: [-26, 46], bh: [-22, 50], crouch: 18, lean: -10, ff: [34, 0], bf: [-38, 0] }, { fh: [50, 6], bh: [48, 12], lean: 14, ff: [34, 0], bf: [-40, 0], crouch: 12 }, {});
+  M('saibo').sp2.poseFn = phasePose({}, { fh: [-14, 10], lean: -8, crouch: 14 }, { fh: [54, 0], bh: [-10, 18], lean: 18, ff: [40, 0], bf: [-34, 0] }, {});
+  M('saibo').super.poseFn = phasePose({}, { fh: [-20, 12], bh: [20, 6], lean: -12, crouch: 18, ff: [40, 0], bf: [-40, 0] }, { fh: [56, -2], bh: [-28, 14], lean: 26, ff: [50, 0], bf: [-46, 0] }, { lean: 14 });
+  M('taro').sp2.poseFn = phasePose({}, { fh: [10, 6], bh: [-10, 20] }, { fh: [44, -10], bh: [-12, 22], lean: 6 }, {});
+  M('taro').sp1.poseFn = phasePose({}, { fh: [20, -30], bh: [-12, 20], lean: -4 }, { fh: [40, -20], bh: [-14, 22], lean: 4 }, {});
+})();
+
+/* =========================================================================
+   New fighters
+   ========================================================================= */
+function sawDraw(ctx, p, time) {
+  ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(time * 30 * Math.sign(p.vx || 1));
+  ctx.globalCompositeOperation = 'lighter'; Glow.draw(ctx, p.color, 0, 0, p.r * 2.4, 0.5); ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = '#dfe4ec';
+  ctx.beginPath();
+  for (let i = 0; i < 24; i++) { const a = i / 24 * TAU, r = i % 2 ? p.r : p.r * 0.78; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(0, 0, p.r * 0.35, 0, TAU); ctx.fill();
+  ctx.restore();
+  if (Math.random() < 0.6) Game.fx.add({ kind: 'spark', x: p.x, y: p.y + p.r * 0.8, vx: -Math.sign(p.vx) * rand(200, 600), vy: rand(-400, -100), life: 0.2, size: 4, color: '#ffcf6a' });
+}
+function fireWaveDraw(ctx, p, time) {
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 5; i++) Game.fx.add({ kind: 'flame', x: p.x + rand(-p.r, p.r) * 0.6, y: p.y + rand(-p.r, p.r * 0.8), vx: -p.vx * 0.15 + rand(-80, 80), vy: rand(-380, -120), life: 0.28, size: rand(8, 14), color: i % 2 ? '#ff5a1c' : '#ffc23d' });
+  Glow.draw(ctx, '#ff7a2a', p.x, p.y, p.r * 2.4, 0.8);
+  ctx.globalCompositeOperation = 'source-over';
+}
+function tornadoDraw(ctx, p, time) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 7; i++) {
+    const y = p.y + p.r * 1.2 - i * p.r * 0.38, w = p.r * (0.35 + i * 0.13);
+    ctx.globalAlpha = 0.6; ctx.strokeStyle = i % 2 ? p.color : '#ffffff'; ctx.lineWidth = 3;
+    const a = time * 16 + i;
+    ctx.beginPath(); ctx.ellipse(p.x + Math.sin(a) * 6, y, w, w * 0.25, 0, a % TAU, a % TAU + 4.2); ctx.stroke();
+  }
+  ctx.restore();
+}
+// a shadow soldier rising out of the floor
+function shadowSpawn(G, owner, x, delay, o2) {
+  return G.minion(owner, Object.assign({ x, delay, rise: true, mono: '#160d2c', glow: '#8a6bff', speed: 900, life: 0.9, pose: phaseless('slash'),
+    box: [70, -96, 46], spec: { dmg: 50, kb: [360, -380], stun: 0.6, bstun: 0.2, hs: 0.06, chip: 0.2, launch: true, color: '#8a6bff', kind: 'special', sfx: 'slashH', name: 'Shadow Soldier' } }, o2 || {}));
+}
+function phaseless(kind) {
+  if (kind === 'slash') return { fh: [44, 20], bh: [30, 24], lean: 16, crouch: 10, ff: [34, 0], bf: [-34, 0] };
+  return POSES.airK.strike;
+}
+
+/* ------------------------------------------------------------- RIPPER */
+fighter({
+  id: 'ripper', name: 'RIPPER', title: 'SAW DEVIL', color: '#ff6b2b', aura: '#ffb13d', reach: 16,
+  hp: 1050, walk: 300, power: 1.05, stats: [5, 3, 4], price: 500, stage: 'city',
+  blurb: 'Pull the cord and he becomes a buzzing nightmare. Rolls saw discs, hooks you with a chain, and revs into a rampage.',
+  look: { gear: 'helmet', weapon: 'saw', weaponLen: 58 },
+  ai: { style: 'rush', range: 220 },
+  moves: {
+    sp1: { name: 'Saw Disc', icon: 'saw', kind: 'special', w: 0.16, a: 0.06, r: 0.28, cd: 2.6, ai: { range: [160, 1200], zone: true },
+      poseFn: phasePose({}, { fh: [-20, 20], lean: -6, crouch: 12 }, { fh: [48, 30], lean: 14, crouch: 16, ff: [36, 0], bf: [-34, 0] }, {}),
+      tick: (G, f, act) => {
+        if (act.t >= act.w && once(act, 'fired')) {
+          G.proj({ owner: f, x: f.root.x + f.facing * 70, y: GROUND - 34, vx: f.facing * 820, vy: 0, r: 34, life: 1.8, strength: 2, color: '#ff8a3d', draw: sawDraw, multi: 4, every: 0.08, grind: 0.3,
+            spec: { dmg: 14, kb: [80, -20], stun: 0.3, bstun: 0.14, hs: 0.02, chip: 0.25, color: '#ffcf6a', kind: 'special', sfx: 'cut' },
+            final: { dmg: 34, kb: [380, -520], stun: 0.8, launch: true, hs: 0.08, chip: 0.2, color: '#ffcf6a', kind: 'special', sfx: 'hitH', name: 'Saw Disc' } });
+          Sfx.play('saw');
+        }
+      } },
+    sp2: { name: 'Chain Hook', icon: 'grapple', kind: 'special', w: 0.14, a: 0.2, r: 0.3, cd: 3.5, ai: { range: [200, 620] },
+      poseFn: phasePose({}, { fh: [-10, -10], lean: -6 }, { fh: [50, -6], bh: [-16, 20], lean: 12, ff: [34, 0] }, { fh: [10, 10], lean: -10 }),
+      tick: (G, f, act) => {
+        const { ph, u } = phaseOf(act);
+        act.ext = ph === 1 ? easeOut(u) * 560 : ph === 2 ? 560 * (1 - easeIn2(u)) : 0;
+        if (act.hooked) act.ext = Math.max(0, Math.abs(act.hooked.root.x - f.root.x) - 40);
+        if (ph === 1 && !act.h1) {
+          const n = f.pts[P.NECK], o = G.opp(f);
+          const res = o.hitTest(n.x + f.facing * (40 + act.ext), n.y + 10, 24);
+          if (res) {
+            act.h1 = true;
+            const r = G.hit(f, o, { dmg: 30, kb: [-1350, -80], stun: 0.7, bstun: 0.2, hs: 0.08, chip: 0.2, color: '#ffcf6a', kind: 'special', sfx: 'grab', name: 'Chain Hook' }, res.x, res.y, act);
+            if (r === 'hit') { act.hooked = o; G.say(o.root.x, o.root.y - 290, 'GET OVER HERE', '#ffcf6a', 32); }
+          }
+        }
+      },
+      draw: (G, ctx, f, act) => {
+        if (!(act.ext > 6)) return;
+        const n = f.pts[P.NECK], h = f.pts[P.FHAND];
+        const x1 = n.x + f.facing * (40 + act.ext), y1 = n.y + 10;
+        ctx.strokeStyle = '#c9ccd6'; ctx.lineWidth = 4; ctx.setLineDash([10, 6]);
+        ctx.beginPath(); ctx.moveTo(h.x, h.y); ctx.lineTo(x1, y1); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = '#ffcf6a'; ctx.beginPath(); ctx.moveTo(x1 + f.facing * 14, y1); ctx.lineTo(x1, y1 - 9); ctx.lineTo(x1, y1 + 9); ctx.fill();
+      } },
+    super: { name: 'Revving Rampage', icon: 'saw', kind: 'super', w: 0.5, a: 1.0, r: 0.5, ai: { range: [0, 900] },
+      poseFn: (f, act, base) => {
+        const { ph } = phaseOf(act);
+        if (ph === 0) return mergePose(base, { fh: [-10, -30], bh: [-20, -24], lean: -10, crouch: 10 });
+        const j = Math.sin(act.t * 40) * 6;
+        return mergePose(base, { fh: [50, 10 + j], bh: [44, 18 - j], lean: 22, crouch: 16, ff: [36, 0], bf: [-36, 0] });
+      },
+      start: (G, f, act) => { G.cutin(f, 'REVVING RAMPAGE', 'ULTIMATE'); f.invuln = 1.6; f.auraT = 2; act.ghost = false; Sfx.play('saw'); },
+      tick: (G, f, act) => {
+        const o = G.opp(f);
+        const { ph } = phaseOf(act);
+        if (ph === 1) {
+          act.vx = f.facing * 1100;
+          if (Math.random() < 0.8) { const h = hand(f); G.fx.add({ kind: 'spark', x: h.x, y: h.y, vx: rand(-600, 600), vy: rand(-600, 100), life: 0.2, size: 5, color: '#ffcf6a' }); }
+          const ahead = (o.root.x - f.root.x) * f.facing;
+          if (!act.caught && ahead > 0 && ahead < 150 && o.alive && o.invuln <= 0) { act.caught = true; Sfx.play('hitH'); }
+          if (act.caught && o.alive) {
+            // carry the victim on the saws
+            const tx = f.root.x + f.facing * 120;
+            if (o.mode === 'tumble' || o.mode === 'dead') for (const q of o.pts) { q.x += (tx - o.root.x) * 0.2; }
+            else o.root.x = lerp(o.root.x, tx, 0.4);
+            act.tk = (act.tk || 0) + STEP;
+            if (act.tk > 0.06) { act.tk = 0; const c = o.center(); G.hit(f, o, { dmg: 14, kb: [60, -40], stun: 0.35, hs: 0.01, chip: 0.3, color: '#ffcf6a', kind: 'super', sfx: 'cut', noLaunch: true }, c.x, c.y, act); }
+          }
+        } else act.vx = ph === 2 ? 0 : null;
+        if (ph === 2 && act.caught && once(act, 'fin')) {
+          const c = o.center();
+          G.fx.slash(c.x, c.y, 140, -2.6, 0.6, '#ff6b2b', 30, 0.4);
+          G.hit(f, o, { dmg: 110, kb: [420, -1150], stun: 1.3, launch: true, hs: 0.2, chip: 0.4, color: '#ffcf6a', kind: 'super', big: true, sfx: 'hitH', name: 'Revving Rampage' }, c.x, c.y, act);
+        }
+      } },
+  },
+});
+
+/* ------------------------------------------------------------- MONARCH */
+fighter({
+  id: 'monarch', name: 'MONARCH', title: 'SHADOW SUMMONER', color: '#7a5cff', aura: '#a48bff',
+  hp: 1060, walk: 300, power: 1.14, stats: [4, 3, 5], price: 650, stage: 'void',
+  blurb: 'Once the weakest of hunters, now the lord of an army that rises from every shadow. He rarely fights alone.',
+  look: { gear: 'hood', cape: true },
+  ai: { style: 'zoner', range: 340 },
+  moves: {
+    sp1: { name: 'Shadow Soldier', icon: 'spirit', kind: 'special', w: 0.14, a: 0.05, r: 0.24, cd: 2.6, ai: { range: [120, 1100], zone: true },
+      poseFn: phasePose({}, { fh: [10, 30], bh: [-10, 30], crouch: 16 }, { fh: [40, -30], bh: [-16, 20], lean: 4 }, {}),
+      tick: (G, f, act) => {
+        if (act.t >= act.w && once(act, 'go')) { shadowSpawn(G, f, f.root.x + f.facing * 110, 0); Sfx.play('rise'); }
+      } },
+    sp2: { name: 'Shadow Grasp', icon: 'grasp', kind: 'special', w: 0.22, a: 0.05, r: 0.34, cd: 3.6, ai: { range: [100, 900] },
+      poseFn: phasePose({}, { fh: [20, 30], bh: [10, 34], crouch: 18, lean: 8 }, { fh: [40, 40], bh: [30, 44], crouch: 26, lean: 16 }, {}),
+      tick: (G, f, act) => {
+        if (act.t >= act.w && once(act, 'go')) {
+          const o = G.opp(f);
+          const x = clamp(o.root.x, WALL_L + 60, WALL_R - 60);
+          G.fx.ring(x, GROUND, '#8a6bff', 90, 0.5, 6);
+          G.field({ owner: f, x, y: GROUND - 60, r: 70, life: 0.42, every: 9, color: '#8a6bff', draw: 'hands', delay: true,
+            final: { dmg: 74, kb: [80, -1250], stun: 1, launch: true, hs: 0.1, chip: 0.2, color: '#a48bff', kind: 'special', sfx: 'hitH', name: 'Shadow Grasp' } });
+          Sfx.play('rise');
+        }
+      } },
+    super: { name: 'Army of Shadows', icon: 'swarm', kind: 'super', w: 0.7, a: 1.6, r: 0.4, ai: { range: [0, 1400] },
+      poseFn: phasePose({}, { fh: [16, 30], bh: [-16, 30], crouch: 20 }, { fh: [20, -50], bh: [-20, -48], lean: -6 }, { fh: [20, -50], bh: [-20, -48] }),
+      start: (G, f) => { G.cutin(f, 'ARMY OF SHADOWS', 'ARISE'); f.invuln = 1; f.auraT = 2.4; Sfx.play('domain'); },
+      tick: (G, f, act) => {
+        if (act.t >= act.w && once(act, 'army')) {
+          G.tint('void', 2.2);
+          G.say(f.root.x, f.root.y - 330, 'ARISE.', '#c9b8ff', 54);
+          const o = G.opp(f);
+          for (let i = 0; i < 7; i++) {
+            const side = i % 2 ? 1 : -1;
+            const x = clamp(o.root.x + side * (260 + i * 40), WALL_L + 60, WALL_R - 60);
+            shadowSpawn(G, f, x, 0.12 + i * 0.13, { spec: { dmg: 22, kb: [120, -160], stun: 0.45, bstun: 0.15, hs: 0.03, chip: 0.3, color: '#8a6bff', kind: 'super', sfx: 'slash', noLaunch: true }, life: 1.1 });
+          }
+          shadowSpawn(G, f, f.root.x + f.facing * 90, 1.15, { scale: 1.7, speed: 700, life: 1.2,
+            spec: { dmg: 130, kb: [700, -1000], stun: 1.3, launch: true, hs: 0.2, chip: 0.4, color: '#a48bff', kind: 'super', big: true, sfx: 'hitH', name: 'Army of Shadows' } });
+        }
+      } },
+  },
+});
+
+/* ------------------------------------------------------------- TITAN */
+fighter({
+  id: 'titan', name: 'GORO', title: 'TITAN SHIFTER', color: '#c98a4a', aura: '#ffd27a', scale: 1.12,
+  hp: 1180, walk: 235, power: 1.1, stats: [5, 1, 3], price: 700, stage: 'crater',
+  blurb: 'A soldier who can bite down and become a giant. Slow, huge and terrifying up close; nothing he grabs gets away.',
+  look: { gear: 'helmet', cape: true },
+  ai: { style: 'rush', range: 200 },
+  moves: {
+    sp1: { name: 'Quake Stomp', icon: 'quake', kind: 'special', w: 0.24, a: 0.06, r: 0.34, cd: 3, ai: { range: [0, 900], zone: true },
+      poseFn: phasePose({}, { ff: [20, -60], fh: [20, -20], bh: [-20, -20], lean: -8 }, { ff: [24, 0], fh: [30, 30], bh: [-30, 30], crouch: 30, lean: 6 }, {}),
+      tick: (G, f, act) => {
+        if (act.t >= act.w && once(act, 'stomp')) {
+          G.shake(12); Sfx.play('boom'); G.fx.dust(f.root.x, GROUND, 14);
+          for (const dir of [-1, 1]) G.proj({ owner: f, x: f.root.x + dir * 60, y: GROUND - 26, vx: dir * 900, vy: 0, r: 30, life: 0.75, strength: 1, color: '#c9a37a',
+            draw: (ctx, p, time) => { Game.fx.add({ kind: 'chunk', x: p.x, y: GROUND - 4, vx: rand(-80, 80), vy: rand(-700, -300), g: 2400, color: '#b48a62', size: rand(5, 10), life: 0.5, vr: 8, add: false }); },
+            spec: { dmg: 58, kb: [200, -700], stun: 0.7, bstun: 0.2, launch: true, hs: 0.07, chip: 0.2, color: '#ffd27a', kind: 'special', sfx: 'hitH', name: 'Quake Stomp' } });
+        }
+      } },
+    sp2: { name: 'Titan Grab', icon: 'grasp', kind: 'special', w: 0.12, a: 0.26, r: 0.4, cd: 5, ai: { range: [0, 380] },
+      poseFn: (f, act, base) => throwPoseFn(f, act, base),
+      start: (G, f, act) => { act.target = null; },
+      tick: (G, f, act) => {
+        const o = G.opp(f);
+        const { ph } = phaseOf(act);
+        if (ph === 1 && !act.target && !act.missed) {
+          act.vx = f.facing * 900;
+          const close = o && Math.abs(o.root.x - f.root.x) < 120 * f.s / 2 * 1.2 && o.root.grounded && o.mode !== 'tumble' && o.mode !== 'dead' && o.invuln <= 0 && o.stopT <= 0;
+          if (close) { act.vx = 0; act.target = o; act.hold = true; act.a = 0.5; o.action = null; o.mode = 'hit'; o.stunT = 1; Sfx.play('grab'); G.say(o.root.x, o.root.y - 300, 'CAUGHT', '#ffd27a', 34); }
+        }
+        if (ph === 2 && !act.target) { act.missed = true; act.vx = 0; }
+        if (act.target) {
+          act.vx = 0;
+          const k = clamp((act.t - act.w) / 0.5, 0, 1);
+          const hp = f.local(lerp(50, 30, k), lerp(-120, -230, Math.sin(k * Math.PI)));
+          const pv = o.pts[P.NECK];
+          for (const q of o.pts) { q.x += (hp.x - pv.x) * 0.25; q.y += (hp.y - pv.y) * 0.25; q.px = lerp(q.px, q.x, 0.5); q.py = lerp(q.py, q.y, 0.5); }
+          o.root.x = hp.x; o.stunT = 1;
+          if (k >= 1 && once(act, 'slam')) {
+            act.hold = false; act.target = null;
+            G.hit(f, o, { dmg: 115, dir: f.facing, kb: [200, 900], stun: 1.2, launch: true, hs: 0.14, unblockable: true, sfx: 'hitH', color: '#ffd27a', kind: 'special', name: 'Titan Grab' }, hp.x, hp.y + 40, act);
+            G.shake(16); G.fx.dust(o.root.x, GROUND, 16); Sfx.play('boom');
+          }
+        }
+      } },
+    super: { name: 'Colossus Form', icon: 'magmafist', kind: 'super', w: 0.8, a: 0.9, r: 0.9, ai: { range: [0, 900] },
+      poseFn: (f, act, base) => {
+        const { ph, u } = phaseOf(act);
+        if (ph === 0) return mergePose(base, { fh: [10, -50], bh: [-10, -48], lean: -10 });
+        if (ph === 1) return lerpPose(mergePose(base, { fh: [6, -56], bh: [-4, -54], lean: -10 }), mergePose(base, { fh: [56, 30], bh: [48, 34], lean: 26, crouch: 26 }), easeIn2(clamp(u / 0.6, 0, 1)));
+        return mergePose(base, { fh: [50, 34], bh: [44, 36], lean: 22, crouch: 22 });
+      },
+      start: (G, f, act) => { G.cutin(f, 'COLOSSUS FORM', 'TRANSFORMATION'); f.invuln = 2.2; f.auraT = 2.5; act.s0 = f.s; Sfx.play('charge'); },
+      tick: (G, f, act) => {
+        const o = G.opp(f);
+        const { ph, u } = phaseOf(act);
+        if (ph === 0 && u > 0.3 && once(act, 'bolt')) {
+          // a bolt from the sky, and he grows
+          G.fx.arc(f.root.x, 0, f.root.x, f.root.y - 100, '#ffe27a', 0.5); G.fx.arc(f.root.x + 20, 0, f.root.x, f.root.y - 140, '#ffffff', 0.4);
+          G.flash('#ffe27a', 0.6); G.shake(18); Sfx.play('boom');
+          G.fx.add({ kind: 'smoke', x: f.root.x, y: f.root.y - 160, size: 160, life: 1.2, color: '#ffffff', add: false });
+        }
+        const grow = ph === 0 ? easeOut(clamp((u - 0.3) / 0.6, 0, 1)) : ph === 1 ? 1 : 1 - easeInOut(u);
+        f.s = act.s0 * (1 + grow * 0.65);
+        if (ph === 1 && u > 0.55 && once(act, 'slam')) {
+          G.shake(30); Sfx.play('boom'); G.flash('#ffffff', 0.4);
+          const x = f.root.x + f.facing * 200 * f.s / 2;
+          G.fx.ring(x, GROUND - 20, '#ffd27a', 460, 0.7, 20); G.fx.chunks(x, GROUND - 4, '#b48a62', 28, 1000, 14);
+          if (Math.abs(o.root.x - x) < 300 && o.alive) G.hit(f, o, { dmg: 290, kb: [500, -1200], stun: 1.4, launch: true, hs: 0.24, chip: 0.4, color: '#ffd27a', kind: 'super', big: true, sfx: 'hitH', name: 'Colossus Form' }, o.center().x, o.center().y, act);
+        }
+      },
+      end: (G, f, act) => { if (act.s0) f.s = act.s0; } },
+  },
+});
+
+/* ------------------------------------------------------------- KENSEI */
+fighter({
+  id: 'kensei', name: 'KENSEI', title: 'PRESSURE POINT MASTER', color: '#b4ff3d', aura: '#e2ff9a',
+  hp: 1000, walk: 300, power: 1, stats: [4, 4, 3], price: 750, stage: 'crater',
+  blurb: 'A grim master of a deadly fist art. Every touch plants a pressure point, and pressure points always go off.',
+  look: { gear: 'band', cape: true },
+  ai: { style: 'balanced', range: 220 },
+  moves: {
+    sp1: { name: 'Hundred Crack Fists', icon: 'fist', kind: 'special', w: 0.14, a: 0.64, r: 0.3, cd: 4.2, ai: { range: [0, 300] },
+      poseFn: barragePose(24),
+      tick: (G, f, act) => {
+        if (phaseOf(act).ph !== 1) return;
+        act.tk = (act.tk || 0) + STEP;
+        if (act.tk >= 0.05) {
+          act.tk = 0; act.n = (act.n || 0) + 1;
+          const last = act.n >= 12;
+          const r = boxHit(G, f, act, [96, -108, 66], last
+            ? { dmg: 30, kb: [520, -300], stun: 0.8, hs: 0.08, chip: 0.2, color: '#e2ff9a', kind: 'special', sfx: 'hitH', name: 'Hundred Crack Fists' }
+            : { dmg: 6, kb: [40, 0], stun: 0.25, bstun: 0.12, hs: 0.01, chip: 0.2, color: '#e2ff9a', kind: 'special', sfx: 'tap' });
+          if (r === 'hit' && act.n % 4 === 0) G.mark(f, G.opp(f), 1);
+          if (r === 'hit' && act.n % 3 === 0) G.say(G.opp(f).root.x + rand(-60, 60), G.opp(f).root.y - rand(240, 320), 'ATA', '#e2ff9a', 30);
+          if (last) act.n = -99;
+        }
+      },
+      draw: (G, ctx, f, act, time) => {
+        if (phaseOf(act).ph !== 1) return;
+        const n = f.pts[P.NECK];
+        ctx.fillStyle = 'rgba(226,255,154,0.45)';
+        for (let i = 0; i < 10; i++) { const d = 40 + ((time * 19 + i * 0.27) % 1) * 90, y = n.y + Math.sin(i * 2.1 + time * 50) * 42; ctx.beginPath(); ctx.arc(n.x + f.facing * d, y, 10, 0, TAU); ctx.fill(); }
+      } },
+    sp2: { name: 'Pressure Point', icon: 'target', kind: 'special', w: 0.1, a: 0.06, r: 0.24, cd: 2.2, ai: { range: [0, 240] },
+      poseFn: phasePose({}, { fh: [10, 10], bh: [-12, 18], lean: -4 }, { fh: [54, -6], bh: [-16, 20], lean: 14, ff: [36, 0] }, {}),
+      tick: (G, f, act) => {
+        if (phaseOf(act).ph === 1 && boxHit(G, f, act, [78, -112, 30], { dmg: 26, kb: [120, 0], stun: 0.4, bstun: 0.15, hs: 0.1, chip: 0.2, color: '#e2ff9a', kind: 'special', sfx: 'hitL', name: 'Pressure Point' }, 'h1') === 'hit') G.mark(f, G.opp(f), 2);
+      } },
+    super: { name: 'Already Done', icon: 'skull', kind: 'super', w: 0.4, a: 2.3, r: 0.4, ai: { range: [0, 700] },
+      poseFn: (f, act, base) => {
+        const k = act.t - act.w;
+        if (k < 0) return mergePose(base, { fh: [16, 20], bh: [-6, 22], crouch: 10 });
+        if (k < 0.55) return barragePose(26)(f, { t: act.t, w: 0, a: 9, r: 0 }, base);
+        return mergePose(base, POSES.winCross);
+      },
+      start: (G, f) => { G.cutin(f, 'ALREADY DONE', 'FINAL TECHNIQUE'); f.invuln = 3; Sfx.play('charge'); },
+      tick: (G, f, act) => {
+        const o = G.opp(f);
+        const k = act.t - act.w;
+        if (k >= 0 && once(act, 'in')) { G.teleport(f, clamp(o.root.x - (o.root.x >= f.root.x ? 1 : -1) * 120, WALL_L + 50, WALL_R - 50), GROUND); f.facing = o.root.x >= f.root.x ? 1 : -1; }
+        if (k >= 0 && k < 0.55) {
+          act.tk = (act.tk || 0) + STEP;
+          if (act.tk > 0.05) { act.tk = 0; const c = o.center(); G.hit(f, o, { dmg: 5, kb: [20, 0], stun: 0.4, hs: 0, unblockable: true, color: '#e2ff9a', kind: 'super', sfx: 'tap', noLaunch: true }, c.x + rand(-20, 20), c.y + rand(-50, 40), act); if (Math.random() < 0.3) G.say(c.x + rand(-80, 80), c.y - rand(140, 220), 'ATATA', '#e2ff9a', 30); }
+        }
+        if (k >= 0.55 && once(act, 'turn')) {
+          // he turns his back and walks away; the target is frozen
+          if (o.alive) { o.stopT = 1.5; o.action = null; }
+          G.mark(f, o, 3);
+          f.facing = -f.facing;
+          G.teleport(f, clamp(f.root.x + f.facing * 160, WALL_L + 50, WALL_R - 50), GROUND);
+        }
+        if (k >= 0.9 && once(act, 'line')) G.say(f.root.x, f.root.y - 320, "YOU'RE ALREADY DONE.", '#ffffff', 40);
+        if (k >= 2.1 && once(act, 'boom')) {
+          const c = o.center();
+          G.flash('#ffffff', 0.7); G.shake(26); Sfx.play('boom');
+          G.fx.ring(c.x, c.y, '#e2ff9a', 360, 0.6, 18); G.fx.burst(c.x, c.y, '#e2ff9a', 40, 900);
+          o.marks = 0;
+          G.hit(f, o, { dmg: 270, kb: [-f.facing * 300 * 0 + 300, -1000], dir: -f.facing, stun: 1.4, launch: true, hs: 0.24, unblockable: true, color: '#e2ff9a', kind: 'super', big: true, sfx: 'hitH', name: 'Already Done' }, c.x, c.y, act);
+        }
+      } },
+  },
+});
+
+/* ------------------------------------------------------------- BLAZE */
+fighter({
+  id: 'blaze', name: 'BLAZE', title: 'FIRE SOLDIER', color: '#ff4a1c', aura: '#ffc23d',
+  hp: 980, walk: 330, power: 1, stats: [4, 5, 4], price: 550, stage: 'crater',
+  blurb: 'A firefighter whose feet burn like rocket engines. Kicks waves of flame, jets across the arena, and falls like a meteor.',
+  look: { gear: 'headband' },
+  ai: { style: 'rush', range: 240 },
+  moves: {
+    sp1: { name: 'Flame Kick', icon: 'flame', kind: 'special', w: 0.12, a: 0.12, r: 0.28, cd: 2.2, ai: { range: [140, 1100], zone: true },
+      poseFn: withSpin(phasePose({}, { ff: [0, -40], crouch: 12, lean: -6 }, { ff: [64, -80], bf: [-10, 0], lean: -18 }, {}), 1, 16),
+      tick: (G, f, act) => {
+        if (act.t >= act.w + 0.05 && once(act, 'fired')) {
+          G.proj({ owner: f, x: f.root.x + f.facing * 90, y: GROUND - 70, vx: f.facing * 950, vy: 0, r: 44, life: 1.2, strength: 2, color: '#ff7a2a', draw: fireWaveDraw,
+            spec: { dmg: 56, kb: [420, -260], stun: 0.45, bstun: 0.22, hs: 0.07, chip: 0.25, color: '#ffc23d', kind: 'special', sfx: 'hitH', name: 'Flame Kick' } });
+          Sfx.play('flame');
+        }
+      } },
+    sp2: { name: 'Jet Boost', icon: 'jetpack', kind: 'special', w: 0.1, a: 0.3, r: 0.22, cd: 2.8, air: true, ai: { range: [120, 640] },
+      poseFn: phasePose({}, { crouch: 20, lean: 8 }, { ff: [54, 6], bf: [-16, -30], fh: [-20, 20], bh: [-26, 18], lean: 20 }, {}),
+      tick: (G, f, act) => {
+        const { ph } = phaseOf(act);
+        if (ph === 1) {
+          act.vx = f.facing * 1300; act.vy = f.root.grounded && act.t < act.w + 0.03 ? -500 : -120;
+          for (const ft of [P.FFOOT, P.BFOOT]) { const q = f.pts[ft]; G.fx.add({ kind: 'flame', x: q.x, y: q.y, vx: -f.facing * rand(300, 600), vy: rand(-60, 60), life: 0.25, size: rand(8, 13), color: Math.random() < 0.5 ? '#ff5a1c' : '#ffc23d' }); }
+          boxHit(G, f, act, [62, -40, 48], { dmg: 66, kb: [520, -620], stun: 0.9, bstun: 0.24, launch: true, hs: 0.1, chip: 0.2, color: '#ffc23d', kind: 'special', sfx: 'hitH', name: 'Jet Boost', bf: true }, 'h1');
+        } else if (ph === 2) { act.vx = null; act.vy = null; }
+      } },
+    super: { name: 'Inferno Meteor', icon: 'meteor', kind: 'super', w: 0.5, a: 1.5, r: 0.4, ai: { range: [0, 1400] },
+      poseFn: (f, act, base) => {
+        const k = act.t - act.w;
+        if (k < 0) return mergePose(base, { crouch: 28, lean: 6 });
+        if (k < 0.9) return mergePose(base, { ff: [10, -20], bf: [-10, -10], fh: [10, -50], bh: [-10, -48] });
+        const p = mergePose(base, { ff: [30, 30], bf: [-20, -40], fh: [-20, -30], bh: [-26, -24], lean: 20 });
+        p.spin = 0.5;
+        return p;
+      },
+      start: (G, f, act) => { G.cutin(f, 'INFERNO METEOR', 'ULTIMATE'); f.invuln = 2.2; f.auraT = 2.4; Sfx.play('flame'); },
+      tick: (G, f, act) => {
+        const o = G.opp(f);
+        const k = act.t - act.w;
+        if (k >= 0 && k < 0.5) { act.vy = -2600; act.vx = 0; f.root.grounded = false; for (const ft of [P.FFOOT, P.BFOOT]) { const q = f.pts[ft]; G.fx.add({ kind: 'flame', x: q.x, y: q.y, vx: rand(-100, 100), vy: rand(300, 700), life: 0.4, size: rand(10, 16), color: '#ff7a1a' }); } }
+        if (k >= 0.5 && once(act, 'aim')) { f.hidden = true; G.tint('sun', 1.3); act.tx = o.root.x; }
+        if (k >= 0.5 && k < 0.9) { act.vy = 0; act.tx = lerp(act.tx, o.root.x, 0.1); G.fx.add({ kind: 'ring', x: act.tx, y: GROUND, color: '#ff4a1c', size: 80, life: 0.1, width: 4 }); }
+        if (k >= 0.9 && once(act, 'dive')) { f.hidden = false; G.teleport(f, clamp(act.tx - f.facing * 60, WALL_L + 50, WALL_R - 50), 180); f.root.grounded = false; }
+        if (k >= 0.9 && !act.landed) {
+          act.vy = 3400; act.vx = f.facing * 120;
+          for (let i = 0; i < 3; i++) { const c = f.center(); G.fx.add({ kind: 'flame', x: c.x + rand(-30, 30), y: c.y + rand(-60, 30), vx: rand(-100, 100), vy: rand(-900, -500), life: 0.35, size: rand(12, 20), color: i % 2 ? '#ff4a1c' : '#ffc23d' }); }
+          if (f.root.y >= GROUND - 2 && k > 0.92) {
+            act.landed = true; act.vy = null; act.vx = 0;
+            G.shake(30); Sfx.play('boom'); G.flash('#ffc23d', 0.5);
+            G.fx.ring(f.root.x, GROUND - 20, '#ff7a1a', 420, 0.7, 20);
+            for (let i = 0; i < 40; i++) G.fx.add({ kind: 'flame', x: f.root.x + rand(-160, 160), y: GROUND - rand(0, 40), vx: rand(-200, 200), vy: rand(-1400, -500), life: rand(0.4, 0.8), size: rand(12, 22), color: i % 2 ? '#ff4a1c' : '#ffc23d' });
+            if (Math.abs(o.root.x - f.root.x) < 300 && o.alive) G.hit(f, o, { dmg: 300, kb: [400, -1200], stun: 1.4, launch: true, hs: 0.24, chip: 0.4, color: '#ffc23d', kind: 'super', big: true, sfx: 'hitH', name: 'Inferno Meteor' }, o.center().x, o.center().y, act);
+          }
+        }
+        if (act.landed) { act.vy = null; }
+      },
+      end: (G, f) => { f.hidden = false; } },
+  },
+});
+
+/* ------------------------------------------------------------- TRIBLADE */
+fighter({
+  id: 'triblade', name: 'ZEN', title: 'THREE-SWORD STYLE', color: '#e7b84c', aura: '#fff0b0', reach: 20,
+  hp: 1080, walk: 320, power: 1.2, stats: [5, 3, 5], price: 600, stage: 'forest',
+  blurb: 'A swordsman who fights with a blade in each hand and one in his teeth. Spins up tornadoes and cuts in threes.',
+  look: { gear: 'band', weapon: 'tri', weaponLen: 56 },
+  ai: { style: 'balanced', range: 240 },
+  moves: {
+    sp1: { name: 'Tornado Slash', icon: 'tornado', kind: 'special', w: 0.12, a: 0.22, r: 0.22, cd: 2.6, ai: { range: [140, 1100], zone: true },
+      poseFn: withSpin(phasePose({}, { fh: [-30, 0], bh: [-36, 6], crouch: 14 }, { fh: [44, 0], bh: [-44, 0], crouch: 10 }, {}), 2, 10),
+      tick: (G, f, act) => {
+        if (act.t >= act.w + act.a * 0.6 && once(act, 'fired')) {
+          G.proj({ owner: f, x: f.root.x + f.facing * 90, y: GROUND - 100, vx: f.facing * 700, vy: 0, r: 56, life: 1.7, strength: 2, color: '#fff0b0', draw: tornadoDraw, multi: 5, every: 0.07, grind: 0.35,
+            spec: { dmg: 13, kb: [40, -80], stun: 0.3, bstun: 0.12, hs: 0.02, chip: 0.25, color: '#fff0b0', kind: 'special', sfx: 'cut' },
+            final: { dmg: 32, kb: [300, -800], stun: 0.9, launch: true, hs: 0.08, chip: 0.2, color: '#fff0b0', kind: 'special', sfx: 'slashH', name: 'Tornado Slash' } });
+          Sfx.play('whoosh');
+        }
+      } },
+    sp2: { name: 'Triple Cross', icon: 'swords', kind: 'special', w: 0.12, a: 0.3, r: 0.3, cd: 3.4, ai: { range: [80, 560] },
+      poseFn: phasePose({}, { fh: [-20, -30], bh: [-30, -20], crouch: 22, lean: 10 }, { fh: [44, 40], bh: [40, -30], lean: 22, crouch: 16, ff: [40, 0], bf: [-40, 0] }, {}),
+      start: (G, f, act) => { act.ghost = true; },
+      tick: (G, f, act) => {
+        const { ph } = phaseOf(act);
+        act.vx = ph === 1 ? f.facing * 1200 : ph === 2 ? 0 : null;
+        if (ph === 1) {
+          act.ht = (act.ht || 0) + STEP;
+          if ((act.n || 0) < 3 && act.ht > 0.07) {
+            const r = boxHit(G, f, act, [30, -96, 56], { dmg: 26, kb: [act.n === 2 ? 560 : 60, act.n === 2 ? -760 : -40], stun: act.n === 2 ? 0.9 : 0.4, bstun: 0.15, launch: act.n === 2, hs: 0.05, chip: 0.2, color: '#fff0b0', kind: 'special', sfx: 'slashH', name: 'Triple Cross' });
+            if (r) { const c = G.opp(f).center(); G.fx.slash(c.x, c.y, 80, [-2.4, -0.8, 0.2][act.n || 0], [0.8, 2.4, 3.2][act.n || 0], '#fff0b0', 18, 0.3); act.n = (act.n || 0) + 1; act.ht = 0; }
+          }
+        }
+      } },
+    super: { name: 'Nine Phantom Cuts', icon: 'blade', kind: 'super', w: 0.6, a: 1.1, r: 0.6, ai: { range: [0, 700] },
+      poseFn: (f, act, base) => {
+        const k = act.t - act.w;
+        if (k < 0) return mergePose(base, { fh: [-26, 10], bh: [-30, 14], crouch: 22, lean: 12 });
+        if (k < 0.55) return mergePose(base, { fh: [44, 30], bh: [40, -30], lean: 24, crouch: 18, ff: [40, 0], bf: [-40, 0] });
+        return mergePose(base, { fh: [-10, 22], bh: [-14, 24], lean: 2, crouch: 4 });    // blades back in their sheaths
+      },
+      start: (G, f, act) => { G.cutin(f, 'NINE PHANTOM CUTS', 'THREE-SWORD SECRET'); f.invuln = 2.2; f.auraT = 2.2; act.ghost = true; },
+      tick: (G, f, act) => {
+        const o = G.opp(f);
+        const k = act.t - act.w;
+        // phantom arms: ghosts to either side while he charges
+        if (k < 0 && Math.random() < 0.3) { G.ghost(f, '#fff0b0', 0.3); }
+        if (k >= 0 && k < 0.55) {
+          const idx = Math.floor(k / 0.18);
+          if (act.last !== idx && idx < 3) {
+            act.last = idx;
+            G.teleport(f, clamp(o.root.x + (idx % 2 ? -1 : 1) * 170, WALL_L + 50, WALL_R - 50), GROUND);
+            f.facing = o.root.x >= f.root.x ? 1 : -1;
+            if (o.alive) { o.stopT = Math.max(o.stopT, 0.9); }
+          }
+        }
+        if (k >= 0.55 && once(act, 'sheath')) { Sfx.play('clink'); G.say(f.root.x, f.root.y - 300, '...', '#ffffff', 40); }
+        if (k >= 0.95 && once(act, 'cuts')) {
+          const c = o.center();
+          for (let i = 0; i < 9; i++) { const a = rand(0, Math.PI); G.fx.slash(c.x + rand(-30, 30), c.y + rand(-40, 40), rand(90, 160), a, a + Math.PI * 0.9, i % 2 ? '#fff0b0' : '#ffffff', 14, 0.5); }
+          G.flash('#fff0b0', 0.5); Sfx.play('slashH'); Sfx.play('boom');
+          o.stopT = 0;
+          G.hit(f, o, { dmg: 290, kb: [500, -1000], stun: 1.4, launch: true, hs: 0.24, unblockable: true, color: '#fff0b0', kind: 'super', big: true, sfx: 'slashH', name: 'Nine Phantom Cuts' }, c.x, c.y, act);
+        }
+      } },
+  },
+});
+
+/* ------------------------------------------------------------- PSYCHIC */
+fighter({
+  id: 'psychic', name: 'SHIGE', title: 'PSYCHIC', color: '#00d9ff', aura: '#9ff4ff',
+  hp: 950, walk: 285, power: 1.05, stats: [4, 3, 5], price: 850, stage: 'snow',
+  blurb: 'A quiet kid holding back a terrifying power. Lifts you with his mind, reflects anything you throw, and when his emotions hit 100%, everything explodes.',
+  look: { gear: 'hood' },
+  ai: { style: 'zoner', range: 360 },
+  moves: {
+    sp1: { name: 'Psi Lift', icon: 'antigrav', kind: 'special', w: 0.2, a: 0.62, r: 0.3, cd: 4.4, ai: { range: [80, 800] },
+      poseFn: (f, act, base) => {
+        const { ph, u } = phaseOf(act);
+        if (ph === 0) return mergePose(base, { fh: [40, 10], bh: [36, 14], lean: 4 });
+        const up = act.slammed ? 0 : 1;
+        return mergePose(base, up ? { fh: [40, -36], bh: [34, -30], lean: -4 } : { fh: [44, 34], bh: [38, 38], lean: 16, crouch: 16 });
+      },
+      tick: (G, f, act) => {
+        const o = G.opp(f);
+        const { ph } = phaseOf(act);
+        if (ph === 1 && !act.tried) {
+          act.tried = true;
+          const d = Math.abs(o.root.x - f.root.x);
+          if (d < 820 && o.alive) {
+            const c = o.center();
+            const r = G.hit(f, o, { dmg: 16, kb: [0, -100], stun: 0.6, bstun: 0.2, hs: 0.04, chip: 0.2, color: '#9ff4ff', kind: 'special', sfx: 'zap', noLaunch: true }, c.x, c.y, act);
+            if (r === 'hit') { act.target = o; o.mode = 'hit'; o.stunT = 1; o.action = null; }
+          }
+        }
+        if (act.target && !act.slammed) {
+          const k = clamp((act.t - act.w) / 0.45, 0, 1);
+          const goal = { x: o.root.x, y: GROUND - 150 - 260 * easeOut(k) };
+          const pv = o.pts[P.PELVIS];
+          for (const q of o.pts) { q.x += (goal.x - pv.x) * 0; q.y += (goal.y - pv.y) * 0.12; q.py = lerp(q.py, q.y, 0.6); q.px = lerp(q.px, q.x, 0.6); }
+          o.stunT = 1;
+          if (k >= 1) {
+            act.slammed = true;
+            G.hit(f, o, { dmg: 70, dir: f.facing, kb: [60, 1500], stun: 1.1, launch: true, hs: 0.12, unblockable: true, color: '#9ff4ff', kind: 'special', sfx: 'hitH', name: 'Psi Lift' }, o.center().x, o.center().y, act);
+            G.shake(12);
+          }
+        }
+      },
+      draw: (G, ctx, f, act, time) => {
+        if (!act.target || act.slammed) return;
+        const c = act.target.center();
+        ctx.globalCompositeOperation = 'lighter';
+        Glow.draw(ctx, '#00d9ff', c.x, c.y, 160, 0.6);
+        ctx.strokeStyle = '#9ff4ff'; ctx.lineWidth = 3;
+        for (let i = 0; i < 3; i++) { const a = time * 6 + i * 2.1; ctx.beginPath(); ctx.ellipse(c.x, c.y, 90, 120, 0, a, a + 1.4); ctx.stroke(); }
+        ctx.globalCompositeOperation = 'source-over';
+      } },
+    sp2: { name: 'Psi Barrier', icon: 'shield', kind: 'special', w: 0.06, a: 0.6, r: 0.2, cd: 4, air: true, ai: { range: [0, 1400], defensive: true },
+      poseFn: phasePose({}, { fh: [30, -4], bh: [26, 4] }, { fh: [36, -10], bh: [32, 0], lean: -4 }, {}),
+      start: (G, f) => { f.barrierT = 0.66; Sfx.play('blue'); },
+      tick: (G, f, act) => {
+        if (act.t >= act.w && once(act, 'push')) {
+          const o = G.opp(f);
+          if (Math.abs(o.root.x - f.root.x) < 150) G.hit(f, o, { dmg: 22, kb: [700, -200], stun: 0.5, bstun: 0.2, hs: 0.06, color: '#9ff4ff', kind: 'special', sfx: 'hitL', name: 'Psi Barrier' }, o.center().x, o.center().y, act);
+        }
+      } },
+    super: { name: 'Psychic 100%', icon: 'burst', kind: 'super', w: 1.0, a: 0.3, r: 0.6, ai: { range: [0, 800] },
+      poseFn: (f, act, base) => {
+        const k = act.t - act.w;
+        if (k < 0) return mergePose(base, { fh: [10, 20], bh: [-10, 22], crouch: 4, lift: 40 * clamp(act.t / act.w, 0, 1) });
+        return mergePose(base, { fh: [40, -40], bh: [-40, -40], lean: -6, lift: 40 });
+      },
+      start: (G, f, act) => { G.cutin(f, 'PSYCHIC 100%', 'EMOTIONS UNLEASHED'); f.invuln = 1.6; f.auraT = 2.4; act.vy = -80; f.root.hover = true; f.root.grounded = false; Sfx.play('charge'); },
+      tick: (G, f, act) => {
+        const o = G.opp(f);
+        const k = act.t - act.w;
+        if (k < 0) {
+          act.vy = act.t < 0.4 ? -160 : 0;
+          const pct = Math.floor(clamp(act.t / act.w, 0, 1) * 100);
+          if (pct !== act.pct && pct % 20 === 0) { act.pct = pct; G.say(f.root.x, f.root.y - 340, pct + '%', '#9ff4ff', 34 + pct * 0.2); }
+          // debris floats up all over the arena
+          if (Math.random() < 0.7) G.fx.add({ kind: 'chunk', x: rand(WALL_L, WALL_R), y: GROUND - 4, vx: rand(-30, 30), vy: rand(-260, -120), g: -60, color: '#8c97a8', size: rand(6, 14), life: 1.2, vr: rand(-3, 3), add: false });
+        }
+        if (k >= 0 && once(act, 'boom')) {
+          act.vy = 0;
+          G.flash('#bff8ff', 0.8); G.shake(30); Sfx.play('boom'); Sfx.play('violet');
+          const c = f.center();
+          for (let i = 0; i < 3; i++) G.fx.ring(c.x, c.y, i ? '#00d9ff' : '#ffffff', 500 + i * 220, 0.6 + i * 0.15, 22);
+          G.fx.burst(c.x, c.y, '#9ff4ff', 60, 1600);
+          if (Math.abs(o.root.x - f.root.x) < 760 && o.alive) G.hit(f, o, { dmg: 290, kb: [1300, -800], stun: 1.4, launch: true, hs: 0.24, chip: 0.4, color: '#9ff4ff', kind: 'super', big: true, sfx: 'hitH', name: 'Psychic 100%' }, o.center().x, o.center().y, act);
+        }
+        if (k > 0.1) act.vy = null;
+      },
+      end: (G, f) => { f.root.hover = false; } },
+  },
+});
+const easeIn2 = t => t * t;
+
 /* ------------------------------------------------------------- stages */
 const STAGES = {
   dojo:   { name: 'SUNSET DOJO', sky: ['#ff9a5a', '#ffcf7a', '#ffe6b0'], ground: '#7a4a2e', line: '#5e3820', far: '#c7724a', near: '#8d4a35', sun: '#fff1c4' },
@@ -796,5 +1398,8 @@ const STAGES = {
   temple: { name: 'SAKURA SHRINE', sky: ['#ffb0c8', '#ffd6e0', '#fff0f0'], ground: '#9c7a5c', line: '#7d5f45', far: '#e59ab4', near: '#b5627a', petals: true },
   void:   { name: 'VOID RIFT', sky: ['#05030d', '#1a0f3a', '#3b1f6e'], ground: '#1c1530', line: '#3a2a66', far: '#26184d', near: '#160f2e', stars: true },
   crater: { name: 'CRATER PLAINS', sky: ['#3a0d14', '#8a2a1f', '#e8763a'], ground: '#4a3328', line: '#33231b', far: '#6e2b22', near: '#3b1d18', rocks: true },
+  forest: { name: 'BAMBOO GROVE', sky: ['#9fd6a8', '#cfe9c4', '#eef6dc'], ground: '#5d6b3a', line: '#4a5530', far: '#7fae86', near: '#3f6a45' },
+  snow:   { name: 'FROST PEAK', sky: ['#1b2a52', '#3f5b93', '#9cc1e6'], ground: '#cfdcea', line: '#a9bdd3', far: '#7f9cc4', near: '#4f6a96' },
+  arena:  { name: 'GRAND ARENA', sky: ['#120c1e', '#2a1a3a', '#4a2a4a'], ground: '#8a7a68', line: '#6f6150', far: '#2a2236', near: '#1c1626' },
   lab:    { name: 'TRAINING ROOM', sky: ['#11141d', '#161b27', '#1d2333'], ground: '#1a1e2a', line: '#2a3146', far: '#141824', near: '#10131c', grid: true },
 };

@@ -46,7 +46,9 @@ class CpuCtrl {
     if (this.lastThreat > 0) {
       this.lastThreat -= dt;
       if (this.lastThreat <= 0 && Math.random() < 0.18 + L * 0.085) {
-        if (threat === 'proj' && Math.random() < 0.25 + L * 0.03 && d > 260) { G.press(f.side, 'jump'); this.hold = toward; this.holdT = 0.5; }
+        const def2 = ['sp1', 'sp2'].find(k => f.def.moves[k].ai && f.def.moves[k].ai.defensive && f.cds[k] <= 0);
+        if (def2 && Math.random() < 0.3 + L * 0.06) { G.press(f.side, def2 === 'sp1' ? 's1' : 's2'); }
+        else if (threat === 'proj' && Math.random() < 0.25 + L * 0.03 && d > 260) { G.press(f.side, 'jump'); this.hold = toward; this.holdT = 0.5; }
         else { this.hold = -toward; this.holdT = 0.32 + Math.random() * 0.2; this.guardT = this.holdT; }
       }
     }
@@ -91,6 +93,7 @@ class CpuCtrl {
       const r = (mv.ai && mv.ai.range) || [0, 400];
       if (d < r[0] - 40 || d > r[1]) continue;
       if (inCombo && mv.ai && mv.ai.zone && d < 200) continue;
+      if (mv.ai && mv.ai.defensive) continue;
       opts.push(k === 'sp1' ? 's1' : 's2');
     }
     return opts.length ? pick(opts) : null;

@@ -8,17 +8,29 @@
 (async function boot() {
   const canvas = document.getElementById('stage');
   Save.load();
+  // phones and tablets start with the touch controls (and touch wording in the guide)
+  if (window.matchMedia && matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
   try { await Promise.all([document.fonts.load('900 20px Rubik'), document.fonts.load('600 20px Rubik')]); } catch (e) { /* fonts are optional */ }
   const q = new URLSearchParams(location.search);
   if (q.has('speed')) UI.testSpeed = clamp(+q.get('speed') || 1, 1, 16);
   Game.init(canvas);
   UI.init();
 
+  const inFight = () => UI.screen === null && UI.fightOn && !UI.modalOpen();
   for (const ev of ['pointerdown', 'keydown', 'touchend']) window.addEventListener(ev, () => Sfx.ensure(), { capture: true, passive: true });
-  canvas.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') document.body.classList.remove('touch'); else document.body.classList.add('touch'); });
+  // mousedown (not pointerdown) so a second button pressed while the first is held still counts
+  let lastTouch = -9;
+  canvas.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse') document.body.classList.remove('touch');
+    else { lastTouch = performance.now(); document.body.classList.add('touch'); }
+  });
+  canvas.addEventListener('mousedown', e => {
+    if (performance.now() - lastTouch < 900) return;   // emulated mouse after a touch
+    if (e.button === 1) e.preventDefault();
+    if (inFight()) { e.preventDefault(); Input.mouse(e.button); }
+  });
   canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-  const inFight = () => UI.screen === null && UI.fightOn && !UI.modalOpen();
   window.addEventListener('keydown', e => {
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
     if (e.code === 'KeyP' || e.code === 'Escape') {

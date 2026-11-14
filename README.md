@@ -1,8 +1,8 @@
 # Rag Showdown
 
-A 1v1 ragdoll fighting game in the style of classic arcade fighters. Every fighter is one of Element Rag's plain, faceless stickmen, with the same floppy active-ragdoll body and the same UI. What sets each one apart is a set of powers based on the kinds of techniques battle anime is famous for. Every super has a cut-in. A super that lands the knockout plays a **FINISHER** with impact frames (stark black, white and red frames), slow motion and a letterboxed stamp.
+A 1v1 ragdoll fighting game in the style of classic arcade fighters. All 16 fighters are Element Rag's plain, faceless stickmen, with the same floppy active-ragdoll body and the same UI. What sets each one apart is a set of powers based on the kinds of techniques battle anime is famous for. Every super opens with a comic-panel cut-in. A super that lands the knockout plays a **FINISHER**: impact frames (stark black, white and red frames), slow motion and a letterboxed stamp.
 
-It's pure HTML5 and vanilla JS, with no build step and no dependencies. All art is procedural and every sound is synthesized. The UI reuses Element Rag's style: ink panels with cut corners, Rubik, one warm accent, glossy skill badges and the bar transition.
+It's pure HTML5 and vanilla JS, with no build step and no dependencies. All art is procedural and every sound is synthesized.
 
 Serve the folder and open `index.html`:
 
@@ -12,57 +12,116 @@ python3 -m http.server 8000
 
 > This replaces the earlier *Body Business* physics prototype, which is still in git history.
 
-## The loop
+## Straight into the action
 
-1. **Arcade** (the main mode): choose a fighter and a difficulty (Easy, Normal or Hard), then win six best-of-three fights. Opponents get stronger each fight, and the last one is a boss on the Crater Plains. If you lose, a 10-second **CONTINUE?** countdown lets you retry that fight.
-2. Every win pays **coins**: a base amount that grows up the ladder, plus bonuses for finishers, perfects, Black Sparks, long combos, and the first win of each day (+100). Clearing Arcade pays a clear bonus (more the first time, and more with no continues) and puts a trophy on that fighter.
-3. Spend coins on new fighters in **Fighters**. Four are free at the start. Clearing Arcade once unlocks the hidden boss, **Saibo**.
-4. **Survival**: one-round fights in a row against stronger and stronger CPUs. You keep your health between fights and heal 35% after each win. Every fifth fight is against Saibo. Your best streak is saved.
-5. **Versus**: play against a CPU (level 1 to 8) or a second player on the same keyboard or with a second gamepad. You choose the stage.
-6. **Training**: a dummy that can stand, guard, jump or fight back, with optional infinite meter and a full move list.
+- **First launch:** you skip the menus and land in level 1-1, which is a real fight. A guide at the top of the screen (the same panel as Element Rag's tutorial) teaches one control at a time while you fight: move, jump, light attack, heavy attack, a light-light-heavy combo, a special, guarding against a sparring partner, and your super. Nobody can be knocked out during the lesson. Once it ends, the round becomes a normal fight. The lesson can be skipped, and it only ever runs once.
+- **After that, tips appear as you go,** each shown once, the first time it matters. They cover:
+  - super ready;
+  - dashing;
+  - cancelling into specials;
+  - your guard cracking;
+  - getting knocked down;
+  - throwing a guarding opponent;
+  - Black Spark.
+- **PLAY** on the home screen drops you straight into your next level, with no select screen or VS screen.
 
-While you're on the home screen, a CPU-vs-CPU demo fight plays behind the menu.
+## Levels
 
-## Fighting
+The campaign follows Element Rag's stage map: 8 chapters of 6 levels, one per stage. The **Levels** screen shows chapter tabs, cards with stars and twist badges, and the boss highlighted.
 
-| | Keyboard | Gamepad | Touch |
+- Every level is one round. Level 6 of each chapter is a best-of-three **boss**.
+- **Stars** come from the health you have left (3 stars at 70% or more, 2 at 35% or more). Replaying a level can raise its stars.
+- **Recruits:** beating the fighter marked RECRUIT adds them to your roster, so the cast grows as you play. They can also be unlocked early with coins.
+- **Twists:** most levels change one rule, so neighbouring fights never play alike:
+  - Giant Foe;
+  - Low Gravity;
+  - Super Clash (both meters full);
+  - Iron Will (+50% foe health);
+  - Frenzy (faster);
+  - Glass Cannon (both at half health);
+  - Beat the Clock (win in 40 s).
+- **Coins** come from:
+  - first clears and new stars;
+  - finishers and Black Sparks;
+  - the first win of each day (+100).
+
+Other modes:
+- **Versus:** against a CPU (level 1-8) or a second player on the same keyboard or a second gamepad.
+- **Survival:** endless fights. You keep your health and heal between wins.
+- **Training:** a dummy that can stand, guard, jump or fight, with infinite meter.
+
+## Controls
+
+| | Mouse + keyboard | Gamepad | Touch |
 | --- | --- | --- | --- |
 | Move / dash | `A` `D`, tap twice to dash | stick / D-pad | stick |
 | Jump | `W` / `Space` | A | flick the stick up / JUMP |
 | Guard | hold away from the opponent | hold away | hold away |
-| Light · Heavy | `J` · `K` | X · Y | LIGHT · HEAVY |
-| Special 1 · 2 | `U` · `I` | B · RB | SPECIAL buttons |
-| Super (full meter) | `L` | RT | SUPER |
-| Throw | `J`+`K` together, or `O` | LB | (none) |
+| Light attack | **left click** | X | LIGHT |
+| Heavy attack | **right click** | Y | HEAVY |
+| Special 1 · 2 | `Q` · `E` | B · RB | SPECIAL buttons |
+| Super (full meter) | `F` or middle click | RT | SUPER |
+| Throw | left + right click together | LB | (none) |
 | Pause | `P` / `Esc` | START | ⏸ |
 
-Player 2 uses the arrow keys with `,` `.` `;` `'` `/` (light, heavy, special 1, special 2, super) and `Enter` to throw, or Numpad `1` `2` `4` `5` `3` `6`.
+The skill bar at the bottom of the screen always shows these: mouse icons for light and heavy, then each special and the super, each with its key. Player 2 in Versus uses the arrow keys with `,` `.` `;` `'` `/` (light, heavy, special 1, special 2, super) and `Enter` to throw, or Numpad `1` `2` `4` `5` `3` `6`.
 
-- **Chains and cancels:** light, light, heavy is a chain that ends in a launcher. Any light or heavy that connects (on hit or block) can be cancelled into a special. Anything can be cancelled into the super. Inputs are buffered for 0.22 s.
-- **Juggles:** fighters you knock into the air can be hit again, up to six hits; supers ignore this limit. A fighter who has landed can't be hit, and a fighter getting up is briefly invulnerable. Bodies knocked into a wall hard enough **wall splat**.
-- **Guard:** guard by holding away. Normals do no chip damage; specials and supers do. Each block drains the guard gauge under your health bar, and when it empties your guard breaks and you're stunned. Throws can't be guarded.
-- **Counter hits:** hitting a fighter during their wind-up does +25% damage and stuns for longer.
-- **Black Spark:** a heavy hit has a 13% chance (19% in a combo of three or more hits) to land as a Black Spark: double damage, +25 meter, and black-and-red impact frames.
-- **Meter:** you gain meter by dealing and taking damage, and it carries over between rounds. Using a super stops time for a cut-in and gives you a moment of invulnerability as it starts.
-- **Impact frames** can be turned off in Settings to reduce flashing. Big hits then dim the screen and show speed lines instead.
+- **Combos:**
+  - Light, light, heavy is a chain that ends in a launcher.
+  - Any light or heavy that connects can be cancelled into a special, and anything can be cancelled into the super.
+  - When a special starts, its name pops up over your head.
+- **Juggles:** a fighter knocked into the air can be hit up to six more times; supers ignore that limit. A fighter who has landed can't be hit, and a fighter getting up is briefly invulnerable. A hard enough hit into a wall makes a **wall splat**.
+- **Guard:** normal attacks do no chip damage when guarded, but specials and supers do. Each block drains the guard gauge under your health bar. When it empties, your guard breaks and you're stunned. Throws can't be guarded.
+- **Black Spark:** a heavy hit has a 13% chance to crit for double damage and +25 meter, with black-and-red impact frames.
+- **Impact frames** can be turned off in Settings to reduce flashing.
 
-## Roster
+## Fighters
 
-Every fighter is an Element Rag stickman: a cream, faceless mannequin with wrist bands in the fighter's colour. Fighters wear Element Rag's own headgear: the hero's headband with tails, the caster's hood, the brute's helmet and plates, or the boss crest. A few also have Element Rag's cape. The two sword fighters carry plain energy blades in their colour. There are no anime character designs, and all names and move names are original. Each kit is built around a common anime archetype, not a specific character. In a mirror match, player 2 is drawn a shade darker.
+Every fighter is an Element Rag stickman: a cream mannequin with wrist bands in their colour and Element Rag's own headgear (headband with tails, hood, helmet and plates, or boss crest). Some wear Element Rag's cape, and sword fighters carry plain energy blades. There are no anime character designs, and all names and move names are original. Each kit is built around a common anime archetype, not a specific character.
 
-| Fighter | Archetype | Special 1 | Special 2 | Super | Unlock |
+Specials are keyframed with wind-up, strike and follow-through, and include full-body flips and spins. Energy gathers at the hand during the wind-up, and a burst marks the release.
+
+| Fighter | Archetype | Special 1 | Special 2 | Super | Joins |
 | --- | --- | --- | --- | --- | --- |
-| **Kaze** (orange) | Ki warrior | Ki Blast | Afterimage Rush: vanish behind the foe and hammer them upward | **Wave Cannon**: a charged two-handed beam; his colour turns gold | free |
-| **Ryo** (yellow) | Shinobi; has a double jump | Vortex Palm: a dashing drill strike | Mirror Clones: two clones kick in from both sides | **Storm Star**: an unblockable giant wind star that bursts into a dome of blades | free |
-| **Homura** (teal) | Sword dancer; energy blade | Tide Flip: a forward flip slash | River Rush: dash through the foe in ribbons of water | **Solar Coil**: six blink-slashes in fire, then a sun halo | free |
-| **Mugi** (pink) | Rubber brawler | Stretch Punch: reaches across the arena | Rapid Barrage | **Titan Fist**: an awakening that turns him white, then slams a giant fist down | free |
-| **Kohei** (green) | Rising hero | Air Flick: a shockwave | Volt Kick: a lightning axe kick | **Max Impact**: a punch whose wind blast clears the screen | 300 |
-| **Jin** (indigo) | Reaper; wide energy blade | Crescent Wave | Blink Step: blink behind the foe and slash | **Eclipse Crescent**: his body darkens and a giant black and red crescent grinds through the foe | 450 |
-| **Aoi** (violet) | Sorcerer | Azure Pull: an orb that pulls the foe in | Crimson Burst: a point-blank blast | **Infinite Expanse**: a domain freezes the foe, then an unblockable Violet Void | 600 |
-| **Taro** (silver) | Spirit master | Spirit Rush: his violet spirit's barrage | Spirit Finger: a long poke | **Time Halt**: stops time and barrages the frozen foe; every hit lands at once when time resumes | 800 |
-| **Saibo** (red) | Bored hero, the boss | Hundred Fists | Plain Punch | **Final Punch**: one punch that splits the sky | clear Arcade, or 1500 |
+| **Kaze** | Ki warrior | Ki Blast (palms cupped at the hip, then thrust) | Afterimage Rush (vanish, front-flip axe kick) | **Wave Cannon** beam | start |
+| **Ryo** | Shinobi, double jump | Vortex Palm drill | Mirror Clones | **Storm Star**, unblockable | start |
+| **Homura** | Sword dancer | Tide Flip (full flip slash) | River Rush | **Solar Coil** | start |
+| **Mugi** | Rubber brawler | Stretch Punch | Rapid Barrage | **Titan Fist** | start |
+| **Kohei** | Rising hero | Air Flick | Volt Kick (flip, then axe kick) | **Max Impact** | recruit 1-3 |
+| **Blaze** | Fire soldier | Flame Kick (spinning fire wave) | Jet Boost (air dash kick) | **Inferno Meteor** | recruit 1-6 |
+| **Zen** | Three-sword style | Tornado Slash | Triple Cross | **Nine Phantom Cuts** (sheathes, then the cuts land) | recruit 2-3 |
+| **Jin** | Reaper | Crescent Wave | Blink Step | **Eclipse Crescent** | recruit 2-6 |
+| **Kensei** | Pressure point master | Hundred Crack Fists | Pressure Point (plants timed marks that burst) | **Already Done** (walks away, then the foe bursts) | recruit 3-3 |
+| **Ripper** | Saw devil | Saw Disc (rolls along the floor) | Chain Hook (yanks the foe in) | **Revving Rampage** (carries the foe on the saws) | recruit 3-6 |
+| **Aoi** | Sorcerer | Azure Pull | Crimson Burst | **Infinite Expanse** (a domain, then Violet Void) | recruit 4-3 |
+| **Taro** | Spirit master | Spirit Rush | Spirit Finger | **Time Halt** | recruit 4-6 |
+| **Shige** | Psychic | Psi Lift (lift and slam) | Psi Barrier (reflects projectiles) | **Psychic 100%** | recruit 5-3 |
+| **Monarch** | Shadow summoner | Shadow Soldier | Shadow Grasp (hands rise under the foe) | **Army of Shadows** | recruit 5-6 |
+| **Goro** | Titan shifter | Quake Stomp | Titan Grab (command grab) | **Colossus Form** (grows giant) | recruit 6-6 |
+| **Saibo** | Bored hero (boss) | Hundred Fists | Plain Punch | **Final Punch** | recruit 8-6 |
 
-**Stages:** Sunset Dojo, Neon Rooftop, Sakura Shrine, Void Rift, Crater Plains (the boss stage) and the Training Room. Infinite Expanse, Solar Coil, Eclipse Crescent and Time Halt each change how the arena looks while they're active.
+## Stages
+
+Eight stages, built like Element Rag's backdrops. Each has far, mid and near layers pre-rendered with haze between them, and the far layers are softer, like depth of field. On top of that, each frame adds:
+
+- the sky and its light: sun glow and rays, the moon, aurora, neon or spotlights;
+- animated props;
+- a textured floor with reflections or glowing seams;
+- weather and particles;
+- a foreground frame.
+
+| Stage | What's in it |
+| --- | --- |
+| Sunset Dojo | swaying lanterns |
+| Neon Rooftop | rain and flickering neon |
+| Sakura Shrine | a torii gate and falling petals |
+| Bamboo Grove | god rays and fireflies |
+| Frost Peak | aurora and snow |
+| Void Rift | nebulae, a glowing rift and floating isles |
+| Crater Plains | an erupting volcano and lava cracks |
+| Grand Arena | the crowd, banners and spotlights |
+
+There's also a Training Room.
 
 ## Testing
 
@@ -73,46 +132,51 @@ python3 -m http.server 8123
 ```
 
 ```bash
-NODE_PATH=$(npm root -g) node tools/soak.js 2
+NODE_PATH=$(npm root -g) node tools/soak.js 1
 ```
 
 ```bash
 NODE_PATH=$(npm root -g) node tools/flow.js
 ```
 
-- `tools/soak.js` runs CPU-vs-CPU matches for every pairing (the number is how many times to repeat each pairing) at 16x speed, rendering as it goes. It fails on any thrown error, NaN or escaped body, a round that never ends, a match that doesn't finish, or a broken HP or meter value. It also prints win rates per fighter as a balance check.
-- `tools/flow.js` clicks through the menus like a player:
-  - an Arcade run to the clear, checking that Saibo unlocks and coins are paid;
-  - a lost fight, then Continue, then Give Up;
-  - Survival, checking that the best streak is saved;
-  - local 2-player Versus, checking that each key set moves its own fighter;
-  - Training with every pause option;
-  - Settings;
-  - buying a fighter.
+- `tools/soak.js` runs CPU-vs-CPU matches for every pairing of the 16 fighters, at 16x speed, across all stages and every twist. It fails on:
+  - errors;
+  - NaN positions or bodies escaping the arena;
+  - stuck rounds or matches that never finish;
+  - broken HP or meter values.
 
-Latest results: the soak ran 153 matches (369 rounds) with no issues, and win rates fell between 0.31 and 0.66 per fighter. All flow checks passed. The game was also checked at iPhone landscape size, with touch input.
+  It also prints win rates per fighter.
+- `tools/flow.js` plays like a new player, with real mouse clicks and keys:
+  1. It boots straight into level 1-1 and completes every step of the guide.
+  2. It clears levels and checks stars and coins.
+  3. It loses a level and retries it, and recruits a fighter.
+  4. It checks the level map, including that locked levels give a message.
+  5. It checks that PLAY goes straight into the fight.
+  6. It plays 2-player Versus, Survival, and Training with every pause option, and buys a fighter.
+
+Latest results: the soak ran 256 matches (633 rounds) across all stages and twists with no issues, and win rates fell between 0.3 and 0.67. Monarch and Zen were buffed after that run. All flow checks passed. The game was also checked at iPhone landscape size with touch controls.
 
 ## Project layout
 
 ```
 index.html
-css/style.css     Element Rag's UI base, plus fighter select, fight HUD and touch pad
+css/style.css     Element Rag's UI (panels, tiles, stage map, tutorial, coach), plus fight HUD and touch pad
 js/util.js        math, seeded RNG, glow cache (from Element Rag)
 js/icons.js       UI and move icons (from Element Rag)
 js/audio.js       synthesized SFX and a step-sequencer fight soundtrack
-js/rag.js         Rag: Element Rag's active ragdoll and stickman drawing, plus a pose library
-                  with IK, hitstun, knockdowns, getting up, hurtboxes and energy blades
+js/rag.js         Element Rag's active ragdoll and stickman drawing, pose library with IK,
+                  whole-body spins, hitstun, knockdowns, getting up, hurtboxes, blades
 js/fx.js          particles, rings, arcs, slash trails, hit stars (from Element Rag, extended)
-js/fighters.js    roster: normals, specials and scripted supers as data + hooks; stages
-js/game.js        rounds and timer, move runtime, hits / guard / juggles / Black Spark,
-                  projectiles, beams, fields, clones and stands, cut-ins, impact frames,
-                  finishers, camera, rendering
-js/stage.js       procedural parallax stages and portraits drawn from a posed ragdoll
-js/input.js       keyboard (2 sets), gamepads, touch; HumanCtrl with dashes and throws
+js/fighters.js    16 fighters: normals, keyframed specials and scripted supers; stage list
+js/campaign.js    chapters, levels, twists, recruits, stars
+js/game.js        rounds, move runtime, hits / guard / juggles / Black Spark, projectiles, beams,
+                  fields, minions, marks, barriers, cut-ins, impact frames, finishers, camera
+js/stage.js       layered parallax stages, weather, portraits
+js/input.js       mouse + keyboard (2 sets), gamepads, touch
 js/ai.js          CPU fighters, levels 1-9
 js/save.js        localStorage progress and settings
-js/ui.js          home + demo, select / shop, Arcade, Versus, Survival, Training, sheets, HUD, touch
-js/main.js        boot, loop, key routing
+js/ui.js          home + demo, levels, guide and tips, select / shop, Versus, Survival, Training, HUD
+js/main.js        boot, loop, input routing
 tools/            headless soak and UI flow tests
 assets/fonts/     Rubik (SIL Open Font License)
 ```

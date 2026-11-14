@@ -1,21 +1,20 @@
 'use strict';
 /* =========================================================================
-   UI: home (with a CPU demo fight behind it), fighter select / roster shop,
-   the Arcade ladder with continues, Versus (CPU or two players), Survival,
-   Training, result sheets, pause, settings, how-to-play, the fight HUD and
-   the touch pad. Built on Element Rag's panels and buttons.
+   UI: home (with a CPU demo fight behind it), the level map and campaign
+   (PLAY drops you straight into your next level; a new player boots
+   straight into level 1-1 with a guide that teaches as you fight, and tips
+   pop up later the first time they matter), fighter select / roster shop,
+   Versus (CPU or two players), Survival, Training, result sheets, pause,
+   settings, the fight HUD and the touch pad. Built on Element Rag's UI.
    ========================================================================= */
 
 const UI = (() => {
   const $ = id => document.getElementById(id);
   const U = { screen: 'home', run: null, sel: null, fightOn: false };
-  const DIFFS = [
-    { name: 'EASY', lv: [1, 2, 2, 3, 3, 4], mul: 0.6 },
-    { name: 'NORMAL', lv: [2, 3, 4, 5, 6, 7], mul: 1 },
-    { name: 'HARD', lv: [5, 6, 7, 8, 8, 9], mul: 1.6 },
-  ];
-  const STAGE_IDS = ['dojo', 'city', 'temple', 'void', 'crater'];
-  const KEYS = { sp1: 'U', sp2: 'I', super: 'L' };
+  const STAGE_IDS = ['dojo', 'city', 'temple', 'forest', 'snow', 'void', 'crater', 'arena'];
+  const KEYS = { sp1: 'Q', sp2: 'E', super: 'F' };
+  const MOUSE = side => `<svg class="mouse-ic ${side}" viewBox="0 0 26 36" aria-hidden="true"><rect x="2" y="2" width="22" height="32" rx="11" fill="none" stroke="currentColor" stroke-width="2.4"/><path class="btnL" d="M13 2.6V15H2.6v-2A10.4 10.4 0 0 1 13 2.6z"/><path class="btnR" d="M13 2.6V15h10.4v-2A10.4 10.4 0 0 0 13 2.6z"/><path d="M13 3v12M2.5 15h21" stroke="currentColor" stroke-width="2"/></svg>`;
+  const isTouch = () => document.body.classList.contains('touch');
 
   /* ------------------------------------------------------------ helpers */
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -53,7 +52,7 @@ const UI = (() => {
 
   function show(name) {
     U.screen = name;
-    for (const id of ['home', 'select']) $(id).classList.toggle('hidden', id !== name);
+    for (const id of ['home', 'select', 'levels']) $(id).classList.toggle('hidden', id !== name);
     $('hud').classList.toggle('hidden', name !== null || !U.fightOn);
     document.body.classList.toggle('playing', name === null);
     if (name === 'home') renderHome();
@@ -75,7 +74,8 @@ const UI = (() => {
   /* --------------------------------------------------------------- init */
   U.init = function () {
     hydrate();
-    $('btnArcade').onclick = () => { Sfx.play('ui'); openSelect('arcade'); };
+    $('btnPlay').onclick = () => { Sfx.play('fight'); playLevel(Campaign.next()); };
+    $('btnLevels').onclick = () => { Sfx.play('ui'); openLevels(); };
     $('btnVersus').onclick = () => { Sfx.play('ui'); openSelect('versus'); };
     $('btnSurvival').onclick = () => { Sfx.play('ui'); openSelect('survival'); };
     $('btnTraining').onclick = () => { Sfx.play('ui'); openSelect('training'); };
@@ -88,9 +88,16 @@ const UI = (() => {
     $('modal').addEventListener('pointerdown', e => { if (e.target === $('modal') && U.sheetDismiss) { const f = U.sheetDismiss; U.sheetDismiss = null; f(); } });
     setupTouch();
     Sfx.setSfx(Save.data.settings.sfx); Sfx.setMusic(Save.data.settings.music);
-    show('home');
-    startDemo();
-    if (!Save.data.seenHow) { Save.data.seenHow = true; Save.save(); setTimeout(() => { if (U.screen === 'home' && !U.modalOpen()) openHow(true); }, 700); }
+    // wrap hits so the guide and tips can react to what happens in the fight
+    const rawHit = Game.hit;
+    Game.hit = function (att, def, spec, x, y, act) { const r = rawHit.apply(this, arguments); if (r) onFightHit(att, def, spec, r); return r; };
+    if (!Save.data.tutorialDone && !U.noAutoStart) {
+      // a brand-new player goes straight into the first level; the guide teaches as they fight
+      playLevel(Campaign.levels[0], true);
+    } else {
+      show('home');
+      startDemo();
+    }
   };
 
   /* -------------------------------------------------------------- demo */
@@ -110,7 +117,9 @@ const UI = (() => {
   function renderHome() {
     const d = Save.data;
     const def = BY_ID[d.lastPick] || ROSTER[0];
-    $('arcadeSub').textContent = `6 FIGHTS · ${DIFFS[d.arcadeDiff].name}`;
+    const nx = Campaign.next();
+    $('playSub').textContent = `LEVEL ${nx.label} · ${CHAPTERS[nx.c].name}`;
+    $('homeStars').textContent = Campaign.stars();
     $('survSub').textContent = `BEST ${d.survivalBest}`;
     $('homePick').innerHTML = `${pt(def)}<div><small>YOUR FIGHTER</small><b>${def.name}</b><small style="color:${def.color}">${def.title}</small></div><button class="btn small" id="homeChange"><b>CHANGE</b></button>`;
     $('homeChange').onclick = () => { Sfx.play('ui'); openSelect('roster'); };
@@ -128,7 +137,7 @@ const UI = (() => {
     const last = Save.owned(Save.data.lastPick) ? Save.data.lastPick : 'kaze';
     const others = ROSTER.filter(f => f.id !== last && !f.boss);
     U.sel = { mode, p1: last, p2: mode === 'training' ? 'kaze' : pick(others).id, view: last, picking: 0, p2human: false, cpuLv: 4, stage: 'random', dummy: 'stand' };
-    $('selTitle').textContent = { arcade: 'ARCADE · CHOOSE YOUR FIGHTER', versus: 'VERSUS', survival: 'SURVIVAL · CHOOSE YOUR FIGHTER', training: 'TRAINING · CHOOSE YOUR FIGHTER', roster: 'FIGHTERS' }[mode];
+    $('selTitle').textContent = { versus: 'VERSUS', survival: 'SURVIVAL · CHOOSE YOUR FIGHTER', training: 'TRAINING · CHOOSE YOUR FIGHTER', roster: 'FIGHTERS' }[mode];
     show('select');
     renderSelect();
   }
@@ -163,9 +172,9 @@ const UI = (() => {
   function moveRows(def) {
     const row = (k, mv, keys, sub, cls = '') => `<div class="mv ${cls}" style="--c:${def.color};--d:${shade(def.color)}"><span class="move-ic">${Icons.svg(mv.icon || 'fist')}</span><div><b>${esc(mv.name)}</b><small>${sub}</small></div><span class="keys2">${keys}</span></div>`;
     const m = def.moves;
-    return row('sp1', m.sp1, '<kbd>U</kbd>', `SPECIAL · ${m.sp1.cd || 2}S COOLDOWN`) +
-      row('sp2', m.sp2, '<kbd>I</kbd>', `SPECIAL · ${m.sp2.cd || 2}S COOLDOWN`) +
-      row('super', m.super, '<kbd>L</kbd>', 'SUPER · FULL METER · FINISHER', 'super');
+    return row('sp1', m.sp1, '<kbd>Q</kbd>', `SPECIAL · ${m.sp1.cd || 2}S COOLDOWN`) +
+      row('sp2', m.sp2, '<kbd>E</kbd>', `SPECIAL · ${m.sp2.cd || 2}S COOLDOWN`) +
+      row('super', m.super, '<kbd>F</kbd>', 'SUPER · FULL METER · FINISHER', 'super');
   }
 
   function renderDetail() {
@@ -176,15 +185,14 @@ const UI = (() => {
     let foot = '';
     if (!own) {
       const can = Save.data.coins >= def.price;
-      foot = `<div class="lock-note">${ic('lock')}${def.unlockByClear ? `Clear Arcade with any fighter to unlock, or buy for ${fmt(def.price)} coins.` : `Unlock for ${fmt(def.price)} coins. Win fights to earn coins.`}</div>
+      const rec = Campaign.levels.find(L => L.recruit === def.id);
+      foot = `<div class="lock-note">${ic('lock')}${rec ? `Beat ${def.name} in LEVEL ${rec.label} to recruit them, or unlock now for ${fmt(def.price)} coins.` : `Unlock for ${fmt(def.price)} coins. Win fights to earn coins.`}</div>
         <div class="sd-foot"><button class="btn primary" id="sdBuy" ${can ? '' : 'disabled'}><b>UNLOCK · ${fmt(def.price)}</b></button></div>`;
     } else if (s.mode === 'roster') {
       foot = `<div class="sd-foot"><button class="btn primary" id="sdMain" ${Save.data.lastPick === def.id ? 'disabled' : ''}><b>${Save.data.lastPick === def.id ? 'YOUR FIGHTER' : 'SET AS YOUR FIGHTER'}</b></button><button class="btn" id="sdTry"><b>TRY IN TRAINING</b></button></div>`;
     } else {
       let opts = '';
-      if (s.mode === 'arcade') {
-        opts = `<div class="sd-opts"><div class="row"><small>DIFFICULTY</small><nav class="seg" id="optDiff">${DIFFS.map((d, i) => `<button data-v="${i}" class="${Save.data.arcadeDiff === i ? 'active' : ''}">${d.name}</button>`).join('')}</nav></div></div>`;
-      } else if (s.mode === 'versus') {
+      if (s.mode === 'versus') {
         opts = `<div class="sd-opts">
           <div class="row"><small>PICKING</small><nav class="seg" id="optPick"><button data-v="0" class="${s.picking === 0 ? 'active' : ''}">P1 · ${BY_ID[s.p1].name}</button><button data-v="1" class="${s.picking === 1 ? 'active' : ''}">${s.p2human ? 'P2' : 'CPU'} · ${BY_ID[s.p2].name}</button></nav></div>
           <div class="row"><small>PLAYER 2</small><nav class="seg" id="optP2"><button data-v="0" class="${!s.p2human ? 'active' : ''}">CPU</button><button data-v="1" class="${s.p2human ? 'active' : ''}">HUMAN (SAME KEYBOARD / PAD)</button></nav></div>
@@ -193,7 +201,7 @@ const UI = (() => {
       } else if (s.mode === 'training') {
         opts = `<div class="sd-opts"><div class="row"><small>DUMMY</small><nav class="seg" id="optDummy">${['kaze', 'ryo', 'homura', 'mugi'].map(id => `<button data-v="${id}" class="${s.p2 === id ? 'active' : ''}">${BY_ID[id].name}</button>`).join('')}</nav></div></div>`;
       }
-      const label = { arcade: 'START ARCADE', versus: 'FIGHT!', survival: 'START SURVIVAL', training: 'ENTER TRAINING' }[s.mode];
+      const label = { versus: 'FIGHT!', survival: 'START SURVIVAL', training: 'ENTER TRAINING' }[s.mode];
       foot = `${opts}<div class="sd-foot"><button class="btn primary big" id="sdGo"><b>${label}</b></button></div>`;
     }
     $('selDetail').innerHTML = `
@@ -212,7 +220,6 @@ const UI = (() => {
     on('sdTry', () => { U.sel.mode = 'training'; U.sel.p1 = def.id; U.sel.p2 = 'kaze'; confirmSelect(); });
     on('sdGo', () => { Sfx.play('fight'); confirmSelect(); });
     const segs = (id, f) => { const e = $(id); if (e) e.querySelectorAll('button').forEach(b => { b.onclick = () => { Sfx.play('ui'); f(b.dataset.v); renderSelect(); }; }); };
-    segs('optDiff', v => { Save.data.arcadeDiff = +v; Save.save(); });
     segs('optPick', v => { s.picking = +v; s.view = +v ? s.p2 : s.p1; });
     segs('optP2', v => { s.p2human = v === '1'; });
     segs('optLv', v => { s.cpuLv = +v; });
@@ -224,16 +231,18 @@ const UI = (() => {
     const s = U.sel;
     if (!Save.owned(s.p1)) return;
     Save.data.lastPick = s.p1; Save.save();
-    if (s.mode === 'arcade') startArcade(s.p1);
-    else if (s.mode === 'versus') startVersus();
+    if (s.mode === 'versus') startVersus();
     else if (s.mode === 'survival') startSurvival(s.p1);
     else if (s.mode === 'training') startTraining(s.p1, s.p2);
   }
 
   /* ------------------------------------------------------------ fights */
-  function beginFight(cfg) {
+  function beginFight(cfg, instant) {
     closeSheet();
-    transition(() => {
+    if (U.tut) { U.tut = null; $('tut').classList.add('hidden'); }
+    $('coach').classList.add('hidden');
+    const go = instant ? f => f() : transition;
+    go(() => {
       U.fightOn = true;
       show(null);
       Input.setTwoPlayer(!!cfg.twoP);
@@ -253,26 +262,6 @@ const UI = (() => {
   function human(side) { return new HumanCtrl(side); }
 
   function stageFor(def, i) { return i === 5 ? 'crater' : def.stage || pick(STAGE_IDS); }
-
-  function startArcade(id) {
-    const dset = DIFFS[Save.data.arcadeDiff];
-    const pool = ROSTER.filter(f => f.id !== id && !f.boss).map(f => f.id);
-    for (let i = pool.length - 1; i > 0; i--) { const j = randi(0, i); [pool[i], pool[j]] = [pool[j], pool[i]]; }
-    const ladder = pool.slice(0, 5).map((oid, i) => ({ id: oid, lv: dset.lv[i], stage: BY_ID[oid].stage }));
-    const bossId = id === 'saibo' ? pool[5] || 'kaze' : 'saibo';
-    ladder.push({ id: bossId, lv: dset.lv[5], stage: 'crater', boss: true });
-    U.run = { mode: 'arcade', p1: id, ladder, idx: 0, coins: 0, conts: 0, diff: Save.data.arcadeDiff };
-    arcadeFight();
-  }
-
-  function arcadeFight() {
-    const r = U.run, step = r.ladder[r.idx];
-    versusSheet(r.p1, step.id, step.boss ? 'FINAL BOSS' : `FIGHT ${r.idx + 1} / ${r.ladder.length}`, () => {
-      beginFight({ p1: r.p1, p2: step.id, ctrls: [human(0), cpu(step.lv)], stage: step.stage, mode: 'arcade', toWin: 2,
-        hpMul: [1, step.boss ? 1.15 : 1], chip: `ARCADE · ${step.boss ? 'FINAL BOSS' : 'FIGHT ' + (r.idx + 1) + '/6'} · CPU LV ${step.lv}`,
-        onEnd: res => setTimeout(() => arcadeEnd(res), 900) });
-    }, r);
-  }
 
   function rewardFor(res, base) {
     const st = res.stats, parts = [];
@@ -307,68 +296,241 @@ const UI = (() => {
     return `<div class="payout">${ic('coins', 'coin')}+${fmt(rw.total)}<small>COINS</small></div><div class="coins-row">${rw.parts.map(([l, n]) => `<span>${ic('coins')}${l} +${n}</span>`).join('')}</div>`;
   }
 
-  function arcadeEnd(res) {
-    const r = U.run;
-    if (!r) return;
-    const step = r.ladder[r.idx];
-    recordMatch(res, r.p1);
-    const mul = DIFFS[r.diff].mul;
-    const rw = rewardFor(res, Math.round((40 + r.idx * 15) * mul));
-    Save.addCoins(rw.total); r.coins += rw.total;
+  /* ----------------------------------------------------------- levels */
+  function openLevels(c) {
+    if (c == null) c = Campaign.next().c;
+    U.chapter = c;
+    show('levels');
+    renderLevels();
+  }
+  function renderLevels() {
+    const c = U.chapter, ch = CHAPTERS[c];
+    $('levelStars').textContent = `${Campaign.stars()}/${Campaign.levels.length * 3}`;
+    $('chapterTabs').innerHTML = CHAPTERS.map((C, i) => {
+      const open = Campaign.unlocked(i * 6);
+      return `<button data-c="${i}" class="${i === c ? 'active' : ''} ${open ? '' : 'locked'}" style="--c:${STAGE_COL[C.stage]}">${i + 1}${open ? '' : ' ' + ic('lock')}</button>`;
+    }).join('');
+    $('chapterTabs').querySelectorAll('button').forEach(b => { b.onclick = () => { Sfx.play('ui'); U.chapter = +b.dataset.c; renderLevels(); }; });
+    const lv = Campaign.levels.filter(L => L.c === c);
+    const got = lv.reduce((a, L) => a + Campaign.cleared(L.i), 0);
+    $('chapterHead').innerHTML = `<h3>${c + 1}. ${ch.name}</h3><span class="tag">${ic('star', 'star')} ${got}/18</span><p>${CHAPTERS[c].recruit[2] || CHAPTERS[c].recruit[5] ? 'Beat the fighters marked RECRUIT to add them to your roster.' : 'Six fights. The last one is a best-of-three boss.'}</p>`;
+    const me = Save.data.lastPick;
+    $('levelGrid').innerHTML = lv.map(L => {
+      const open = Campaign.unlocked(L.i), stars = Campaign.cleared(L.i);
+      const foe = BY_ID[Campaign.foeFor(L, me)];
+      const cur = open && !stars && L.i === Campaign.next().i;
+      const tw = TWISTS[L.twist];
+      return `<button class="stage-card ${open ? '' : 'locked'} ${cur ? 'current' : ''} ${L.boss ? 'boss' : ''}" data-i="${L.i}" style="--c:${foe.color}">
+        ${L.recruit && !Save.owned(L.recruit) ? '<span class="rec">RECRUIT</span>' : ''}
+        <span class="n">${L.label}</span>${pt(foe)}
+        <span class="stars">${[0, 1, 2].map(k => ic('star', k < stars ? 'on' : '')).join('')}</span>
+        <small>${L.boss ? 'BOSS · ' : ''}${foe.name}</small>
+        ${L.twist !== 'classic' ? `<span class="tw">${ic(tw.icon)}${tw.name}</span>` : L.tutorial ? '<span class="tw">TUTORIAL</span>' : ''}
+      </button>`;
+    }).join('');
+    $('levelGrid').querySelectorAll('.stage-card').forEach(b => {
+      b.onclick = () => {
+        const L = Campaign.levels[+b.dataset.i];
+        if (!Campaign.unlocked(L.i)) { toast('CLEAR THE LEVEL BEFORE IT FIRST'); Sfx.play('uiBack'); return; }
+        Sfx.play('fight'); playLevel(L);
+      };
+    });
+    const nx = Campaign.next();
+    $('levelFoot').innerHTML = `<button class="btn primary" id="lvPlay"><b>PLAY ${nx.label}</b></button>`;
+    $('lvPlay').onclick = () => { Sfx.play('fight'); playLevel(nx); };
+    hydrate($('levels'));
+  }
+  const STAGE_COL = { dojo: '#ff9b5a', temple: '#ff9fbf', forest: '#7fcf7a', city: '#c94aff', snow: '#9fc4ee', void: '#8a6bff', crater: '#ff5a2a', arena: '#ffc933' };
+
+  // straight into the fight: no select, no versus screen
+  function playLevel(L, instant) {
+    const me = Save.owned(Save.data.lastPick) ? Save.data.lastPick : 'kaze';
+    const foe = Campaign.foeFor(L, me);
+    const tw = L.twist;
+    const hpMul = [1, L.boss ? 1.1 : 1];
+    const tut = L.tutorial && !Save.data.tutorialDone;
+    const cfg = { p1: me, p2: foe, ctrls: [human(0), tut ? new DummyCtrl('stand') : cpu(L.lv)], stage: L.stage, mode: 'level', toWin: L.toWin,
+      chip: `LEVEL ${L.label} · ${CHAPTERS[L.c].name}${tw !== 'classic' ? ' · ' + TWISTS[tw].name : ''}`, roundSub: `LEVEL ${L.label}${tw !== 'classic' ? ' · ' + TWISTS[tw].name : ''}`,
+      tutorial: tut, hpMul, onEnd: res => setTimeout(() => levelEnd(L, res), 900) };
+    if (tw === 'giant') { cfg.scale = [1, 1.25]; hpMul[1] *= 1.25; }
+    if (tw === 'lowgrav') cfg.grav = 0.6;
+    if (tw === 'supers') { cfg.meter0 = 100; cfg.meter1 = 100; }
+    if (tw === 'tough') hpMul[1] *= 1.5;
+    if (tw === 'frenzy') cfg.speedMul = 1.2;
+    if (tw === 'glass') cfg.hpStart = [0.5, 0.5];
+    if (tw === 'clock') { cfg.timeLimit = 40; cfg.loseOnTime = true; }
+    U.run = { mode: 'level', L };
+    beginFight(cfg, instant);
+    U.levelIntro = { L, foe, t: 0, tut };
+  }
+
+  function levelEnd(L, res) {
+    const d = Save.data;
+    const foe = BY_ID[Game.cfg.p2];
+    recordMatch(res, Game.cfg.p1);
+    if (L.tutorial) { d.tutorialDone = true; Save.save(); }
     if (res.winner === 0) {
-      r.idx++;
-      if (r.idx >= r.ladder.length) return arcadeClear(res, rw);
-      const next = BY_ID[r.ladder[r.idx].id];
-      const sh = openSheet(`<h2 class="win">YOU WIN</h2><p class="sub">${BY_ID[r.p1].name} DEFEATS ${BY_ID[step.id].name} · ${res.wins[0]}-${res.wins[1]}</p>
-        ${ladderHtml(r)}${statTiles(res.stats)}${payoutHtml(rw)}
-        <div class="actions"><button class="btn primary" id="rNext"><b>NEXT: ${next.name}</b></button><button class="btn" id="rQuit"><b>QUIT RUN</b></button></div>`, 'result');
-      $('rNext').onclick = () => { Sfx.play('ui'); arcadeFight(); };
-      $('rQuit').onclick = () => { Sfx.play('uiBack'); quitToMenu(); };
-      Sfx.play('coin');
+      const stars = Campaign.starsFor(res.hp[0]);
+      const prev = Campaign.cleared(L.i);
+      let coins = 0;
+      const parts = [];
+      if (!prev) { coins += 40 + L.c * 10 + (L.boss ? 60 : 0); parts.push(['FIRST CLEAR', 40 + L.c * 10 + (L.boss ? 60 : 0)]); }
+      if (stars > prev) { coins += (stars - prev) * 15; parts.push(['NEW STARS', (stars - prev) * 15]); d.levels[L.i] = stars; }
+      if (res.stats.finishers) { coins += res.stats.finishers * 20; parts.push(['FINISHERS', res.stats.finishers * 20]); }
+      if (res.stats.bf) { coins += res.stats.bf * 10; parts.push(['BLACK SPARK', res.stats.bf * 10]); }
+      if (Save.dailyReady()) { coins += 100; parts.push(['FIRST WIN TODAY', 100]); d.daily = Save.today(); }
+      Save.addCoins(coins);
+      let rec = '';
+      if (L.recruit && !Save.owned(L.recruit)) {
+        Save.unlock(L.recruit);
+        const R = BY_ID[L.recruit];
+        rec = `<div class="unlock" style="--c:${R.color}">${pt(R)}<div><small>NEW FIGHTER RECRUITED</small><b>${R.name}</b><p>${esc(R.title)} joins your roster. Pick them in Fighters.</p></div></div>`;
+        Sfx.play('unlock');
+      }
+      Save.save();
+      const next = Campaign.levels[L.i + 1];
+      const chDone = Campaign.chapterDone(L.c) && L.l === 5;
+      openSheet(`<h2 class="win">${chDone ? 'CHAPTER CLEAR!' : 'LEVEL CLEAR!'}</h2><p class="sub">LEVEL ${L.label} · ${BY_ID[Game.cfg.p1].name} DEFEATS ${foe.name}</p>
+        <div class="big-stars">${[0, 1, 2].map(k => ic('star', k < stars ? 'on' : '')).join('')}</div>
+        <p class="hint">${stars < 3 ? 'Win with more health left to earn more stars.' : 'Flawless. Three stars.'}</p>
+        ${rec}${statTiles(res.stats)}${payoutHtml({ total: coins, parts })}
+        <div class="actions">${next ? `<button class="btn primary" id="rNext"><b>NEXT LEVEL</b><small>${next.label} · VS ${BY_ID[Campaign.foeFor(next, Game.cfg.p1)].name}</small></button>` : ''}<button class="btn" id="rRetry"><b>RETRY</b></button><button class="btn" id="rMenu"><b>MENU</b></button></div>`, 'result');
+      if (next) $('rNext').onclick = () => { Sfx.play('fight'); playLevel(next); };
+      if (stars < 3) Sfx.play('coin'); else Sfx.play('perfect');
     } else {
-      let n = 10;
-      const sh = openSheet(`<h2 class="lose">CONTINUE?</h2><p class="sub">${BY_ID[step.id].name} WINS · ${res.wins[1]}-${res.wins[0]}</p>
-        <div class="big-count" id="contN">${n}</div>${ladderHtml(r)}${payoutHtml(rw)}
-        <div class="actions"><button class="btn primary" id="rCont"><b>CONTINUE</b><small>RETRY THIS FIGHT</small></button><button class="btn" id="rGive"><b>GIVE UP</b></button></div>`, 'result');
-      const give = () => { clearInterval(U.countTimer); arcadeOver(); };
-      U.countTimer = setInterval(() => { n--; const e = $('contN'); if (e) { e.textContent = n; Sfx.play('ui'); } if (n <= 0) give(); }, 1000);
-      $('rCont').onclick = () => { clearInterval(U.countTimer); r.conts++; Sfx.play('ui'); arcadeFight(); };
-      $('rGive').onclick = () => { Sfx.play('uiBack'); give(); };
+      const tips = [
+        'Hold away from your opponent to guard.',
+        'Click, click, right-click is a launcher. Follow it with a special.',
+        'Specials cancel out of a hit that connects: click, then Q.',
+        'Guarding opponent? Click both mouse buttons together to throw.',
+        'Save your super for when a hit connects; it cancels out of anything.',
+        'Tap A or D twice to dash in or out.',
+      ];
+      openSheet(`<h2 class="lose">DEFEATED</h2><p class="sub">LEVEL ${L.label} · ${foe.name} WINS</p>
+        <p class="tip">${esc(pick(tips))}</p>${statTiles(res.stats)}
+        <div class="actions"><button class="btn primary" id="rRetry"><b>RETRY</b></button><button class="btn" id="rLevels"><b>LEVELS</b></button><button class="btn" id="rMenu"><b>MENU</b></button></div>`, 'result');
+      $('rLevels').onclick = () => { Sfx.play('ui'); closeSheet(); endFight(); openLevels(L.c); startDemo(); };
+    }
+    $('rRetry').onclick = () => { Sfx.play('fight'); playLevel(L); };
+    $('rMenu').onclick = () => { Sfx.play('uiBack'); quitToMenu(); };
+  }
+
+  /* ------------------------------------------------- the guided first fight */
+  const cap = k => `<span class="cap${k.length > 2 ? ' wide' : ''}">${k}</span>`;
+  const TUT = [
+    { label: 'MOVE', key: () => cap('A') + cap('D'), touch: 'MOVE WITH THE STICK', focus: '.joy', done: t => t.moved > 0.5 },
+    { label: 'JUMP', key: () => cap('W'), touch: 'FLICK UP OR TAP JUMP', focus: '.orb-j', done: t => t.jumped },
+    { label: 'LIGHT ATTACK', key: () => MOUSE('l'), touch: 'TAP LIGHT', focus: '.orb-l', count: t => `${Math.min(3, t.light)}/3`, done: t => t.light >= 3 },
+    { label: 'HEAVY ATTACK', key: () => MOUSE('r'), touch: 'TAP HEAVY', focus: '.orb-h', done: t => t.heavy >= 1 },
+    { label: 'COMBO: LIGHT, LIGHT, HEAVY', key: () => MOUSE('l') + MOUSE('l') + MOUSE('r'), touch: 'LIGHT, LIGHT, HEAVY', focus: '.orb-l, .orb-h', done: t => t.launcher >= 1 },
+    { label: 'SPECIAL MOVE', key: () => cap('Q') + '<span class="plus">/</span>' + cap('E'), touch: 'TAP A SPECIAL', focus: '.orb-s1, .orb-s2', done: t => t.special >= 1 },
+    { label: 'GUARD: HOLD AWAY', key: () => cap('A'), touch: 'HOLD THE STICK AWAY', focus: '.joy', count: t => `${Math.min(2, t.blocked)}/2`, done: t => t.blocked >= 2, start: () => { Game.ctrls[1] = new TutAttacker(); } },
+    { label: 'SUPER: METER FULL', key: () => cap('F'), touch: 'TAP SUPER', focus: '.orb-sup', done: t => t.superUsed, start: () => { Game.ctrls[1] = new DummyCtrl('stand'); Game.fighters[0].meter = 100; } },
+  ];
+  function startTut() {
+    $('hudChip').classList.add('hidden');
+    U.tut = { i: 0, moved: 0, jumped: false, light: 0, heavy: 0, launcher: 0, special: 0, blocked: 0, superUsed: false, wait: 0 };
+    $('tutDots').innerHTML = TUT.map(() => '<i></i>').join('');
+    $('tut').classList.remove('hidden', 'done', 'ok');
+    $('tutSkip').onclick = () => { Sfx.play('ui'); endTut(); };
+    renderTut();
+  }
+  function renderTut() {
+    const step = TUT[Math.min(U.tut.i, TUT.length - 1)];
+    const touch = isTouch();
+    $('tutVis').innerHTML = touch ? `<span class="tut-btn">${Icons.svg('play')}</span>` : step.key();
+    $('tutText').textContent = touch ? step.touch : step.label;
+    $('tutCount').textContent = '';
+    $('tutDots').querySelectorAll('i').forEach((d, i) => { d.className = i < U.tut.i ? 'on' : i === U.tut.i ? 'cur' : ''; });
+    document.querySelectorAll('.tut-focus').forEach(el => el.classList.remove('tut-focus'));
+    if (touch && step.focus) document.querySelectorAll(step.focus).forEach(el => el.classList.add('tut-focus'));
+    if (step.start) step.start();
+  }
+  function tutTick(dt) {
+    const t = U.tut;
+    if (!t || !Game.cfg || !Game.cfg.tutorial || Game.state !== 'fight') return;
+    const f = Game.fighters[0];
+    if (f.root.grounded && Math.abs(f.root.vx) > 60 && !f.action) t.moved += dt;
+    if (!f.root.grounded && f.root.vy < 0 && !f.action) t.jumped = true;
+    if (f.action && (f.action.key === 'sp1' || f.action.key === 'sp2') && t.i === 5) t.special = 1;
+    if (f.action && f.action.key === 'super' && t.i === 7) t.superUsed = true;
+    if (t.wait > 0) { t.wait -= dt; if (t.wait <= 0) { $('tut').classList.remove('ok'); renderTut(); } return; }
+    const step = TUT[t.i];
+    if (!step) return;
+    if (step.count) $('tutCount').textContent = step.count(t);
+    if (step.done(t)) {
+      t.i++; Sfx.play('coin');
+      $('tut').classList.add('ok');
+      if (t.i >= TUT.length) {
+        $('tut').classList.add('done');
+        $('tutVis').innerHTML = `<span class="tut-btn go">${Icons.svg('check')}</span>`;
+        $('tutText').textContent = 'READY! NOW WIN THE FIGHT';
+        $('tutCount').textContent = '';
+        setTimeout(endTut, 1500);
+        return;
+      }
+      t.wait = 0.6;
     }
   }
-
-  function ladderHtml(r) {
-    return `<div class="ladder">${r.ladder.map((s, i) => pt(BY_ID[s.id], i < r.idx ? 'done' : i === r.idx ? 'now' : '')).join('')}</div>`;
+  function endTut() {
+    if (!U.tut) return;
+    U.tut = null;
+    $('tut').classList.add('hidden');
+    document.querySelectorAll('.tut-focus').forEach(el => el.classList.remove('tut-focus'));
+    if (Game.cfg && Game.cfg.tutorial) {
+      Game.ctrls[1] = cpu(1); Game.ctrls[1].reset(Game.fighters[1]);
+      Game.endTutorial();
+    }
+  }
+  function onFightHit(att, def, spec, r) {
+    if (!U.fightOn) return;
+    const t = U.tut;
+    if (t && att.side === 0 && r === 'hit') {
+      const k = att.action && att.action.key;
+      if (k === 'l1' || k === 'l2' || k === 'airL') t.light++;
+      if (k === 'h' || k === 'airH') t.heavy++;
+      if (k === 'hEnd') { t.launcher++; t.heavy++; }
+    }
+    if (t && def.side === 0 && r === 'block') t.blocked++;
+    // tips the first time something matters
+    if (att.side === 0 && r === 'hit' && def.lastHit && def.lastHit.bf) tip('bf', '<b>BLACK SPARK!</b> Heavy hits can crit for double damage.');
+    if (att.side === 0 && r === 'block') { U.blocks = (U.blocks || []).filter(x => performance.now() - x < 4000); U.blocks.push(performance.now()); if (U.blocks.length >= 3) tip('throw', isTouch() ? 'They keep guarding. <b>Throws</b> beat guard: get close and tap LIGHT + HEAVY.' : 'They keep guarding. <b>Throw</b> them: click <b>both mouse buttons</b> together up close.'); }
   }
 
-  function arcadeOver() {
-    const r = U.run;
-    openSheet(`<h2 class="lose">GAME OVER</h2><p class="sub">${BY_ID[r.p1].name} REACHED FIGHT ${r.idx + 1} OF 6</p>${ladderHtml(r)}
-      <div class="payout">${ic('coins', 'coin')}${fmt(r.coins)}<small>COINS THIS RUN</small></div>
-      <div class="actions"><button class="btn primary" id="rAgain"><b>TRY AGAIN</b></button><button class="btn" id="rMenu"><b>MENU</b></button></div>`, 'result');
-    $('rAgain').onclick = () => { Sfx.play('ui'); startArcade(r.p1); };
-    $('rMenu').onclick = () => { Sfx.play('uiBack'); quitToMenu(); };
+  /* ------------------------------------------------------------ tips */
+  function coach(html, dur = 4.5) {
+    const c = $('coach');
+    $('coachText').innerHTML = html;
+    c.classList.remove('hidden', 'show'); void c.offsetWidth; c.classList.add('show');
+    clearTimeout(U.coachT); U.coachT = setTimeout(() => c.classList.add('hidden'), dur * 1000);
   }
-
-  function arcadeClear(res, rw) {
-    const r = U.run, d = Save.data;
-    const first = d.clears[r.p1] == null;
-    const bonus = Math.round((first ? 500 : 250) * DIFFS[r.diff].mul) + (r.conts === 0 ? 150 : 0);
-    Save.addCoins(bonus); r.coins += bonus;
-    d.clears[r.p1] = Math.max(d.clears[r.p1] != null ? d.clears[r.p1] : -1, r.diff);
-    let unlockMsg = '';
-    if (!Save.owned('saibo')) { Save.unlock('saibo'); unlockMsg = `<div class="unlock" style="--c:${BY_ID.saibo.color}">${pt(BY_ID.saibo)}<div><small>NEW FIGHTER UNLOCKED</small><b>SAIBO</b><p>The Caped Baldy joins your roster.</p></div></div>`; }
-    Save.save();
-    openSheet(`<h2 class="win">ARCADE CLEAR!</h2><p class="sub">${BY_ID[r.p1].name} · ${DIFFS[r.diff].name}${r.conts ? ` · ${r.conts} CONTINUE${r.conts > 1 ? 'S' : ''}` : ' · NO CONTINUES'}</p>
-      <div class="big-stars">${ic('trophy', 'on')}</div>${unlockMsg}${statTiles(res.stats)}
-      <div class="coins-row"><span>${ic('coins')}CLEAR BONUS +${bonus}</span>${rw.total ? `<span>${ic('coins')}LAST FIGHT +${rw.total}</span>` : ''}</div>
-      <div class="payout">${ic('coins', 'coin')}${fmt(r.coins)}<small>COINS THIS RUN</small></div>
-      <div class="actions"><button class="btn primary" id="rMenu"><b>MENU</b></button><button class="btn" id="rAgain"><b>PLAY AGAIN</b></button></div>`, 'result');
-    Sfx.play('unlock'); Sfx.music('win');
-    $('rAgain').onclick = () => { Sfx.play('ui'); startArcade(r.p1); };
-    $('rMenu').onclick = () => { Sfx.play('uiBack'); quitToMenu(); };
+  function tip(id, html) {
+    if (Save.data.tips[id] || U.tut) return;
+    Save.data.tips[id] = 1; Save.save();
+    coach(html, 5);
   }
-
+  function tipsTick() {
+    if (!U.fightOn || Game.state !== 'fight' || (Game.cfg && (Game.cfg.tutorial || Game.cfg.training)) || U.tut) return;
+    const f = Game.fighters[0];
+    const touch = isTouch();
+    if (f.meter >= 100) tip('super', touch ? '<b>SUPER READY!</b> Tap the glowing SUPER button.' : '<b>SUPER READY!</b> Press <kbd>F</kbd>. Land it as the knockout for a FINISHER.');
+    if (f.guard < 40) tip('guard', 'Your <b>guard gauge</b> is cracking. Stop blocking: attack, jump or dash out!');
+    if (f.mode === 'tumble') tip('down', 'Knocked down! You can\'t be hit while you <b>get back up</b>.');
+    if (Game.combo[0] && Game.combo[0].n >= 2 && Save.data.tips.dash) tip('cancel', touch ? 'Combo tip: LIGHT, LIGHT, then a <b>SPECIAL</b> cancels straight into it.' : 'Combo tip: click, click, then <b>Q or E</b>. Specials cancel out of hits that connect.');
+    if (Game.stateT > 3 && !Save.data.tips.dash && U.run && U.run.mode === 'level' && U.run.L.i >= 1) tip('dash', touch ? 'Flick the stick twice to <b>DASH</b>.' : 'Tap <kbd>A</kbd> or <kbd>D</kbd> twice to <b>DASH</b>.');
+  }
+  function levelIntroTick() {
+    const li = U.levelIntro;
+    if (!li || !U.fightOn || Game.state !== 'fight') return;
+    U.levelIntro = null;
+    const L = li.L, tw = TWISTS[L.twist];
+    if (li.tut) { startTut(); return; }
+    const bits = [];
+    if (L.twist !== 'classic') bits.push(`<b>${tw.name}:</b> ${tw.desc}`);
+    if (L.recruit && !Save.owned(L.recruit)) bits.push(`Beat <b>${BY_ID[L.recruit].name}</b> to recruit them!`);
+    if (L.boss) bits.push('<b>BOSS:</b> best of three rounds.');
+    if (bits.length) coach(bits.join('<br>'), 4);
+  }
   function startVersus() {
     const s = U.sel;
     const stage = s.stage === 'random' ? pick(STAGE_IDS) : s.stage;
@@ -437,14 +599,14 @@ const UI = (() => {
   function trainingCfg() {
     const r = U.run;
     return { p1: r.p1, p2: r.dummy, ctrls: [human(0), new DummyCtrl(r.dmode)], stage: 'lab', mode: 'training', toWin: 99, training: true, trainingMeter: r.meter,
-      chip: 'TRAINING · P PAUSE FOR OPTIONS · J K U I L', onEnd: () => {} };
+      chip: 'TRAINING · PRESS P FOR DUMMY OPTIONS', onEnd: () => {} };
   }
 
   function versusSheet(a, b, label, go, run, dur = 2.4) {
     const A = BY_ID[a], B = BY_ID[b];
     const side = (def, cls, who) => `<div class="vs-side ${cls}" style="--c:${def.color}"><small>${who}</small>${pt(def, 'vs-pt')}<b>${def.name}</b><span>${def.title}</span></div>`;
     const sh = openSheet(`<div class="vs">${side(A, 'you', 'PLAYER 1')}<div class="vs-mid"><b>VS</b><small>${esc(label)}</small></div>${side(B, 'rival', U.sel && U.sel.p2human && U.run && U.run.mode === 'versus' ? 'PLAYER 2' : 'CPU')}</div>
-      ${run && run.ladder ? ladderHtml(run) : ''}<p class="hint">${('ontouchstart' in window) ? 'TAP' : 'CLICK'} TO START</p>`, 'versus');
+      <p class="hint">${('ontouchstart' in window) ? 'TAP' : 'CLICK'} TO START</p>`, 'versus');
     let started = false;
     const start = () => { if (started) return; started = true; clearTimeout(U.vsT); go(); };
     // attach after this event finishes, so the click that opened the sheet doesn't also skip it
@@ -455,6 +617,8 @@ const UI = (() => {
 
   function endFight() {
     U.fightOn = false;
+    if (U.tut) { U.tut = null; }
+    $('tut').classList.add('hidden'); $('coach').classList.add('hidden');
     Input.enable(false);
     Input.setTwoPlayer(false);
     document.body.classList.remove('vs2');
@@ -486,7 +650,8 @@ const UI = (() => {
     clearTimeout(U.chipT); U.chipT = setTimeout(() => $('hudChip').classList.add('hidden'), 4000);
     const def = BY_ID[cfg.p1], m = def.moves;
     const sk = (k, mv) => `<div class="skill" data-k="${k}" style="--c:${def.color};--d:${shade(def.color)}"><span class="sk-icon move-ic">${Icons.svg(mv.icon || 'fist')}</span><b class="sk-name">${esc(mv.name)}</b><kbd>${KEYS[k]}</kbd><span class="sk-cd"></span></div>`;
-    $('skillbar').innerHTML = sk('sp1', m.sp1) + sk('sp2', m.sp2) + sk('super', m.super);
+    const ms = (side, lbl) => `<div class="skill mouse"><span class="sk-icon">${MOUSE(side)}</span><b>${lbl}</b></div>`;
+    $('skillbar').innerHTML = ms('l', 'LIGHT') + ms('r', 'HEAVY') + sk('sp1', m.sp1) + sk('sp2', m.sp2) + sk('super', m.super);
     const orb = (cls, k, icon, lbl, c) => `<button class="orb ${cls}" data-k="${k}" style="--c:${c || def.color};--d:${shade(c || def.color)}"><span class="ring"></span><span class="orb-icon">${Icons.svg(icon)}</span><span class="lbl">${lbl}</span></button>`;
     $('orbs').innerHTML = orb('orb-l', 'l', 'fist', 'LIGHT', '#ffc933') + orb('orb-h', 'h', 'burst', 'HEAVY', '#ff8a4a') + orb('orb-s1', 's1', m.sp1.icon, 'SPECIAL') + orb('orb-s2', 's2', m.sp2.icon, 'SPECIAL') + orb('orb-sup', 'sup', m.super.icon, 'SUPER') + orb('orb-j', 'jump', 'up', 'JUMP', '#e9ecf4');
     $('orbs').querySelectorAll('.orb').forEach(b => {
@@ -499,6 +664,8 @@ const UI = (() => {
 
   U.tick = function () {
     if (!U.fightOn || !Game.running || Game.fighters.length < 2) return;
+    const now = performance.now(), dt = Math.min(0.05, (now - (U.lastTick || now)) / 1000); U.lastTick = now;
+    if (!Game.paused && !U.modalOpen()) { levelIntroTick(); tutTick(dt); tipsTick(); }
     const H = U.hudCache || (U.hudCache = {});
     for (let i = 0; i < 2; i++) {
       const f = Game.fighters[i], el = $('hs' + i);
@@ -566,9 +733,9 @@ const UI = (() => {
       <div class="pause-stack">
         <button class="btn primary" id="pRes"><b>RESUME</b></button>
         <button class="btn" id="pMoves"><b>MOVE LIST</b></button>
-        ${r.mode === 'arcade' || r.mode === 'survival' ? '' : `<button class="btn" id="pRestart"><b>RESTART</b></button>`}
+        ${r.mode === 'survival' ? '' : `<button class="btn" id="pRestart"><b>${r.mode === 'level' ? 'RETRY LEVEL' : 'RESTART'}</b></button>`}
         <button class="btn" id="pSet"><b>SETTINGS</b></button>
-        <button class="btn danger" id="pQuit"><b>${r.mode === 'arcade' || r.mode === 'survival' ? 'QUIT RUN' : 'QUIT'}</b></button>
+        <button class="btn danger" id="pQuit"><b>${r.mode === 'survival' ? 'QUIT RUN' : 'QUIT'}</b></button>
       </div>`, 'pause');
     U.sheetDismiss = () => U.resume();
     $('pRes').onclick = () => U.resume();
@@ -576,7 +743,7 @@ const UI = (() => {
     $('pSet').onclick = () => openSettings(() => U.openPauseAgain());
     $('pQuit').onclick = () => { Game.paused = false; quitToMenu(); };
     const rs = $('pRestart');
-    if (rs) rs.onclick = () => { Game.paused = false; if (training) beginFight(trainingCfg()); else if (r.mode === 'versus') startVersus(); };
+    if (rs) rs.onclick = () => { Game.paused = false; if (training) beginFight(trainingCfg()); else if (r.mode === 'versus') startVersus(); else if (r.mode === 'level') playLevel(r.L); };
     if (training) {
       sh.querySelectorAll('#pDummy button').forEach(b => { b.onclick = () => { r.dmode = b.dataset.v; Game.ctrls[1] = new DummyCtrl(r.dmode); Game.ctrls[1].reset(Game.fighters[1]); U.openPauseAgain(); }; });
       sh.querySelectorAll('#pMeter button').forEach(b => { b.onclick = () => { r.meter = b.dataset.v === '1'; Game.cfg.trainingMeter = r.meter; U.openPauseAgain(); }; });
@@ -596,9 +763,9 @@ const UI = (() => {
     const m = def.moves;
     openSheet(`<h2 style="color:${def.color}">${def.name} · MOVES</h2>
       <div class="sd-moves">
-        ${['l1', 'l2', 'hEnd'].map((k, i) => `<div class="mv"><span class="move-ic" style="--c:#ffc933;--d:#8a6a10">${Icons.svg(i < 2 ? 'fist' : 'up')}</span><div><b>${esc(m[k].name)}</b><small>${i === 0 ? 'LIGHT' : i === 1 ? 'LIGHT, LIGHT' : 'LIGHT, LIGHT, HEAVY: LAUNCHER'}</small></div><span class="keys2">${['<kbd>J</kbd>', '<kbd>J</kbd><kbd>J</kbd>', '<kbd>J</kbd><kbd>J</kbd><kbd>K</kbd>'][i]}</span></div>`).join('')}
-        <div class="mv"><span class="move-ic" style="--c:#ff8a4a;--d:#7a3a1a">${Icons.svg('burst')}</span><div><b>${esc(m.h.name)}</b><small>HEAVY · CAN BLACK SPARK</small></div><span class="keys2"><kbd>K</kbd></span></div>
-        <div class="mv"><span class="move-ic" style="--c:#8fd6ff;--d:#2a5a7a">${Icons.svg('swords')}</span><div><b>Throw</b><small>CLOSE · BEATS GUARD</small></div><span class="keys2"><kbd>J</kbd>+<kbd>K</kbd> or <kbd>O</kbd></span></div>
+        ${['l1', 'l2', 'hEnd'].map((k, i) => `<div class="mv"><span class="move-ic" style="--c:#ffc933;--d:#8a6a10">${Icons.svg(i < 2 ? 'fist' : 'up')}</span><div><b>${esc(m[k].name)}</b><small>${i === 0 ? 'LIGHT' : i === 1 ? 'LIGHT, LIGHT' : 'LIGHT, LIGHT, HEAVY: LAUNCHER'}</small></div><span class="keys2">${[MOUSE('l'), MOUSE('l') + MOUSE('l'), MOUSE('l') + MOUSE('l') + MOUSE('r')][i]}</span></div>`).join('')}
+        <div class="mv"><span class="move-ic" style="--c:#ff8a4a;--d:#7a3a1a">${Icons.svg('burst')}</span><div><b>${esc(m.h.name)}</b><small>HEAVY · CAN BLACK SPARK</small></div><span class="keys2">${MOUSE('r')}</span></div>
+        <div class="mv"><span class="move-ic" style="--c:#8fd6ff;--d:#2a5a7a">${Icons.svg('swords')}</span><div><b>Throw</b><small>CLOSE · BEATS GUARD</small></div><span class="keys2">${MOUSE('l')}+${MOUSE('r')}</span></div>
         ${moveRows(def)}
       </div>
       <p class="hint">Cancel any light or heavy that connects into a special, and any of them into the super.</p>
@@ -629,7 +796,7 @@ const UI = (() => {
     $('sBack').onclick = done;
     U.sheetDismiss = done;
     $('sReset').onclick = () => {
-      const s2 = openSheet(`<h2 class="lose">RESET PROGRESS?</h2><p class="tip">Coins, unlocked fighters, Arcade clears and records will be erased. Settings are kept.</p>
+      const s2 = openSheet(`<h2 class="lose">RESET PROGRESS?</h2><p class="tip">Coins, unlocked fighters, level stars and records will be erased. Settings are kept.</p>
         <div class="actions"><button class="btn danger" id="rYes"><b>ERASE</b></button><button class="btn" id="rNo"><b>CANCEL</b></button></div>`);
       $('rYes').onclick = () => { Save.reset(); toast('PROGRESS RESET'); closeSheet(); if (U.screen === 'home') renderHome(); coinsUI(); };
       $('rNo').onclick = () => openSettings(back);
@@ -643,10 +810,10 @@ const UI = (() => {
         <span>Move · dash</span><span><kbd>A</kbd><kbd>D</kbd> · tap twice</span><span>Stick / D-pad</span>
         <span>Jump</span><span><kbd>W</kbd> / <kbd>SPACE</kbd></span><span>A</span>
         <span>Guard</span><span>Hold away</span><span>Hold away</span>
-        <span>Light · Heavy</span><span><kbd>J</kbd> · <kbd>K</kbd></span><span>X · Y</span>
-        <span>Specials</span><span><kbd>U</kbd> · <kbd>I</kbd></span><span>B · RB</span>
-        <span>Super (full meter)</span><span><kbd>L</kbd></span><span>RT</span>
-        <span>Throw</span><span><kbd>J</kbd>+<kbd>K</kbd> / <kbd>O</kbd></span><span>LB</span>
+        <span>Light · Heavy</span><span>Left click · Right click</span><span>X · Y</span>
+        <span>Specials</span><span><kbd>Q</kbd> · <kbd>E</kbd></span><span>B · RB</span>
+        <span>Super (full meter)</span><span><kbd>F</kbd> / middle click</span><span>RT</span>
+        <span>Throw</span><span>Both clicks together</span><span>LB</span>
         <span>Pause</span><span><kbd>P</kbd></span><span>START</span>
       </div>
       <div class="how">
@@ -695,7 +862,8 @@ const UI = (() => {
   U.checkRotate = checkRotate;
 
   // exposed for tests
-  U._start = { arcade: startArcade, versus: () => startVersus(), survival: startSurvival, training: startTraining, select: openSelect };
+  U._tutStep = () => (U.tut ? U.tut.i : 99);
+  U._start = { level: i => playLevel(Campaign.levels[i]), levels: () => openLevels(), versus: () => startVersus(), survival: startSurvival, training: startTraining, select: openSelect };
   return U;
 })();
 
@@ -709,5 +877,18 @@ class DummyCtrl {
     f.input.x = 0;
     if (this.mode === 'guard') f.input.x = -(Math.sign(o.root.x - f.root.x) || f.facing);
     if (this.mode === 'jump') { this.t -= dt; if (this.t <= 0 && f.root.grounded) { this.t = 1.2; G.press(f.side, 'jump'); } }
+  }
+}
+
+/* the guide's sparring partner: walks in and swings so the player can practise guarding */
+class TutAttacker {
+  constructor() { this.human = false; this.t = 0.8; }
+  reset() { this.t = 0.8; }
+  update(G, f, dt) {
+    const o = G.opp(f);
+    const d = Math.abs(o.root.x - f.root.x), toward = Math.sign(o.root.x - f.root.x) || f.facing;
+    f.input.x = d > 170 ? toward : 0;
+    this.t -= dt;
+    if (this.t <= 0 && d < 200 && !f.action) { this.t = 1.1; G.press(f.side, Math.random() < 0.5 ? 'l' : 'h'); }
   }
 }

@@ -7,9 +7,10 @@
 
 const Input = (() => {
   // two key sets. In single-player both drive player 1.
+  // player 1: WASD + mouse (left click light, right click heavy), Q / E specials, F super
   const SET_A = {
     KeyA: 'left', KeyD: 'right', KeyW: 'up', Space: 'up', KeyS: 'down',
-    KeyJ: 'l', KeyK: 'h', KeyU: 's1', KeyI: 's2', KeyL: 'sup', KeyO: 'throw',
+    KeyQ: 's1', KeyE: 's2', KeyF: 'sup',
   };
   const SET_B = {
     ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down',
@@ -100,6 +101,8 @@ const Input = (() => {
     side: i => sides[i],
     axis(i) { const s = sides[i]; return clamp((s.rightK ? 1 : 0) - (s.leftK ? 1 : 0) || padX(i) || s.touchX, -1, 1); },
     touchPress(act) { if (enabled) push(0, act); },
+    // mouse: 0 left = light, 2 right = heavy, 1 middle = super (both clicks together throw)
+    mouse(button) { if (!enabled) return; push(0, button === 0 ? 'l' : button === 2 ? 'h' : 'sup'); },
     setTouchX(x) { const s = sides[0]; if (x !== s.touchX && x !== 0 && enabled) push(0, x > 0 ? 'right' : 'left'); s.touchX = x; },
   };
 })();

@@ -20,7 +20,8 @@ const URL = process.argv[3] || 'http://localhost:8123/';
     const ids = ROSTER.map(d => d.id);
     const res = { matches: 0, issues: [], wins: {}, games: {}, rounds: 0, roundTime: 0, supers: 0, finishers: 0, bf: 0, maxCombo: 0, kos: 0, timeouts: 0 };
     ids.forEach(i => { res.wins[i] = 0; res.games[i] = 0; });
-    const stages = ['dojo', 'city', 'temple', 'void', 'crater', 'lab'];
+    const stages = ['dojo', 'city', 'temple', 'forest', 'snow', 'void', 'crater', 'arena', 'lab'];
+    const twists = [{}, { grav: 0.6 }, { scale: [1, 1.25] }, { meter0: 100, meter1: 100 }, { speedMul: 1.2 }, { hpStart: [0.5, 0.5] }, { timeLimit: 40, loseOnTime: true }];
     const check = (tag) => {
       for (const f of Game.fighters) {
         for (const q of f.pts.concat([f.root])) {
@@ -36,7 +37,7 @@ const URL = process.argv[3] || 'http://localhost:8123/';
       if (rep > 0 && a === bId) continue;
       let ended = null;
       const L = 3 + ((rep * 7 + res.matches) % 6), lv = [L, L];
-      Game.startMatch({ p1: a, p2: bId, ctrls: [new CpuCtrl(lv[0]), new CpuCtrl(lv[1])], stage: stages[(res.matches) % stages.length], mode: 'versus', toWin: 2, onEnd: r => { ended = r; } });
+      Game.startMatch(Object.assign({ p1: a, p2: bId, ctrls: [new CpuCtrl(lv[0]), new CpuCtrl(lv[1])], stage: stages[(res.matches) % stages.length], mode: 'versus', toWin: 2, onEnd: r => { ended = r; } }, twists[res.matches % twists.length]));
       Game.speed = 16;
       let simGuard = 0, lastRound = 1, roundStart = Game.t, ok = true, supersSeen = 0;
       while (!ended && simGuard < 40000) {

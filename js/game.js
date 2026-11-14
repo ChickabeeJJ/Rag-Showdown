@@ -63,6 +63,8 @@ const Game = (() => {
       new Rag(BY_ID[c.p1], { side: 0, x: 560, facing: 1, hpMul: (c.hpMul || [1, 1])[0] }),
       new Rag(BY_ID[c.p2], { side: 1, x: 1040, facing: -1, hpMul: (c.hpMul || [1, 1])[1] }),
     ];
+    if (c.scale) G.fighters.forEach((f, i) => { f.s *= c.scale[i] || 1; });
+    WORLD_G = c.grav || 1;
     if (c.p1 === c.p2) G.fighters[1].alt = true;   // mirror match: player 2 is a shade darker
     G.fighters.forEach((f, i) => {
       f.hp = Math.max(1, Math.round(f.maxHp * hp0[i]));
@@ -72,7 +74,7 @@ const Game = (() => {
       if (G.ctrls[i] && G.ctrls[i].reset) G.ctrls[i].reset(f);
     });
     G.combo = [null, null];
-    G.timer = c.training ? Infinity : 99;
+    G.timer = c.training || c.tutorial ? Infinity : c.timeLimit || 99;
     G.state = 'intro'; G.stateT = 0; G.winner = -1;
     G.cam.x = 800; G.cam.z = 1.05;
     G.hpShown = G.fighters.map(f => f.hp);
@@ -80,6 +82,14 @@ const Game = (() => {
     Sfx.music(G.round >= 3 || (G.wins[0] && G.wins[1]) ? 'final' : 'fight');
   };
 
+  G.endTutorial = function () {
+    if (!G.cfg) return;
+    G.cfg.tutorial = false;
+    G.timer = G.cfg.timeLimit || 99;
+    for (const f of G.fighters) { f.hp = f.maxHp; f.meter = 0; f.marks = 0; }
+    G.combo = [null, null];
+    G.callout('FIGHT!', '', 'fight', 0.8); Sfx.play('fight');
+  };
   G.stop = function () { G.running = false; G.state = 'idle'; Sfx.music('menu'); };
 
   /* -------------------------------------------------------------- effects api */
@@ -92,7 +102,7 @@ const Game = (() => {
   G.wind = (f, d, serious) => { G.windS = { dir: f.facing, t: 0, d, serious, x: f.root.x }; };
   G.callout = (text, sub, style, d = 1.4) => { G.callouts.push({ text, sub, style, t: 0, d }); };
   G.cutin = function (f, title, sub) {
-    G.cut = { f, title, sub, t: 0, d: 1.05 };
+    G.cut = { f, title, sub, t: 0, d: 1.25 };
     G.flash(f.def.color, 0.5);
     Sfx.play('cutin');
     if (f.side === 0 && G.stats) G.stats.supers++;
@@ -132,11 +142,27 @@ const Game = (() => {
     G.ghosts.push({ g, color, t: 0, life });
     if (G.ghosts.length > 24) G.ghosts.shift();
   };
-  G.cloneOf = function (owner, x, facing, delay) {
-    const r = new Rag(owner.def, { side: owner.side, x, facing });
-    r.root.y = GROUND - 30; r.root.hover = true; r.root.grounded = false;
+  // a summoned body that runs at the foe and strikes once: clones and shadow soldiers
+  G.minion = function (owner, o) {
+    const r = new Rag(o.def || owner.def, { side: owner.side, x: o.x, facing: owner.facing });
+    if (o.scale) r.s *= o.scale;
     r.hidden = true;
-    G.summons.push({ rag: r, owner, t: -delay, kind: 'clone', life: 0.62 });
+    if (o.hover) { r.root.y = GROUND - 30; r.root.hover = true; r.root.grounded = false; }
+    const m = Object.assign({ rag: r, owner, kind: 'minion', life: 0.8, speed: 1000, box: [56, -40, 36], pose: POSES.airK.strike }, o);
+    m.t = -(o.delay || 0);
+    G.summons.push(m);
+    return m;
+  };
+  G.cloneOf = function (owner, x, facing, delay) {
+    G.minion(owner, { x, delay, hover: true, life: 0.62, speed: 1150, box: [56, -40, 36], pose: POSES.airK.strike, smoke: true,
+      spec: { dmg: 52, kb: [380, -420], stun: 0.6, bstun: 0.2, hs: 0.06, chip: 0.2, launch: true, color: '#ffe27a', kind: 'special', sfx: 'hitH', name: 'Mirror Clones' } });
+  };
+  // pressure points: marks that go off after a short fuse
+  G.mark = function (att, def, n) {
+    if (!def || !def.alive) return;
+    def.marks = Math.min(8, (def.marks || 0) + n);
+    def.markT = 2.2; def.markBy = att;
+    G.fx.add({ kind: 'star', x: def.center().x, y: def.center().y, size: 26, life: 0.4, color: '#e2ff9a', rot: 0 });
   };
   G.stand = function (owner, life) {
     const ex = G.summons.find(s => s.kind === 'stand' && s.owner === owner);
@@ -166,6 +192,7 @@ const Game = (() => {
     if (!def || G.state === 'intro' || G.state === 'idle' || G.state === 'over') return null;
     if (def.mode === 'dead') return null;
     if (def.invuln > 0) return null;
+    if (def.barrierT > 0 && !spec.unblockable) { G.fx.ring(x, y, '#9ff4ff', 70, 0.25, 6); Sfx.play('block'); return 'block'; }
     if (def.mode === 'rising') return null;
     if (def.mode === 'tumble') {
       const low = def.pelvis.y > GROUND - 50 * def.s && Math.hypot(def.pelvis.x - def.pelvis.px, def.pelvis.y - def.pelvis.py) < 3;
@@ -295,6 +322,12 @@ const Game = (() => {
     if (mv.kind === 'special') f.cds[key] = mv.cd || 2;
     if (mv.kind === 'super') { f.meter = 0; G.ghost(f, f.def.color, 0.5); }
     if (mv.kind === 'light' || mv.kind === 'heavy' || mv.kind === 'throw') Sfx.play(mv.kind === 'light' ? 'swish' : 'swishH');
+    if (mv.kind === 'special') {
+      // anime-style move callout over the fighter's head
+      const hd = f.head();
+      G.fx.text(hd.x, hd.y - 70, mv.name.toUpperCase(), f.def.color, 24, { dur: 0.75, vy: -40 });
+      Sfx.play('special');
+    }
     if (mv.start) mv.start(G, f, act);
     return true;
   }
@@ -395,6 +428,16 @@ const Game = (() => {
       G.fx.slash(n.x + f.facing * 10, n.y + 30, 80 + (f.def.reach || 0), f.facing > 0 ? -1.3 : -1.85, f.facing > 0 ? 1.3 : -4.45 + 0.01, '#e8f4ff', 14, 0.16);
     }
     if (mv.rubber) { const ph = phaseOf(act).ph; f.hideArm = ph === 1; }
+    if (mv.kind === 'special' || mv.kind === 'super') {
+      const h = f.pts[P.FHAND];
+      if (act.t < act.w && Math.floor(act.t * 60) % 2 === 0) {
+        // energy gathers at the hand during the wind-up
+        const ang = rand(0, TAU), d = rand(50, 110);
+        G.fx.add({ x: h.x + Math.cos(ang) * d, y: h.y + Math.sin(ang) * d, vx: -Math.cos(ang) * d * 5, vy: -Math.sin(ang) * d * 5, life: 0.18, size: rand(4, 7), color: f.def.aura || f.def.color });
+      }
+      if (act.t >= act.w && once(act, 'rel')) { G.fx.ring(h.x, h.y, f.def.color, 70, 0.25, 6); G.fx.burst(h.x, h.y, f.def.aura || f.def.color, 8, 360); }
+      if (act.vx && Math.abs(act.vx) > 600 && Math.floor(act.t / 0.04) !== act.lastG) { act.lastG = Math.floor(act.t / 0.04); G.ghost(f, f.def.color, 0.2); }
+    }
     if (mv.tick) mv.tick(G, f, act, dt);
     if (f.action === act && act.t >= act.w + act.a + act.r && !act.hold) endAction(f);
   }
@@ -450,6 +493,11 @@ const Game = (() => {
       p.x += p.vx * dt; p.y += p.vy * dt;
       if (p.t > p.life || p.x < WALL_L - 200 || p.x > WALL_R + 200) { p.dead = true; continue; }
       const o = G.opp(p.owner);
+      if (o && o.barrierT > 0 && p.strength < 9 && dist(p.x, p.y, o.center().x, o.center().y) < 120 * o.s / 2 + p.r) {
+        p.owner = o; p.vx = -p.vx * 1.15; p.t = 0; p.spent = false; p.hits = 0;
+        G.say(p.x, p.y - 60, 'REFLECT', '#9ff4ff', 30); Sfx.play('clash');
+        continue;
+      }
       // clashes: projectiles of opposing fighters cancel; the stronger survives
       for (const q of G.projs) {
         if (q === p || q.dead || p.dead || q.owner === p.owner) continue;
@@ -564,19 +612,28 @@ const Game = (() => {
     for (const s of G.summons) {
       s.t += dt;
       const r = s.rag, own = s.owner, o = G.opp(own);
-      if (s.kind === 'clone') {
+      if (s.kind === 'minion') {
         if (s.t < 0) continue;
-        if (r.hidden) { r.hidden = false; G.fx.add({ kind: 'smoke', x: r.root.x, y: r.root.y - 100 * r.s, size: 60, life: 0.4, color: '#ffffff', add: false }); r.facing = Math.sign(o.root.x - r.root.x) || r.facing; }
-        r.pose = POSES.airK.strike;
-        r.root.vx = r.facing * 1150;
-        r.root.y = GROUND - 40;
-        r.update(dt);
-        if (!s.hit && o.alive) {
-          const p = r.local(56, -40);
-          const res = o.hitTest(p.x, p.y, 36);
-          if (res) { s.hit = true; G.hit(own, o, { dmg: 52, dir: r.facing, kb: [380, -420], stun: 0.6, bstun: 0.2, hs: 0.06, chip: 0.2, launch: true, color: '#ff9d3d', kind: 'special', sfx: 'hitH', name: 'Mirror Clones' }, res.x, res.y, null); s.t = Math.max(s.t, s.life - 0.08); }
+        if (r.hidden) {
+          r.hidden = false;
+          r.facing = Math.sign(o.root.x - r.root.x) || r.facing;
+          if (s.smoke) G.fx.add({ kind: 'smoke', x: r.root.x, y: r.root.y - 100 * r.s, size: 60, life: 0.4, color: '#ffffff', add: false });
+          if (s.rise) { G.fx.ring(r.root.x, GROUND, s.glow || '#8a6bff', 80, 0.4, 6); for (let i = 0; i < 8; i++) G.fx.add({ kind: 'smoke', x: r.root.x + rand(-40, 40), y: GROUND - rand(0, 30), vx: rand(-60, 60), vy: rand(-200, -60), size: rand(16, 30), life: 0.6, color: '#1a0f33', add: false }); }
         }
-        if (s.t >= s.life || r.root.x <= WALL_L + 60 || r.root.x >= WALL_R - 60) { s.dead = true; G.fx.add({ kind: 'smoke', x: r.root.x, y: r.root.y - 100 * r.s, size: 60, life: 0.4, color: '#ffffff', add: false }); }
+        const rising = s.rise && s.t < 0.22;
+        r.pose = rising ? POSES.block : s.pose;
+        r.root.vx = rising ? 0 : r.facing * s.speed;
+        if (s.hover) r.root.y = GROUND - 40;
+        r.update(dt);
+        if (!s.hit && !rising && o.alive) {
+          const p = r.local(s.box[0], s.box[1]);
+          const res = o.hitTest(p.x, p.y, s.box[2] * (s.scale || 1));
+          if (res) { s.hit = true; G.hit(own, o, Object.assign({ dir: r.facing }, s.spec), res.x, res.y, null); s.t = Math.max(s.t, s.life - 0.1); if (s.rise) G.fx.slash(res.x, res.y, 70, -1.2, 1.4, s.glow || '#8a6bff', 14, 0.25); }
+        }
+        if (s.t >= s.life || r.root.x <= WALL_L + 50 || r.root.x >= WALL_R - 50) {
+          s.dead = true;
+          G.fx.add({ kind: 'smoke', x: r.root.x, y: r.root.y - 100 * r.s, size: 60, life: 0.4, color: s.mono ? '#1a0f33' : '#ffffff', add: false });
+        }
       } else if (s.kind === 'stand') {
         const act = own.action;
         const barrage = act && (act.key === 'sp1' || (act.key === 'super' && act.t > act.w)) && act.t > act.w * 0.5;
@@ -644,6 +701,18 @@ const Game = (() => {
       // speed afterimages on dashes and supers
       if ((f.dashT > 0 || (f.action && f.action.move.kind === 'super' && f.action.t > f.action.w)) && Math.floor(G.t / 0.05) !== f.lastGhost) { f.lastGhost = Math.floor(G.t / 0.05); G.ghost(f, f.def.aura || f.def.color, 0.22); }
     }
+    for (const f of G.fighters) {
+      if (f.barrierT > 0) f.barrierT -= dt;
+      if (f.marks > 0 && f.stopT <= 0 && f.alive) {
+        f.markT -= dt;
+        if (f.markT <= 0) {
+          const n = f.marks; f.marks = 0;
+          const c = f.center();
+          G.fx.burst(c.x, c.y, '#e2ff9a', 10 + n * 4, 500); G.fx.ring(c.x, c.y, '#e2ff9a', 80 + n * 30, 0.35, 8);
+          G.hit(f.markBy || G.opp(f), f, { dmg: 25 * n, kb: [150, n >= 4 ? -900 : -150], stun: 0.6, launch: n >= 4, hs: 0.08, unblockable: true, color: '#e2ff9a', kind: 'special', sfx: 'hitH', name: 'Pressure Point' }, c.x, c.y, null);
+        }
+      }
+    }
     for (const g of G.ghosts) g.t += dt;
     G.ghosts = G.ghosts.filter(g => g.t < g.life);
     G.fx.update(dt);
@@ -657,11 +726,16 @@ const Game = (() => {
     const [a, b] = G.fighters;
     if (G.state === 'intro') {
       for (const f of G.fighters) f.pose = G.stateT < 1.1 ? 'winCross' : null;
-      if (G.stateT > 0.25 && !G.introSaid) { G.introSaid = true; G.callout(G.cfg.finalRound || isFinal() ? 'FINAL ROUND' : 'ROUND ' + G.round, G.stage.name, 'round', 1.2); Sfx.play('round'); }
+      if (G.stateT > 0.25 && !G.introSaid) { G.introSaid = true; G.callout((G.cfg.toWin || 2) === 1 ? (G.cfg.tutorial ? 'LESSON' : 'ONE ROUND') : isFinal() ? 'FINAL ROUND' : 'ROUND ' + G.round, G.cfg.roundSub || G.stage.name, 'round', 1.2); Sfx.play('round'); }
       if (G.stateT > 1.6) { G.state = 'fight'; G.stateT = 0; G.introSaid = false; G.callout('FIGHT!', '', 'fight', 0.8); Sfx.play('fight'); for (const f of G.fighters) f.pose = null; }
       return;
     }
     if (G.state === 'fight') {
+      if (G.cfg.tutorial) {
+        // the guided first fight: nobody can be knocked out until the lesson is over
+        for (const f of G.fighters) if (f.hp < f.maxHp * 0.3) f.hp = f.maxHp * 0.3;
+        return;
+      }
       if (G.cfg.training) {
         // the dummy refills once a combo ends
         const d = G.fighters[1];
@@ -677,7 +751,7 @@ const Game = (() => {
       if (G.state === 'fight' && G.timer <= 0) {
         G.timer = 0;
         const ra = a.hp / a.maxHp, rb = b.hp / b.maxHp;
-        G.winner = ra > rb ? 0 : rb > ra ? 1 : -1;
+        G.winner = G.cfg.loseOnTime ? 1 : ra > rb ? 0 : rb > ra ? 1 : -1;
         G.state = 'ko'; G.stateT = 0; G.koKind = 'time';
         G.callout('TIME', G.winner < 0 ? 'DRAW' : '', 'ko', 1.6);
         Sfx.play('ko');
@@ -762,7 +836,7 @@ const Game = (() => {
     if (G.impactQ.length) { updateCamera(realDt); return; }
     if (G.slowT > 0) { G.slowT -= realDt; if (G.slowT <= 0) G.slowK = 1; }
     G.shakeA = Math.max(0, G.shakeA - realDt * 60);
-    G.acc += realDt * (G.slowT > 0 ? G.slowK : 1) * G.speed;
+    G.acc += realDt * (G.slowT > 0 ? G.slowK : 1) * G.speed * (G.cfg && G.cfg.speedMul || 1);
     let n = 0;
     while (G.acc >= STEP && n < 12 * G.speed) {
       G.acc -= STEP; n++;
@@ -840,7 +914,19 @@ const Game = (() => {
         drawRubberArm(ctx, f, p.x, p.y);
       }
     }
-    for (const s of G.summons) if (s.kind === 'clone' && !s.rag.hidden) { ctx.globalAlpha = mono ? 1 : 0.92; s.rag.draw(ctx, time, mono); ctx.globalAlpha = 1; }
+    for (const s of G.summons) {
+      if (s.kind !== 'minion' || s.rag.hidden) continue;
+      const rise = s.rise ? clamp(1 - s.t / 0.22, 0, 1) : 0;
+      ctx.save();
+      if (rise > 0) { ctx.beginPath(); ctx.rect(-5000, -5000, 12000, 5000 + GROUND); ctx.clip(); ctx.translate(0, rise * 260 * s.rag.s / 2); }
+      if (s.mono && !mono) {
+        const c = s.rag.center();
+        ctx.globalCompositeOperation = 'lighter'; Glow.draw(ctx, s.glow, c.x, c.y, 120 * s.rag.s / 2, 0.5); ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 0.9; s.rag.draw(ctx, time, s.mono);
+        const hd = s.rag.head(); ctx.fillStyle = s.glow; ctx.fillRect(hd.x + s.rag.facing * 4, hd.y - 4, 10 * s.rag.facing, 4);
+      } else { ctx.globalAlpha = mono ? 1 : 0.92; s.rag.draw(ctx, time, mono); }
+      ctx.restore();
+    }
   }
 
   G.render = function () {
@@ -863,10 +949,27 @@ const Game = (() => {
     for (const g of G.ghosts) { ctx.globalAlpha = 0.45 * (1 - g.t / g.life); g.g.draw(ctx, time, g.color); ctx.globalAlpha = 1; }
     drawFighters(time);
     for (const f of G.fighters) if (f.action && f.action.move.draw) f.action.move.draw(G, ctx, f, f.action, time);
+    for (const f of G.fighters) {
+      if (f.marks > 0) {
+        ctx.globalCompositeOperation = 'lighter';
+        const pulse = 0.6 + Math.sin(time * (8 + (2.2 - f.markT) * 10)) * 0.4;
+        for (let i = 0; i < f.marks; i++) { const q = f.pts[[P.HEAD, P.NECK, P.PELVIS, P.FELB, P.BELB, P.FKNEE, P.BKNEE, P.FHAND][i]]; Glow.draw(ctx, '#e2ff9a', q.x, q.y, 22, pulse); ctx.fillStyle = '#ffffff'; ctx.fillRect(q.x - 3, q.y - 3, 6, 6); }
+        ctx.globalCompositeOperation = 'source-over';
+      }
+      if (f.barrierT > 0) {
+        const c = f.center(), R = 120 * f.s / 2, k = Math.min(1, f.barrierT * 4);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.25 * k; ctx.fillStyle = '#00d9ff'; ctx.beginPath(); ctx.arc(c.x, c.y, R, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 0.9 * k; ctx.strokeStyle = '#bff8ff'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(c.x, c.y, R, 0, TAU); ctx.stroke();
+        for (let i = 0; i < 6; i++) { const a = time * 3 + i * TAU / 6; ctx.beginPath(); ctx.arc(c.x, c.y, R * 0.85, a, a + 0.5); ctx.stroke(); }
+        ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+      }
+    }
     for (const b of G.beams) drawBeam(b, time);
     for (const p of G.projs) { if (p.draw) p.draw(ctx, p, time); else orbDraw(ctx, p, time); }
     G.fx.draw(ctx);
     G.fx.drawSlashes(ctx);
+    Stage.drawFront(ctx, G.stageId, vr, time, G.cam);
     G.fx.drawTexts(ctx);
     drawTint(vr, time, 'front');
     // screen space
@@ -931,6 +1034,23 @@ const Game = (() => {
     const k = clamp(Math.min(fl.t * 6, (fl.life - fl.t) * 6 + 0.3), 0, 1);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
+    if (fl.draw === 'hands') {
+      // shadow hands burst up through the floor at the end
+      const u = fl.t / fl.life;
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = '#1a0f33'; ctx.globalAlpha = 0.6;
+      ctx.beginPath(); ctx.ellipse(fl.x, GROUND, 90, 14, 0, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 1;
+      const up = easeOut(clamp((u - 0.55) / 0.45, 0, 1));
+      for (let i = 0; i < 4; i++) {
+        const x = fl.x + (i - 1.5) * 34, h = up * (120 + (i % 2) * 50);
+        ctx.strokeStyle = '#1a0f33'; ctx.lineWidth = 14; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(x, GROUND); ctx.quadraticCurveTo(x + Math.sin(time * 6 + i) * 20, GROUND - h * 0.6, x + (i - 1.5) * 8, GROUND - h); ctx.stroke();
+        ctx.fillStyle = '#8a6bff'; ctx.beginPath(); ctx.arc(x + (i - 1.5) * 8, GROUND - h, 9, 0, TAU); ctx.fill();
+      }
+      ctx.restore();
+      return;
+    }
     if (fl.draw === 'blue') {
       Glow.draw(ctx, '#3a6dff', fl.x, fl.y, fl.r * 3, 0.8 * k);
       ctx.fillStyle = '#0a1240'; ctx.globalCompositeOperation = 'source-over';
@@ -1046,44 +1166,142 @@ const Game = (() => {
     ctx.globalAlpha = 1;
   }
 
+  // halftone dots for the super panel
+  let halftone = null;
+  function halftonePattern() {
+    if (halftone) return halftone;
+    const c = document.createElement('canvas'); c.width = c.height = 14;
+    const g = c.getContext('2d');
+    g.fillStyle = '#ffffff'; g.beginPath(); g.arc(4, 4, 2.6, 0, TAU); g.arc(11, 11, 2.6, 0, TAU); g.fill();
+    halftone = ctx.createPattern(c, 'repeat');
+    return halftone;
+  }
+
+  /* the ultimate banner: cinematic bars, a skewed comic panel with a close-up of the
+     fighter, racing streaks, and the move name slammed in letter by letter */
   function drawCutin(time) {
-    const c = G.cut, f = c.f;
-    const u = c.t / c.d;
-    const inK = easeOut(clamp(u / 0.18, 0, 1)), outK = clamp((u - 0.82) / 0.18, 0, 1);
-    ctx.fillStyle = `rgba(4,5,10,${0.55 * (1 - outK)})`;
+    const c = G.cut, f = c.f, col = f.def.color;
+    const t = c.t, d = c.d;
+    const side = f.side ? -1 : 1;
+    const inK = clamp(t / 0.2, 0, 1), outK = clamp((t - (d - 0.2)) / 0.2, 0, 1);
+    const live = 1 - outK;
+    const u = dpr;
+    // dim the frozen world
+    ctx.fillStyle = `rgba(3,4,8,${0.66 * live})`;
     ctx.fillRect(0, 0, cw, ch);
-    speedLines({ x: cw / 2 / dpr, y: ch / 2 / dpr }, time, `rgba(255,255,255,${0.18 * (1 - outK)})`);
-    // slanted band across the screen
-    const bh = ch * 0.3, cy = ch * 0.5;
-    const slide = (1 - inK) * cw * (f.side ? 1 : -1) + outK * cw * (f.side ? -1 : 1);
+    // speed lines in the fighter's colour, radiating from the portrait
+    const px = cw * (side > 0 ? 0.3 : 0.7), cy = ch * 0.5;
+    ctx.globalAlpha = 0.35 * live;
+    speedLines({ x: px / dpr, y: cy / dpr }, time, col);
+    ctx.globalAlpha = 1;
+    // cinematic bars
+    const bar = ch * 0.11 * easeOut(inK) * live;
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cw, bar); ctx.fillRect(0, ch - bar, cw, bar);
+    ctx.fillStyle = col; ctx.fillRect(0, bar - 3 * u, cw, 3 * u * live); ctx.fillRect(0, ch - bar, cw, 3 * u * live);
+
+    // the panel slides in with an overshoot, then out the other way
+    const H2 = ch * 0.44;
+    const slide = (1 - easeOutBack(inK)) * -side * cw * 1.1 + easeInOut(outK) * side * cw * 1.2;
+    const skew = 0.22 * side;
     ctx.save();
     ctx.translate(slide, 0);
     ctx.beginPath();
-    ctx.moveTo(0, cy - bh / 2 + ch * 0.05); ctx.lineTo(cw, cy - bh / 2 - ch * 0.05);
-    ctx.lineTo(cw, cy + bh / 2 - ch * 0.05); ctx.lineTo(0, cy + bh / 2 + ch * 0.05); ctx.closePath();
-    const g = ctx.createLinearGradient(0, 0, cw, 0);
-    g.addColorStop(0, '#0b0d14'); g.addColorStop(0.5, mixHex(f.def.color, '#0b0d14', 0.55)); g.addColorStop(1, '#0b0d14');
-    ctx.fillStyle = g; ctx.fill();
-    ctx.save(); ctx.clip();
-    // portrait: the fighter's head and shoulders, huge
-    const px = f.side ? cw * 0.74 : cw * 0.26;
-    Portraits.drawBig(ctx, f.def, px, cy + bh * 0.12, bh * 1.25, f.side ? -1 : 1, time);
+    const top = cy - H2 / 2, bot = cy + H2 / 2;
+    ctx.moveTo(-cw * 0.2 + skew * H2 / 2, top); ctx.lineTo(cw * 1.2 + skew * H2 / 2, top);
+    ctx.lineTo(cw * 1.2 - skew * H2 / 2, bot); ctx.lineTo(-cw * 0.2 - skew * H2 / 2, bot); ctx.closePath();
+    ctx.save();
+    ctx.clip();
+    const g = ctx.createLinearGradient(side > 0 ? 0 : cw, 0, side > 0 ? cw : 0, 0);
+    g.addColorStop(0, mixHex(col, '#ffffff', 0.15)); g.addColorStop(0.42, mixHex(col, '#000000', 0.35)); g.addColorStop(1, '#07080d');
+    ctx.fillStyle = g; ctx.fillRect(-cw * 0.3, top, cw * 1.6, H2);
+    // halftone wash and racing streaks
+    ctx.globalAlpha = 0.16; ctx.fillStyle = halftonePattern();
+    ctx.save(); ctx.translate((time * 60 * side) % 14, 0); ctx.fillRect(-cw * 0.3, top, cw * 1.6, H2); ctx.restore();
+    ctx.globalAlpha = 1;
+    const rnd = mulberry32(Math.floor(time * 24));
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    for (let i = 0; i < 18; i++) {
+      const y = top + rnd() * H2, len = cw * (0.15 + rnd() * 0.35), x = rnd() * cw * 1.4 - cw * 0.2;
+      ctx.fillRect(x, y, len, (1 + rnd() * 3) * u);
+    }
+    // close-up of the fighter, pushing in slowly
+    const zoom = 1 + t * 0.08;
+    ctx.globalCompositeOperation = 'lighter';
+    Glow.draw(ctx, col, px, cy, H2 * 0.9, 0.8);
+    ctx.globalCompositeOperation = 'source-over';
+    // the fighter's own body, mid-pose, blown up with a glowing outline
+    {
+      const c0 = f.center();
+      const k = H2 * 0.82 / (130 * f.s) * zoom;
+      ctx.save();
+      ctx.translate(px, cy + H2 * 0.08);
+      ctx.scale(k * (f.facing === side ? 1 : -1), k);
+      ctx.translate(-c0.x, -c0.y);
+      const o = 5 / k;
+      for (const [dx, dy] of [[o, 0], [-o, 0], [0, o], [0, -o]]) { ctx.save(); ctx.translate(dx, dy); f.draw(ctx, time, '#07080d'); ctx.restore(); }
+      f.draw(ctx, time);
+      ctx.restore();
+    }
+    // eye glint sweeps across
+    if (t > 0.28 && t < 0.5) {
+      const k = (t - 0.28) / 0.22;
+      ctx.globalAlpha = Math.sin(k * Math.PI);
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 5 * u; ctx.lineCap = 'round';
+      const hd = f.head(), c0 = f.center(), kz = H2 * 0.82 / (130 * f.s) * zoom;
+      const ex = px + (hd.x - c0.x) * kz * (f.facing === side ? 1 : -1), ey = cy + H2 * 0.08 + (hd.y - c0.y) * kz;
+      ctx.beginPath(); ctx.moveTo(ex - side * H2 * 0.06, ey + 2 * u); ctx.lineTo(ex + side * H2 * 0.16, ey - 6 * u); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
     ctx.restore();
-    ctx.fillStyle = f.def.color;
-    ctx.fillRect(0, cy - bh / 2 + ch * 0.05 - 6 * dpr, cw, 6 * dpr);
-    ctx.fillRect(0, cy + bh / 2 - ch * 0.05, cw, 6 * dpr);
-    // the move name
-    const tx = f.side ? cw * 0.38 : cw * 0.62;
+    // panel edges
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4 * u; ctx.stroke();
+    ctx.restore();
+
+    // move name: subtitle chip, then the title slammed in letter by letter
+    const tx = side > 0 ? cw * 0.64 : cw * 0.36;
+    ctx.save();
+    ctx.translate(slide * 0.6, 0);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = `900 ${Math.round(bh * 0.1)}px Rubik, sans-serif`;
-    ctx.fillStyle = f.def.color;
-    ctx.fillText(c.sub, tx, cy - bh * 0.2);
-    const size = Math.round(Math.min(bh * 0.34, cw * 0.075));
+    const subSize = Math.round(Math.min(H2 * 0.09, cw * 0.022));
+    ctx.font = `900 ${subSize}px Rubik, sans-serif`;
+    const sw = ctx.measureText(c.sub).width + subSize * 1.6;
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.moveTo(tx - sw / 2 + subSize * 0.4, cy - H2 * 0.3 - subSize * 0.8); ctx.lineTo(tx + sw / 2 + subSize * 0.4, cy - H2 * 0.3 - subSize * 0.8); ctx.lineTo(tx + sw / 2 - subSize * 0.4, cy - H2 * 0.3 + subSize * 0.8); ctx.lineTo(tx - sw / 2 - subSize * 0.4, cy - H2 * 0.3 + subSize * 0.8); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#0d1018'; ctx.fillText(c.sub, tx, cy - H2 * 0.3 + 1);
+    const size = Math.round(Math.min(H2 * 0.3, cw * 0.62 / Math.max(6, c.title.length) * 1.55));
     ctx.font = `italic 900 ${size}px Rubik, sans-serif`;
-    ctx.lineWidth = size * 0.16; ctx.strokeStyle = '#000'; ctx.lineJoin = 'round';
-    ctx.strokeText(c.title, tx, cy + bh * 0.06);
-    ctx.fillStyle = '#ffffff'; ctx.fillText(c.title, tx, cy + bh * 0.06);
+    const widths = [...c.title].map(ch2 => ctx.measureText(ch2).width);
+    const total = widths.reduce((a, b) => a + b, 0);
+    let x = tx - total / 2;
+    [...c.title].forEach((ch2, i) => {
+      const lt = t - 0.12 - i * 0.03;
+      const w = widths[i];
+      if (lt > 0) {
+        const k = clamp(lt / 0.12, 0, 1);
+        const sc = lerp(2.4, 1, easeOut(k));
+        ctx.save();
+        ctx.translate(x + w / 2, cy + H2 * 0.02);
+        ctx.scale(sc, sc);
+        ctx.globalAlpha = k;
+        ctx.lineJoin = 'round';
+        ctx.fillStyle = col; ctx.fillText(ch2, size * 0.06, size * 0.08);
+        ctx.lineWidth = size * 0.14; ctx.strokeStyle = '#000'; ctx.strokeText(ch2, 0, 0);
+        ctx.fillStyle = '#ffffff'; ctx.fillText(ch2, 0, 0);
+        ctx.restore();
+      }
+      x += w;
+    });
+    // fighter name and an underline that sweeps across
+    const ul = clamp((t - 0.3) / 0.25, 0, 1);
+    ctx.fillStyle = col; ctx.fillRect(tx - total / 2, cy + H2 * 0.02 + size * 0.62, total * easeOut(ul), 5 * u);
+    ctx.font = `800 ${subSize}px Rubik, sans-serif`;
+    ctx.globalAlpha = ul; ctx.fillStyle = '#ffffff';
+    ctx.fillText(f.def.name + ' · ' + f.def.title, tx, cy + H2 * 0.02 + size * 0.62 + subSize * 1.5);
+    ctx.globalAlpha = 1;
     ctx.restore();
+    // white flash on entry and exit
+    const fl = Math.max(1 - t / 0.08, t > d - 0.2 ? 1 - Math.abs(t - (d - 0.12)) / 0.08 : 0);
+    if (fl > 0 && Save.data.settings.flashes) { ctx.globalAlpha = clamp(fl, 0, 1) * 0.8; ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, cw, ch); ctx.globalAlpha = 1; }
   }
 
   function drawCallouts() {

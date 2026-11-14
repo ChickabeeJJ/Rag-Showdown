@@ -1,7 +1,7 @@
 'use strict';
 /* =========================================================================
    Save data in localStorage (every access guarded): coins, unlocked
-   fighters, Arcade clears, Survival best, settings and lifetime stats.
+   fighters, level stars, Survival best, settings and lifetime stats.
    ========================================================================= */
 
 const Save = (() => {
@@ -15,6 +15,9 @@ const Save = (() => {
     totalWins: 0, finishers: 0, blackFlashes: 0, matches: 0,
     daily: '',           // UTC date of the last first-win bonus
     seenHow: false,
+    levels: {},          // level index -> best stars
+    tips: {},            // contextual tips already shown
+    tutorialDone: false,
     lastPick: 'kaze',
     arcadeDiff: 1,       // 0 easy, 1 normal, 2 hard
     settings: { sfx: true, music: true, shake: true, flashes: true },
@@ -32,6 +35,8 @@ const Save = (() => {
         S.data.unlocked = S.data.unlocked.filter(id => BY_ID[id]);
         if (!BY_ID[S.data.lastPick]) S.data.lastPick = 'kaze';
         if (!Number.isFinite(S.data.coins) || S.data.coins < 0) S.data.coins = 0;
+        if (!S.data.levels || typeof S.data.levels !== 'object') S.data.levels = {};
+        if (!S.data.tips || typeof S.data.tips !== 'object') S.data.tips = {};
       }
     } catch (e) { S.data = fresh(); }
   };
