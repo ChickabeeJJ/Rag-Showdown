@@ -3,41 +3,89 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#1b2631">
-  <title>Body Business · Physics Test Room</title>
-  <link rel="stylesheet" href="css/style.css">
+  <meta name="theme-color" content="#0c0e15">
+  <meta name="description" content="Rag Showdown - a 1v1 ragdoll fighting game. Nine anime-inspired fighters, cinematic supers with impact-frame finishers, Arcade, Versus, Survival and Training.">
+  <title>Rag Showdown</title>
+  <link rel="stylesheet" href="css/style.css?v=1">
 </head>
 <body>
-  <div id="game"></div>
+  <canvas id="stage" aria-label="Game"></canvas>
 
-  <header class="topbar">
-    <div class="brand"><b>BODY</b><b class="o">BUSINESS</b><small>PHASE 1 · PHYSICS PROOF · DRAG ANYTHING</small></div>
-  </header>
-  <nav class="actions">
-    <button class="btn primary" data-act="reset"><b>RESET</b><kbd>R</kbd></button>
-    <button class="btn" data-act="drop"><b>DROP</b><kbd>1</kbd></button>
-    <button class="btn" data-act="launch"><b>LAUNCH</b><kbd>2</kbd></button>
-    <button class="btn" data-act="spring"><b>ONTO SPRING</b><kbd>3</kbd></button>
-    <button class="btn" data-act="rope"><b>TIE ROPE</b><kbd>4</kbd></button>
-    <button class="btn" data-act="add"><b>+ EMPLOYEE</b><kbd>E</kbd></button>
-    <button class="btn" data-act="type"><b>TYPE: STANDARD</b><kbd>Q</kbd></button>
-    <button class="btn" data-act="walk" title="Experimental: can an employee walk under physics?"><b>WALK</b><kbd>W</kbd></button>
-    <button class="btn" data-act="pause"><b>PAUSE</b><kbd>P</kbd></button>
-    <button class="btn" data-act="debug"><b>DEBUG</b><kbd>D</kbd></button>
-    <button class="btn test" data-act="test"><b>STRESS TEST</b><kbd>T</kbd></button>
-  </nav>
-  <aside id="panel" class="panel hidden"></aside>
-  <section id="report" class="report hidden"></section>
+  <!-- =============================== HUD =============================== -->
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="hs p1" id="hs0"><div class="pt"><img alt=""></div><div class="col"><div class="nm"><b></b><small></small><span class="wins"></span></div><div class="hp"><i class="lag"></i><i class="fill"></i></div><div class="gd"><i></i></div></div></div>
+      <div class="timer" id="timer"><b>99</b><small>ROUND 1</small></div>
+      <div class="hs p2" id="hs1"><div class="pt"><img alt=""></div><div class="col"><div class="nm"><b></b><small></small><span class="wins"></span></div><div class="hp"><i class="lag"></i><i class="fill"></i></div><div class="gd"><i></i></div></div></div>
+    </div>
+    <div class="hud-chip hidden" id="hudChip"></div>
+    <div class="hud-right"><button class="round" id="btnPause" aria-label="Pause"><span class="ic" data-icon="pause"></span></button></div>
+    <div class="combo-pop p1 hidden" id="combo0"><b>0</b><span>HITS</span></div>
+    <div class="combo-pop p2 hidden" id="combo1"><b>0</b><span>HITS</span></div>
+    <div class="sm p1" id="sm0"><b>SUPER</b><div class="trk"><i></i></div></div>
+    <div class="sm p2" id="sm1"><b>SUPER</b><div class="trk"><i></i></div></div>
+    <div class="skillbar" id="skillbar"></div>
+    <div class="tpad" id="tpad">
+      <div class="joy" id="joy"><div class="joy-base"></div><div class="joy-knob" id="joyKnob"></div></div>
+      <div class="orbs" id="orbs"></div>
+    </div>
+  </div>
 
-  <script src="lib/phaser-3.90.0.min.js"></script>
-  <script src="src/config.js"></script>
-  <script src="src/levels.js"></script>
-  <script src="src/art.js"></script>
-  <script src="src/ragdoll.js"></script>
-  <script src="src/actors.js"></script>
-  <script src="src/testroom.js"></script>
-  <script src="src/stress.js"></script>
-  <script src="src/ui.js"></script>
-  <script src="src/main.js"></script>
+  <!-- =============================== HOME =============================== -->
+  <section id="home" class="screen">
+    <div class="home-panel">
+      <h1 class="title" aria-label="Rag Showdown"><span class="t1" aria-hidden="true"><i style="--i:0">R</i><i style="--i:1">A</i><i style="--i:2">G</i></span><span class="t2" aria-hidden="true"><i>SHOWDOWN</i></span><span class="tag">ANIME RAGDOLL FIGHTER</span></h1>
+      <div class="home-menu">
+        <button class="btn primary big" id="btnArcade"><span class="ic" data-icon="play"></span><span class="bt"><b>ARCADE</b><small id="arcadeSub">6 FIGHTS · NORMAL</small></span></button>
+        <div class="btn-row">
+          <button class="btn mode" id="btnVersus"><span class="ic" data-icon="swords"></span><span class="bt"><b>VERSUS</b><small>CPU OR 2 PLAYERS</small></span></button>
+          <button class="btn mode" id="btnSurvival"><span class="ic" data-icon="infinity"></span><span class="bt"><b>SURVIVAL</b><small id="survSub">BEST 0</small></span></button>
+        </div>
+        <div class="btn-row">
+          <button class="btn tile" id="btnRoster"><span class="ic" data-icon="user"></span><b>FIGHTERS</b><i class="note hidden" id="rosterNote"></i></button>
+          <button class="btn tile" id="btnTraining"><span class="ic" data-icon="target"></span><b>TRAINING</b></button>
+          <button class="btn tile" id="btnHow"><span class="ic" data-icon="book"></span><b>HOW TO PLAY</b></button>
+        </div>
+      </div>
+      <div class="pick-card" id="homePick"></div>
+      <div class="daily" id="daily"></div>
+    </div>
+    <div class="corner tr">
+      <div class="pill"><span class="ic coin" data-icon="coins"></span><b class="coin-val">0</b></div>
+      <button class="round" id="btnSettings" aria-label="Settings"><span class="ic" data-icon="gear"></span></button>
+    </div>
+  </section>
+
+  <!-- ============================== SELECT ============================== -->
+  <section id="select" class="screen hidden">
+    <header class="bar">
+      <button class="round" data-back aria-label="Back"><span class="ic" data-icon="back"></span></button>
+      <h2 id="selTitle">CHOOSE YOUR FIGHTER</h2>
+      <div class="pill"><span class="ic coin" data-icon="coins"></span><b class="coin-val">0</b></div>
+    </header>
+    <div class="sel">
+      <div class="sel-grid card" id="selGrid"></div>
+      <div class="sel-detail card" id="selDetail"></div>
+    </div>
+  </section>
+
+  <div id="modal" class="modal hidden"><div class="sheet" id="sheet"></div></div>
+  <div id="toasts"></div>
+  <div id="bars" aria-hidden="true"><i style="--i:4"></i><i style="--i:3"></i><i style="--i:5"></i><i style="--i:2"></i><i style="--i:6"></i><i style="--i:1"></i><i style="--i:7"></i><i style="--i:0"></i><i style="--i:8"></i></div>
+  <div id="rotate" class="hidden"><div><span class="ic" data-icon="rotate"></span><p>TURN YOUR DEVICE SIDEWAYS</p><button class="btn primary" id="btnRotateOk"><b>PLAY ANYWAY</b></button></div></div>
+
+  <script src="js/util.js?v=1"></script>
+  <script src="js/icons.js?v=1"></script>
+  <script src="js/audio.js?v=1"></script>
+  <script src="js/rag.js?v=1"></script>
+  <script src="js/fx.js?v=1"></script>
+  <script src="js/fighters.js?v=1"></script>
+  <script src="js/save.js?v=1"></script>
+  <script src="js/stage.js?v=1"></script>
+  <script src="js/input.js?v=1"></script>
+  <script src="js/ai.js?v=1"></script>
+  <script src="js/game.js?v=1"></script>
+  <script src="js/ui.js?v=1"></script>
+  <script src="js/main.js?v=1"></script>
 </body>
 </html>

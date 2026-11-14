@@ -1,0 +1,60 @@
+'use strict';
+/* =========================================================================
+   Boot, main loop and keyboard routing. Touch lives in ui.js.
+   URL flags (for testing): ?speed=N runs the simulation N times faster,
+   ?autotest runs CPU-vs-CPU soak matches and reports to window.__test.
+   ========================================================================= */
+
+(async function boot() {
+  const canvas = document.getElementById('stage');
+  Save.load();
+  try { await Promise.all([document.fonts.load('900 20px Rubik'), document.fonts.load('600 20px Rubik')]); } catch (e) { /* fonts are optional */ }
+  const q = new URLSearchParams(location.search);
+  if (q.has('speed')) UI.testSpeed = clamp(+q.get('speed') || 1, 1, 16);
+  Game.init(canvas);
+  UI.init();
+
+  for (const ev of ['pointerdown', 'keydown', 'touchend']) window.addEventListener(ev, () => Sfx.ensure(), { capture: true, passive: true });
+  canvas.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') document.body.classList.remove('touch'); else document.body.classList.add('touch'); });
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+  const inFight = () => UI.screen === null && UI.fightOn && !UI.modalOpen();
+  window.addEventListener('keydown', e => {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+    if (e.code === 'KeyP' || e.code === 'Escape') {
+      if (UI.fightOn && UI.screen === null) {
+        if (UI.modalOpen() && Game.paused) UI.resume();
+        else if (!UI.modalOpen()) UI.openPause();
+      }
+      return;
+    }
+    document.body.classList.remove('touch');
+    if (inFight()) { if (Input.keydown(e)) e.preventDefault(); }
+  });
+  window.addEventListener('keyup', e => Input.keyup(e));
+  window.addEventListener('blur', () => Input.clearAll());
+  window.addEventListener('resize', () => { Game.resize(); UI.checkRotate(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { if (inFight() && Game.state !== 'over') UI.openPause(); Sfx.suspend(true); }
+    else Sfx.suspend(false);
+  });
+
+  let last = performance.now();
+  window.__errors = window.__errors || [];
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    try {
+      Input.pollPads();
+      Game.update(dt);
+      Game.render();
+      UI.tick();
+    } catch (err) {
+      window.__errors.push(String(err && err.stack || err));
+      console.error(err);
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  if (q.has('autotest') && window.AutoTest) window.AutoTest.run(q);
+})();

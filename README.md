@@ -1,98 +1,118 @@
-# Body Business
+# Rag Showdown
 
-A 2D ragdoll physics delivery puzzle: place a few devices, press RUN, and watch floppy employees get the parcel delivered (or not).
+A 1v1 ragdoll fighting game in the style of classic arcade fighters. Every fighter is one of Element Rag's plain, faceless stickmen, with the same floppy active-ragdoll body and the same UI. What sets each one apart is a set of powers based on the kinds of techniques battle anime is famous for. Every super has a cut-in. A super that lands the knockout plays a **FINISHER** with impact frames (stark black, white and red frames), slow motion and a letterboxed stamp.
 
-**Status: Phase 1, physics proof.** This build is the test room from the design brief: floor, walls, one parcel, one standard ragdoll employee, a spring pad and a rope, with a debug view, reset and an automated stress test. There are no levels, BUILD/RUN states or progression yet (that's Phase 2).
+It's pure HTML5 and vanilla JS, with no build step and no dependencies. All art is procedural and every sound is synthesized. The UI reuses Element Rag's style: ink panels with cut corners, Rubik, one warm accent, glossy skill badges and the bar transition.
 
-## Run it
-
-Serve the folder and open `index.html`. Phaser is vendored in `lib/`, so the game works offline after the first load.
+Serve the folder and open `index.html`:
 
 ```bash
 python3 -m http.server 8000
 ```
 
-Add `?selftest` to the URL to run the stress test on load. Add `?vel` to draw velocity vectors in the debug view.
+> This replaces the earlier *Body Business* physics prototype, which is still in git history.
 
-## Test room controls
+## The loop
 
-| Key | Button | What it does |
-| --- | --- | --- |
-| mouse / touch | | Drag anything (employees, parcel, rope) |
-| `R` | RESET | Rebuild the room from level data |
-| `1` | DROP | Drop the employee from near the ceiling at a random angle |
-| `2` | LAUNCH | Fling the employee in a random direction |
-| `3` | ONTO SPRING | Put the employee above the spring pad |
-| `4` | TIE ROPE | Tie / untie the rope's end to the employee |
-| `E` | + EMPLOYEE | Add employees (up to 4), then clear the extras |
-| `Q` | TYPE | Cycle archetypes: Standard, Heavy, Bouncy, Tiny, Floppy |
-| `W` | WALK | Experimental walk (see risks below) |
-| `P` / `Space` | PAUSE | Pause the simulation |
-| `D` / `` ` `` | DEBUG | Body shapes, joints, contact points, limit hits, live stats |
-| `T` | STRESS TEST | Run the Phase 1 stability gate |
+1. **Arcade** (the main mode): choose a fighter and a difficulty (Easy, Normal or Hard), then win six best-of-three fights. Opponents get stronger each fight, and the last one is a boss on the Crater Plains. If you lose, a 10-second **CONTINUE?** countdown lets you retry that fight.
+2. Every win pays **coins**: a base amount that grows up the ladder, plus bonuses for finishers, perfects, Black Sparks, long combos, and the first win of each day (+100). Clearing Arcade pays a clear bonus (more the first time, and more with no continues) and puts a trophy on that fighter.
+3. Spend coins on new fighters in **Fighters**. Four are free at the start. Clearing Arcade once unlocks the hidden boss, **Saibo**.
+4. **Survival**: one-round fights in a row against stronger and stronger CPUs. You keep your health between fights and heal 35% after each win. Every fifth fight is against Saibo. Your best streak is saved.
+5. **Versus**: play against a CPU (level 1 to 8) or a second player on the same keyboard or with a second gamepad. You choose the stage.
+6. **Training**: a dummy that can stand, guard, jump or fight back, with optional infinite meter and a full move list.
 
-## Technical decisions
+While you're on the home screen, a CPU-vs-CPU demo fight plays behind the menu.
 
-- **Phaser 3.90 + Matter**, as the brief recommends. The repository was empty after the previous prototype was removed, so there was nothing to migrate. 3.90.0 is the last Phaser 3 release; it's vendored (`lib/`, MIT) instead of loaded from a CDN so the game stays playable offline. No build step; plain scripts under a `BB` namespace.
-- **Fixed 60 Hz stepping, driven by the scene.** Matter's own runner is off; `TestRoom.update` calls `world.step(16.67)` from an accumulator. That keeps runs repeatable and lets the stress test run 30 steps per frame.
-- **The ragdoll** (`src/ragdoll.js`) is 10 bodies: head, torso, upper and lower arms, thighs and shins. They're joined by zero-length pin constraints (stiffness 0.95, damping 0.1). All parts of one employee share a negative collision group, so a body never collides with itself; different employees, the parcel and the rope still collide with it. Rig geometry, joint limits, masses and archetypes are all data in `src/config.js`.
-- **Joint limits.** Matter has no angle limits, so each step a capped spring-damper adds corrective relative spin when a joint is past its range. It works on velocity only and its torque is bounded, so a limb jammed against the floor can't shove the whole body along. Limits are measured around the middle of each range, so angles that wrap past ±π are pushed back to the nearest limit.
-- **Velocity caps.** Every body is capped at 24 px/step (well under half the 60–80 px wall thickness, so nothing tunnels) and 0.4 rad/step of spin. Bodies that go NaN or leave the room are put back and counted (zero so far).
-- **Rest and sleep.** A jointed Matter body never quite stops: constraint and contact corrections leak into velocity and it creeps a few px/s. Matter's built-in sleeping doesn't handle constraints. So:
-  - A calm employee first gets extra air damping.
-  - After 1 s it sleeps: its parts become static.
-  - It wakes when the pointer grabs it, when a device launches it, or just before something moving reaches it, so the impact still sees its real mass.
-  - It won't sleep with a strained joint.
-  - Matter's cached correction impulses are cleared on sleep and wake; otherwise frozen parts drift apart.
-- **Devices launch whole actors.** The spring pad sets the velocity of every part of an employee at once, so it never rips one limb off. Its direction and strength are always drawn (the orange arrow).
-- **Level data** (`src/levels.js`): rooms are plain data (static geometry, spawns, devices), so Phase 2 levels reuse the same loader.
+## Fighting
 
-## Phase 1 gate: stress test results
+| | Keyboard | Gamepad | Touch |
+| --- | --- | --- | --- |
+| Move / dash | `A` `D`, tap twice to dash | stick / D-pad | stick |
+| Jump | `W` / `Space` | A | flick the stick up / JUMP |
+| Guard | hold away from the opponent | hold away | hold away |
+| Light · Heavy | `J` · `K` | X · Y | LIGHT · HEAVY |
+| Special 1 · 2 | `U` · `I` | B · RB | SPECIAL buttons |
+| Super (full meter) | `L` | RT | SUPER |
+| Throw | `J`+`K` together, or `O` | LB | (none) |
+| Pause | `P` / `Esc` | START | ⏸ |
 
-The stress test runs 21 scripted scenarios: drops, 12 random launches, max-speed wall and ceiling slams, spring launches, rope tie/swing/untie, a pile of four employees plus the parcel, a 40-launch chaos run, sleeping-body interactions, every archetype, and the walk check. A scenario fails on:
+Player 2 uses the arrow keys with `,` `.` `;` `'` `/` (light, heavy, special 1, special 2, super) and `Enter` to throw, or Numpad `1` `2` `4` `5` `3` `6`.
 
-- a NaN position;
-- a body escaping the room;
-- a joint pulled apart (more than 10 px for more than 12 steps);
-- bodies or joints left over after a reset;
-- actors that never come to rest.
+- **Chains and cancels:** light, light, heavy is a chain that ends in a launcher. Any light or heavy that connects (on hit or block) can be cancelled into a special. Anything can be cancelled into the super. Inputs are buffered for 0.22 s.
+- **Juggles:** fighters you knock into the air can be hit again, up to six hits; supers ignore this limit. A fighter who has landed can't be hit, and a fighter getting up is briefly invulnerable. Bodies knocked into a wall hard enough **wall splat**.
+- **Guard:** guard by holding away. Normals do no chip damage; specials and supers do. Each block drains the guard gauge under your health bar, and when it empties your guard breaks and you're stunned. Throws can't be guarded.
+- **Counter hits:** hitting a fighter during their wind-up does +25% damage and stuns for longer.
+- **Black Spark:** a heavy hit has a 13% chance (19% in a combo of three or more hits) to land as a Black Spark: double damage, +25 meter, and black-and-red impact frames.
+- **Meter:** you gain meter by dealing and taking damage, and it carries over between rounds. Using a super stops time for a cut-in and gives you a moment of invulnerability as it starts.
+- **Impact frames** can be turned off in Settings to reduce flashing. Big hits then dim the screen and show speed lines instead.
 
-Current results: **21/21 on 6 of the last 7 full runs**. Per scenario:
+## Roster
 
-- **Joint gap:** worst 2.3 px. The Tiny archetype briefly reaches about 11 px on impacts, then recovers.
-- **Resting pose:** at most about 0.4 rad past a joint limit.
-- **Settling:** everything comes to rest within 2–7 s.
-- **Cost:** about 1.5–2 ms per physics step with 4 employees, a parcel and the rope (51 bodies).
+Every fighter is an Element Rag stickman: a cream, faceless mannequin with wrist bands in the fighter's colour. Fighters wear Element Rag's own headgear: the hero's headband with tails, the caster's hood, the brute's helmet and plates, or the boss crest. A few also have Element Rag's cape. The two sword fighters carry plain energy blades in their colour. There are no anime character designs, and all names and move names are original. Each kit is built around a common anime archetype, not a specific character. In a mirror match, player 2 is drawn a shade darker.
 
-The one miss was a single chaos run that didn't settle in time. I couldn't reproduce it in 45 further chaos runs.
+| Fighter | Archetype | Special 1 | Special 2 | Super | Unlock |
+| --- | --- | --- | --- | --- | --- |
+| **Kaze** (orange) | Ki warrior | Ki Blast | Afterimage Rush: vanish behind the foe and hammer them upward | **Wave Cannon**: a charged two-handed beam; his colour turns gold | free |
+| **Ryo** (yellow) | Shinobi; has a double jump | Vortex Palm: a dashing drill strike | Mirror Clones: two clones kick in from both sides | **Storm Star**: an unblockable giant wind star that bursts into a dome of blades | free |
+| **Homura** (teal) | Sword dancer; energy blade | Tide Flip: a forward flip slash | River Rush: dash through the foe in ribbons of water | **Solar Coil**: six blink-slashes in fire, then a sun halo | free |
+| **Mugi** (pink) | Rubber brawler | Stretch Punch: reaches across the arena | Rapid Barrage | **Titan Fist**: an awakening that turns him white, then slams a giant fist down | free |
+| **Kohei** (green) | Rising hero | Air Flick: a shockwave | Volt Kick: a lightning axe kick | **Max Impact**: a punch whose wind blast clears the screen | 300 |
+| **Jin** (indigo) | Reaper; wide energy blade | Crescent Wave | Blink Step: blink behind the foe and slash | **Eclipse Crescent**: his body darkens and a giant black and red crescent grinds through the foe | 450 |
+| **Aoi** (violet) | Sorcerer | Azure Pull: an orb that pulls the foe in | Crimson Burst: a point-blank blast | **Infinite Expanse**: a domain freezes the foe, then an unblockable Violet Void | 600 |
+| **Taro** (silver) | Spirit master | Spirit Rush: his violet spirit's barrage | Spirit Finger: a long poke | **Time Halt**: stops time and barrages the frozen foe; every hit lands at once when time resumes | 800 |
+| **Saibo** (red) | Bored hero, the boss | Hundred Fists | Plain Punch | **Final Punch**: one punch that splits the sky | clear Arcade, or 1500 |
 
-## Known risks and limits
+**Stages:** Sunset Dojo, Neon Rooftop, Sakura Shrine, Void Rift, Crater Plains (the boss stage) and the Training Room. Infinite Expanse, Solar Coil, Eclipse Crescent and Time Halt each change how the arena looks while they're active.
 
-- **Walking.** The experimental puppet walk keeps the torso upright and shuffles forward at about 26 px/s, but it's slow and sometimes tips over. If employees need to move on their own in Phase 2, this needs real tuning, or a different design (for example conveyors, slopes and devices doing the moving).
-- **Tiny employees** have thin limbs, so joints visibly stretch for a moment on hard impacts.
-- **A sleeping employee on a moving surface** (conveyors, moving platforms in Phase 2) needs those devices to wake what they touch. Not built yet.
-- Tested in headless Chromium at 1280×720. Not yet tried on real phones.
+## Testing
 
-## Next: Phase 2 (playable vertical slice), on approval
+Both test tools drive the real game in headless Chromium with Playwright. Serve the repo on port 8123 first.
 
-- BUILD / RUN / RESULT states, a delivery zone (parcel plus at least one employee, held briefly), fail on out of bounds or timeout.
-- Conveyor belt device; placement, rotation and removal of devices inside legal build areas, with a budget counter.
-- Six data-driven levels that teach spring, conveyor and rope one at a time, then combine them.
-- One-click retry that keeps the layout; next-level flow; basic rewards.
+```bash
+python3 -m http.server 8123
+```
+
+```bash
+NODE_PATH=$(npm root -g) node tools/soak.js 2
+```
+
+```bash
+NODE_PATH=$(npm root -g) node tools/flow.js
+```
+
+- `tools/soak.js` runs CPU-vs-CPU matches for every pairing (the number is how many times to repeat each pairing) at 16x speed, rendering as it goes. It fails on any thrown error, NaN or escaped body, a round that never ends, a match that doesn't finish, or a broken HP or meter value. It also prints win rates per fighter as a balance check.
+- `tools/flow.js` clicks through the menus like a player:
+  - an Arcade run to the clear, checking that Saibo unlocks and coins are paid;
+  - a lost fight, then Continue, then Give Up;
+  - Survival, checking that the best streak is saved;
+  - local 2-player Versus, checking that each key set moves its own fighter;
+  - Training with every pause option;
+  - Settings;
+  - buying a fighter.
+
+Latest results: the soak ran 153 matches (369 rounds) with no issues, and win rates fell between 0.31 and 0.66 per fighter. All flow checks passed. The game was also checked at iPhone landscape size, with touch input.
 
 ## Project layout
 
 ```
-index.html          page, test tray, debug panel, report
-css/style.css       ink / teal / orange UI
-lib/                Phaser 3.90.0 (MIT, see PHASER_LICENSE.md)
-src/config.js       physics tuning, colours, archetypes, ragdoll rig, rest tracking
-src/levels.js       level data (the test room)
-src/art.js          textures drawn at boot (employee parts, parcel)
-src/ragdoll.js      Employee: bodies, joints, soft limits, launch, rest assist, sleep / wake, walk
-src/actors.js       Parcel, SpringPad, Rope
-src/testroom.js     Phase 1 scene: build from data, fixed step, caps, wake rules, monitoring, drawing
-src/stress.js       automated stability scenarios
-src/ui.js           test tray, debug panel, stress report, keyboard
-src/main.js         Phaser + Matter config
+index.html
+css/style.css     Element Rag's UI base, plus fighter select, fight HUD and touch pad
+js/util.js        math, seeded RNG, glow cache (from Element Rag)
+js/icons.js       UI and move icons (from Element Rag)
+js/audio.js       synthesized SFX and a step-sequencer fight soundtrack
+js/rag.js         Rag: Element Rag's active ragdoll and stickman drawing, plus a pose library
+                  with IK, hitstun, knockdowns, getting up, hurtboxes and energy blades
+js/fx.js          particles, rings, arcs, slash trails, hit stars (from Element Rag, extended)
+js/fighters.js    roster: normals, specials and scripted supers as data + hooks; stages
+js/game.js        rounds and timer, move runtime, hits / guard / juggles / Black Spark,
+                  projectiles, beams, fields, clones and stands, cut-ins, impact frames,
+                  finishers, camera, rendering
+js/stage.js       procedural parallax stages and portraits drawn from a posed ragdoll
+js/input.js       keyboard (2 sets), gamepads, touch; HumanCtrl with dashes and throws
+js/ai.js          CPU fighters, levels 1-9
+js/save.js        localStorage progress and settings
+js/ui.js          home + demo, select / shop, Arcade, Versus, Survival, Training, sheets, HUD, touch
+js/main.js        boot, loop, key routing
+tools/            headless soak and UI flow tests
+assets/fonts/     Rubik (SIL Open Font License)
 ```
