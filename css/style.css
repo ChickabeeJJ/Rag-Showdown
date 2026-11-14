@@ -687,3 +687,9 @@ body.touch .skill.mouse { display: none; }
 .dots i { width: 14px; height: 5px; border-radius: 2px; background: var(--ink-4); }
 .dots i.done { background: var(--green); }
 .dots i.now { background: var(--acc); }
+/* guide: a short hint under the label, and keys that fade in */
+.tut-hint { max-width: 340px; margin-top: -4px; text-align: center; font-weight: 600; font-size: 13px; line-height: 1.35; color: #cfd5e4; }
+.tut-hint:empty { display: none; }
+.tv-in { display: inline-flex; align-items: center; gap: 8px; animation: tvIn 0.35s ease both; }
+@keyframes tvIn { from { opacity: 0; transform: translateY(6px) scale(0.92); } }
+.tut.ok .tut-hint { color: var(--green); }

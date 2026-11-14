@@ -359,7 +359,7 @@ const UI = (() => {
     if (tw === 'supers') { cfg.meter0 = 100; cfg.meter1 = 100; }
     if (tw === 'tough') { hpMul[1] *= 1.5; cfg.waveHp *= 1.5; }
     if (tw === 'frenzy') cfg.speedMul = 1.2;
-    if (tw === 'glass') cfg.hpStart = [0.5, 0.5];
+    if (tw === 'glass') cfg.dmgMul = 2;
     if (tw === 'clock') { cfg.timeLimit = 40; cfg.loseOnTime = true; }
     U.run = { mode: 'level', L };
     beginFight(cfg, instant, U.fastNext);
@@ -420,15 +420,18 @@ const UI = (() => {
 
   /* ------------------------------------------------- the guided first fight */
   const cap = k => `<span class="cap${k.length > 2 ? ' wide' : ''}">${k}</span>`;
+  // the key that points away from the opponent: that's how you guard
+  const awayKey = () => { const f = Game.fighters[0], o = Game.fighters[1]; return (o && f && o.root.x >= f.root.x) ? 'A' : 'D'; };
+  const awayArrow = () => (awayKey() === 'A' ? '◀' : '▶');
   const TUT = [
-    { label: 'MOVE', key: () => cap('A') + cap('D'), touch: 'MOVE WITH THE STICK', focus: '.joy', done: t => t.moved },
-    { label: 'JUMP', key: () => cap('W'), touch: 'FLICK UP OR TAP JUMP', focus: '.orb-j', done: t => t.jumped },
-    { label: 'LIGHT ATTACK', key: () => MOUSE('l'), touch: 'TAP LIGHT', focus: '.orb-l', done: t => t.light >= 1 },
-    { label: 'HEAVY ATTACK', key: () => MOUSE('r'), touch: 'TAP HEAVY', focus: '.orb-h', done: t => t.heavy >= 1 },
-    { label: 'COMBO: LIGHT, LIGHT, HEAVY', key: () => MOUSE('l') + MOUSE('l') + MOUSE('r'), touch: 'LIGHT, LIGHT, HEAVY', focus: '.orb-l, .orb-h', done: t => t.ender >= 1 },
-    { label: 'SPECIAL MOVE', key: () => cap('Q') + '<span class="plus">/</span>' + cap('E'), touch: 'TAP A SPECIAL', focus: '.orb-s1, .orb-s2', done: t => t.special >= 1 },
-    { label: 'GUARD: HOLD AWAY', key: () => cap('A'), touch: 'HOLD THE STICK AWAY', focus: '.joy', done: t => t.blocked >= 1 || t.guardHeld > 1.2, start: () => { Game.ctrls[1] = new TutAttacker(); } },
-    { label: 'SUPER: METER FULL', key: () => cap('F'), touch: 'TAP SUPER', focus: '.orb-sup', done: t => t.superUsed, start: () => { Game.ctrls[1] = new DummyCtrl('stand'); Game.fighters[0].meter = 100; } },
+    { label: 'MOVE', hint: 'Walk left and right.', key: () => cap('A') + cap('D'), touch: 'MOVE', thint: 'Slide the stick left or right.', focus: '.joy', done: t => t.moved },
+    { label: 'JUMP', hint: 'Hop over attacks and projectiles.', key: () => cap('W'), touch: 'JUMP', thint: 'Flick the stick up, or tap JUMP.', focus: '.orb-j', done: t => t.jumped },
+    { label: 'LIGHT ATTACK', hint: 'Left click. Quick, and hard to punish.', key: () => MOUSE('l'), touch: 'LIGHT ATTACK', thint: 'Tap LIGHT.', focus: '.orb-l', done: t => t.light >= 1 },
+    { label: 'HEAVY ATTACK', hint: 'Right click. Slower, but hits harder.', key: () => MOUSE('r'), touch: 'HEAVY ATTACK', thint: 'Tap HEAVY.', focus: '.orb-h', done: t => t.heavy >= 1 },
+    { label: 'COMBO', hint: 'Left, left, right. It ends in your fighter\'s own finisher.', key: () => MOUSE('l') + MOUSE('l') + MOUSE('r'), touch: 'COMBO', thint: 'LIGHT, LIGHT, then HEAVY.', focus: '.orb-l, .orb-h', done: t => t.ender >= 1 },
+    { label: 'SPECIAL MOVE', hint: 'Q or E. Each one recharges after use.', key: () => cap('Q') + '<span class="plus">/</span>' + cap('E'), touch: 'SPECIAL MOVE', thint: 'Tap one of the SPECIAL buttons.', focus: '.orb-s1, .orb-s2', done: t => t.special >= 1 },
+    { label: 'GUARD', hint: 'They\'re attacking! Hold the key pointing away from them to block.', key: () => cap(awayKey()), dynamic: () => awayKey(), touch: 'GUARD', thint: 'Hold the stick away from them to block.', tkey: () => cap(awayArrow()), focus: '.joy', done: t => t.blocked >= 1 || t.guardHeld > 1.2, start: () => { Game.ctrls[1] = new TutAttacker(); } },
+    { label: 'SUPER', hint: 'Your super meter is full. Press F to unleash it.', key: () => cap('F'), touch: 'SUPER', thint: 'Your meter is full. Tap SUPER.', focus: '.orb-sup', done: t => t.superUsed, start: () => { Game.ctrls[1] = new DummyCtrl('stand'); Game.fighters[0].meter = 100; } },
   ];
   function startTut() {
     $('hudChip').classList.add('hidden');
@@ -441,14 +444,18 @@ const UI = (() => {
   function renderTut() {
     const step = TUT[Math.min(U.tut.i, TUT.length - 1)];
     const touch = isTouch();
-    $('tutVis').innerHTML = touch ? `<span class="tut-btn">${Icons.svg('play')}</span>` : step.key();
+    showTutKey(touch ? (step.tkey ? step.tkey() : `<span class="tut-btn">${Icons.svg('play')}</span>`) : step.key());
+    U.tut.dynKey = step.dynamic ? step.dynamic() : null;
     $('tutText').textContent = touch ? step.touch : step.label;
+    $('tutHint').textContent = touch ? step.thint : step.hint;
     $('tutCount').textContent = '';
     $('tutDots').querySelectorAll('i').forEach((d, i) => { d.className = i < U.tut.i ? 'on' : i === U.tut.i ? 'cur' : ''; });
     document.querySelectorAll('.tut-focus').forEach(el => el.classList.remove('tut-focus'));
     if (touch && step.focus) document.querySelectorAll(step.focus).forEach(el => el.classList.add('tut-focus'));
     if (step.start) step.start();
   }
+  // the key picture fades in each time it changes
+  function showTutKey(html) { $('tutVis').innerHTML = `<span class="tv-in">${html}</span>`; }
   function tutTick(dt) {
     const t = U.tut;
     if (!t || !Game.cfg || !Game.cfg.tutorial || Game.state !== 'fight') return;
@@ -469,14 +476,17 @@ const UI = (() => {
     if (t.wait > 0) { t.wait -= dt; if (t.wait <= 0) { $('tut').classList.remove('ok'); renderTut(); } return; }
     const step = TUT[t.i];
     if (!step) return;
+    // the guard key follows the opponent: if they cross over, the key flips
+    if (step.dynamic) { const k = step.dynamic(); if (k !== t.dynKey) { t.dynKey = k; showTutKey(isTouch() ? step.tkey() : step.key()); } }
     if (step.count) $('tutCount').textContent = step.count(t);
     if (step.done(t)) {
       t.i++; Sfx.play('coin');
       $('tut').classList.add('ok');
       if (t.i >= TUT.length) {
         $('tut').classList.add('done');
-        $('tutVis').innerHTML = `<span class="tut-btn go">${Icons.svg('check')}</span>`;
+        showTutKey(`<span class="tut-btn go">${Icons.svg('check')}</span>`);
         $('tutText').textContent = 'READY! NOW WIN THE FIGHT';
+        $('tutHint').textContent = 'Everything you just learned, for real this time.';
         $('tutCount').textContent = '';
         setTimeout(endTut, 1500);
         return;
@@ -522,7 +532,7 @@ const UI = (() => {
     const touch = isTouch();
     if (f.meter >= 100) tip('super', touch ? '<b>SUPER READY!</b> Tap the glowing SUPER button.' : '<b>SUPER READY!</b> Press <kbd>F</kbd>. Land it as the knockout for a FINISHER.');
     if (f.guard < 40) tip('guard', 'Your <b>guard gauge</b> is cracking. Stop blocking: attack, jump or dash out!');
-    if (f.mode === 'tumble') tip('down', 'Knocked down! You can\'t be hit while you <b>get back up</b>.');
+    if (f.mode === 'tumble') tip('down', "Knocked down! You're safe on the ground, but they can hit you again <b>as soon as you're up</b>. Guard or jump away.");
     if (Game.combo[0] && Game.combo[0].n >= 2 && Save.data.tips.dash) tip('cancel', touch ? 'Combo tip: LIGHT, LIGHT, then a <b>SPECIAL</b> cancels straight into it.' : 'Combo tip: click, click, then <b>Q or E</b>. Specials cancel out of hits that connect.');
     if (Game.stateT > 3 && !Save.data.tips.dash && U.run && U.run.mode === 'level' && U.run.L.i >= 1) tip('dash', touch ? 'Flick the stick twice to <b>DASH</b>.' : 'Tap <kbd>A</kbd> or <kbd>D</kbd> twice to <b>DASH</b>.');
   }

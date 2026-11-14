@@ -21,7 +21,7 @@ const URL = process.argv[3] || 'http://localhost:8123/';
     const res = { matches: 0, issues: [], wins: {}, games: {}, rounds: 0, roundTime: 0, supers: 0, finishers: 0, bf: 0, maxCombo: 0, kos: 0, timeouts: 0 };
     ids.forEach(i => { res.wins[i] = 0; res.games[i] = 0; });
     const stages = ['dojo', 'city', 'temple', 'forest', 'snow', 'void', 'crater', 'arena', 'lab'];
-    const twists = [{}, { grav: 0.6 }, { scale: [1, 1.25] }, { meter0: 100, meter1: 100 }, { speedMul: 1.2 }, { hpStart: [0.5, 0.5] }, { timeLimit: 40, loseOnTime: true }];
+    const twists = [{}, { grav: 0.6 }, { scale: [1, 1.25] }, { meter0: 100, meter1: 100 }, { speedMul: 1.2 }, { dmgMul: 2 }, { timeLimit: 40, loseOnTime: true }];
     const check = (tag) => {
       for (const f of Game.fighters) {
         for (const q of f.pts.concat([f.root])) {

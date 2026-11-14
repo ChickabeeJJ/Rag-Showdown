@@ -195,7 +195,6 @@ const Game = (() => {
     if (def.mode === 'dead') return null;
     if (def.invuln > 0) return null;
     if (def.barrierT > 0 && !spec.unblockable) { G.fx.ring(x, y, '#9ff4ff', 70, 0.25, 6); Sfx.play('block'); return 'block'; }
-    if (def.mode === 'rising') return null;
     if (def.mode === 'tumble') {
       const low = def.pelvis.y > GROUND - 50 * def.s && Math.hypot(def.pelvis.x - def.pelvis.px, def.pelvis.y - def.pelvis.py) < 3;
       if (low && !spec.otg) return null;
@@ -208,7 +207,7 @@ const Game = (() => {
 
     /* ---------------------------------------------------------- blocked */
     if (!spec.unblockable && !stopped && canBlock(def, att)) {
-      const chip = Math.round((spec.chip != null ? spec.chip : 0) * spec.dmg * att.def.power);
+      const chip = Math.round((spec.chip != null ? spec.chip : 0) * spec.dmg * att.def.power * (G.cfg.dmgMul || 1));
       def.hp = Math.max(kind === 'super' ? 0 : 1, def.hp - chip);
       def.lastHit = Object.assign({ att }, spec);
       def.guard -= spec.dmg * (kind === 'light' ? 0.22 : 0.4);
@@ -245,7 +244,7 @@ const Game = (() => {
     if (counter) { scale *= 1.25; tag = 'COUNTER'; }
     let bf = false;
     if (spec.bf && !stopped && Math.random() < BF_CHANCE + (n >= 3 ? 0.06 : 0)) { bf = true; scale *= 2.0; }
-    const dmg = Math.max(1, Math.round(spec.dmg * att.def.power * scale));
+    const dmg = Math.max(1, Math.round(spec.dmg * att.def.power * scale * (G.cfg.dmgMul || 1)));
     def.hp -= dmg;
     def.lastHit = Object.assign({ att }, spec, { bf });
     if (spec.bounce) def.bounce = 1;

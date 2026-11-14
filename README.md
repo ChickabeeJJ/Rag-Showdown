@@ -14,7 +14,7 @@ python3 -m http.server 8000
 
 ## Straight into the action
 
-- **First launch:** you skip the menus and land in level 1-1, which is a real fight. A guide at the top of the screen (the same panel as Element Rag's tutorial) teaches one control at a time while you fight: move, jump, light attack, heavy attack, a light-light-heavy combo, a special, guarding against a sparring partner, and your super. Nobody can be knocked out during the lesson. Once it ends, the round becomes a normal fight. The lesson can be skipped, and it only ever runs once.
+- **First launch:** you skip the menus and land in level 1-1, which is a real fight. A guide at the top of the screen (the same panel as Element Rag's tutorial) teaches one control at a time while you fight: move, jump, light attack, heavy attack, a light-light-heavy combo, a special, guarding against a sparring partner (the key shown is whichever one points away from them, and it flips if you swap sides), and your super. Nobody can be knocked out during the lesson. Once it ends, the round becomes a normal fight. The lesson can be skipped, and it only ever runs once.
 - **After that, tips appear as you go,** each shown once, the first time it matters. They cover:
   - super ready;
   - dashing;
@@ -40,7 +40,7 @@ The campaign follows Element Rag's stage map: 8 chapters of 6 levels, one per st
   - Super Clash (both meters full);
   - Iron Will (+50% foe health);
   - Frenzy (faster);
-  - Glass Cannon (both at half health);
+  - Glass Cannon (everyone hits twice as hard);
   - Beat the Clock (win in 40 s).
 - **Coins** come from:
   - first clears and new stars;
@@ -74,7 +74,7 @@ The skill bar at the bottom of the screen always shows these: mouse icons for li
   - Any light or heavy that connects can be cancelled into a special, and anything into the super.
   - **Air combos:** after the ender launches the foe, press **W** right away to jump after them. Air attacks home in on a juggled foe: light, light, then heavy spikes them into the floor, and they bounce once so you can keep going.
   - The hit counter grades long combos (NICE, GREAT, AMAZING, SHOWDOWN). When a special starts, its name pops up over your head.
-- **Juggles:** a fighter knocked into the air can be hit up to six more times; supers ignore that limit. A fighter who has landed can't be hit, and a fighter getting up is briefly invulnerable. A hard enough hit into a wall makes a **wall splat**.
+- **Juggles:** a fighter knocked into the air can be hit up to six more times; supers ignore that limit. A fighter lying on the ground can't be hit, but there's no immunity once they're back on their feet, so pressure them as they get up. A hard enough hit into a wall makes a **wall splat**.
 - **Guard:** normal attacks do no chip damage when guarded, but specials and supers do. Each block drains the guard gauge under your health bar. When it empties, your guard breaks and you're stunned. Throws can't be guarded.
 - **Black Spark:** a heavy hit has a 13% chance to crit for double damage and +25 meter, with black-and-red impact frames.
 - **Impact frames** can be turned off in Settings to reduce flashing.

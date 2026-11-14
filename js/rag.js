@@ -459,7 +459,6 @@ class Rag {
     r.y = GROUND; r.vx = 0; r.vy = 0; r.grounded = true; r.jumps = 0;
     this.mode = 'rising';
     this.m = 0.05;
-    this.invuln = Math.max(this.invuln, 0.75);
     this.juggle = 0;
   }
 
