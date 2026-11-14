@@ -102,6 +102,7 @@ const Sfx = (() => {
     ko: () => { tone(160, 0.8, 'sawtooth', 0.15, 0.4); noise(0.6, 0.4, 900, 'lowpass', 1, 0, 0.3); },
     finish: () => { tone(40, 1.6, 'sine', 0.8, 0.5); noise(1.4, 0.6, 400, 'lowpass', 1, 0, 0.2); noise(0.3, 0.4, 6000, 'highpass'); tone(880, 0.6, 'square', 0.05, 0.5, 0.1); },
     perfect: () => { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.2, 'square', 0.07, 1, i * 0.09)); },
+    thunder: () => { noise(2.2, 0.55, 220, 'lowpass', 1, 0, 0.5); tone(42, 1.8, 'sine', 0.4, 0.6); noise(0.4, 0.3, 900, 'lowpass', 1, 0.1); },
     saw: () => { tone(90, 0.5, 'sawtooth', 0.12, 1.6); noise(0.5, 0.2, 2400, 'bandpass', 3); },
     rise: () => { tone(110, 0.5, 'sine', 0.2, 2); noise(0.5, 0.18, 300, 'lowpass', 1, 0, 3); },
     clink: () => { tone(2400, 0.2, 'triangle', 0.1, 0.9); tone(3200, 0.15, 'sine', 0.06, 1, 0.03); },

@@ -40,6 +40,11 @@
       }
       return;
     }
+    // Enter / Space take the main action on a result sheet (NEXT LEVEL, RETRY, RESUME...)
+    if ((e.code === 'Enter' || e.code === 'Space') && UI.modalOpen() && !e.repeat) {
+      const b = document.querySelector('#sheet .btn.primary');
+      if (b && !b.disabled) { e.preventDefault(); b.click(); return; }
+    }
     document.body.classList.remove('touch');
     if (inFight()) { if (Input.keydown(e)) e.preventDefault(); }
   });

@@ -31,7 +31,9 @@ class CpuCtrl {
       const sp = this.pickSpecial(G, f, o, d, true);
       if (k === 'l1') G.press(f.side, 'l');
       else if (k === 'l2') G.press(f.side, Math.random() < 0.7 ? 'h' : (sp || 'h'));
+      else if (k === 'hEnd' && L >= 5 && Math.random() < 0.35 && o.mode === 'tumble') { G.press(f.side, 'jump'); this.airChase = 3; }
       else if (k === 'hEnd' || k === 'h') { if (f.meter >= 100 && this.superFits(f, d + 120) && Math.random() < 0.4 + L * 0.06) G.press(f.side, 'sup'); else if (sp) G.press(f.side, sp); }
+      else if (k === 'airL' && this.airChase > 0) { this.airChase--; G.press(f.side, this.airChase > 0 ? 'l' : 'h'); }
       else if (act.move.kind === 'special' && f.meter >= 100 && this.superFits(f, d) && L >= 5) G.press(f.side, 'sup');
     }
 
@@ -59,6 +61,9 @@ class CpuCtrl {
       this.decide(G, f, o, d, toward, helpless);
     }
 
+    // air chase after a launcher jump-cancel
+    if (this.airChase > 0 && !f.root.grounded && !act && o.mode === 'tumble' && d < 220 * s / 2) G.press(f.side, 'l');
+    if (f.root.grounded && !act) this.airChase = 0;
     // jump-ins: attack on the way down when close
     if (this.airAttack && !f.root.grounded && !act && f.root.vy > -200 && d < 230 * s / 2) { this.airAttack = false; G.press(f.side, Math.random() < 0.7 ? 'h' : 'l'); }
     if (f.root.grounded && !act && this.airAttack && this.holdT <= 0) this.airAttack = false;

@@ -1,8 +1,8 @@
 'use strict';
 /* =========================================================================
    Campaign: eight chapters of six levels, in the spirit of Element Rag's
-   stage map. Every level is one fight against a set opponent on the
-   chapter's stage; the sixth is a best-of-three boss. Beating the fighter
+   stage map. Levels are fast: one round against one to three foes who drop
+   in one after another (waves), health carrying over; the sixth is a boss. Beating the fighter
    on a recruit level (3 and 6) unlocks them. Most levels carry a twist,
    so neighbouring fights never play alike. Stars come from the health you
    have left when you win.
@@ -38,6 +38,9 @@ const Campaign = (() => {
     ch.foes.forEach((foe, l) => {
       const i = levels.length;
       const boss = l === 5;
+      const others = ch.foes.filter(x => x !== foe);
+      const extra = k => others[(i + k * 2) % others.length];
+      const waves = boss || l === 2 || l === 0 ? [foe] : l === 1 ? [extra(0), foe] : l === 3 ? [extra(1), foe] : [extra(0), extra(1), foe];
       let twist = 'classic';
       if (i >= 2 && !boss && l !== 2) twist = TWIST_CYCLE[(i * 3 + c) % TWIST_CYCLE.length];
       levels.push({
@@ -45,7 +48,9 @@ const Campaign = (() => {
         recruit: ch.recruit[l] || null,
         stage: ch.stage,
         lv: Math.min(9, 1 + Math.floor(i / 48 * 8.2) + (boss ? 1 : 0)),
-        toWin: boss ? 2 : 1,
+        toWin: 1,
+        waves,
+        waveHp: boss ? 1.6 : waves.length === 1 ? 0.85 : waves.length === 2 ? 0.6 : 0.5,
         tutorial: i === 0,
         label: `${c + 1}-${l + 1}`,
       });

@@ -7,14 +7,14 @@
    ========================================================================= */
 
 const KB = 1.6;              // knockback scale (spec units -> px/s)
-const JUGGLE_MAX = 6;
+const JUGGLE_MAX = 9;
 const BF_CHANCE = 0.13;      // Black Spark chance on eligible heavy hits
 
 const Game = (() => {
   let canvas, ctx, cw = 1, ch = 1, dpr = 1, kView = 1;
   const G = {
     running: false, paused: false, state: 'idle', mode: 'demo', cfg: null,
-    fighters: [], ctrls: [], projs: [], beams: [], fields: [], summons: [], ghosts: [],
+    fighters: [], corpses: [], ctrls: [], projs: [], beams: [], fields: [], summons: [], ghosts: [],
     fx: new FX(), t: 0, realT: 0, acc: 0, speed: 1,
     hitstop: 0, slowK: 1, slowT: 0, shakeA: 0,
     flashC: null, impactQ: [], impactPos: { x: 800, y: 600 }, impactT: 0,
@@ -55,7 +55,7 @@ const Game = (() => {
 
   G.startRound = function () {
     const c = G.cfg;
-    G.projs.length = 0; G.beams.length = 0; G.fields.length = 0; G.summons.length = 0; G.ghosts.length = 0; G.callouts.length = 0;
+    G.projs.length = 0; G.beams.length = 0; G.fields.length = 0; G.summons.length = 0; G.ghosts.length = 0; G.callouts.length = 0; G.corpses.length = 0;
     G.fx.clear();
     G.hitstop = 0; G.slowK = 1; G.slowT = 0; G.cut = null; G.tintS = null; G.windS = null; G.impactQ.length = 0; G.focusS = null; G.flashC = null;
     const hp0 = c.hpStart || [1, 1];
@@ -79,6 +79,8 @@ const Game = (() => {
     G.cam.x = 800; G.cam.z = 1.05;
     G.hpShown = G.fighters.map(f => f.hp);
     if (c.training || c.quickStart) { G.stateT = 1.5; }
+    else if (c.fastIntro) G.stateT = 0.8;   // levels get going fast
+    G.wave = 0;
     Sfx.music(G.round >= 3 || (G.wins[0] && G.wins[1]) ? 'final' : 'fight');
   };
 
@@ -246,6 +248,7 @@ const Game = (() => {
     const dmg = Math.max(1, Math.round(spec.dmg * att.def.power * scale));
     def.hp -= dmg;
     def.lastHit = Object.assign({ att }, spec, { bf });
+    if (spec.bounce) def.bounce = 1;
     def.flash = 0.75;
     att.meter = Math.min(100, att.meter + dmg * (kind === 'super' ? 0 : 0.085) + (bf ? 25 : 0));
     def.meter = Math.min(100, def.meter + dmg * 0.06);
@@ -310,10 +313,10 @@ const Game = (() => {
   };
 
   /* --------------------------------------------------------------- actions */
-  function startAction(f, key) {
+  function startAction(f, key, opt) {
     const mv = f.def.moves[key];
     if (!mv) return false;
-    const act = { move: mv, key, t: 0, w: mv.w, a: mv.a, r: mv.r, connected: false, vx: null, vy: null };
+    const act = Object.assign({ move: mv, key, t: 0, w: mv.w, a: mv.a, r: mv.r, connected: false, vx: null, vy: null }, opt || {});
     if (f.action && f.action.move.end) f.action.move.end(G, f, f.action);
     f.action = act;
     f.blocking = false;
@@ -344,6 +347,7 @@ const Game = (() => {
 
   function onLand(f) {
     G.fx.dust(f.root.x, GROUND, 4);
+    f.airCombo = 0;
     const act = f.action;
     if (!act) return;
     if (act.move.onLand) act.move.onLand(G, f, act);
@@ -356,21 +360,35 @@ const Game = (() => {
     const act = f.action;
     const g = f.root.grounded;
     const cancel = act && act.connected && act.t >= act.w;
+    // chains run on a hit, a block or a whiff: the next button just has to come once the swing is out
+    const chainOk = act && (act.connected || act.t >= act.w + act.a * 0.5);
     const kindNow = act ? act.move.kind : null;
     switch (k) {
-      case 'jump': if (act) return false; return f.jump();
+      case 'jump':
+        // launcher jump-cancel: after the combo ender connects, jump chases the foe into the air
+        if (act && act.key === 'hEnd' && act.connected && act.t >= act.w + act.a * 0.5 && G.opp(f).mode === 'tumble') {
+          endAction(f);
+          const o = G.opp(f), r = f.root;
+          r.vy = -f.jumpV * f.s * 1.2; r.vx = clamp((o.root.x - r.x) * 2.2, -900, 900); r.grounded = false; r.jumps = f.maxJumps;
+          f.airCombo = 0; G.fx.dust(r.x, GROUND, 6); G.fx.ring(r.x, GROUND, '#ffffff', 80, 0.3, 4);
+          return true;
+        }
+        if (act) return false; return f.jump();
       case 'dashF': case 'dashB': {
         if (act) return false;
         const toward = Math.sign(G.opp(f).root.x - f.root.x) || f.facing;
         return f.dash(k === 'dashF' ? toward : -toward);
       }
       case 'l':
-        if (!act) return startAction(f, g ? 'l1' : 'airL');
-        if (cancel && act.key === 'l1') return startAction(f, 'l2');
+        if (!act) { if (!g) f.airCombo = (f.airCombo || 0); return startAction(f, g ? 'l1' : 'airL', { chained: false }); }
+        if (chainOk && act.key === 'l1') return startAction(f, 'l2', { chained: true });
+        // air chain: two air jabs, then an air heavy
+        if (chainOk && act.key === 'airL' && !g && (f.airCombo || 0) < 2) { f.airCombo = (f.airCombo || 0) + 1; return startAction(f, 'airL', { chained: true, alt: true }); }
         return false;
       case 'h':
         if (!act) return startAction(f, g ? 'h' : 'airH');
-        if (cancel && kindNow === 'light' && g) return startAction(f, 'hEnd');
+        if (chainOk && kindNow === 'light' && g) return startAction(f, 'hEnd', { chained: true });
+        if (chainOk && act.key === 'airL' && !g) return startAction(f, 'airH', { chained: true, spike: true });
         return false;
       case 's1': case 's2': {
         const key = k === 's1' ? 'sp1' : 'sp2';
@@ -414,13 +432,31 @@ const Game = (() => {
     act.t += dt;
     const mv = act.move;
     const w = act.w, a = act.a;
+    // combo tracking: a chained normal steps in toward a foe still reeling from the last hit
+    const airJuggle = !f.root.grounded && (act.key === 'airL' || act.key === 'airH') && G.opp(f).mode === 'tumble';
+    if ((act.chained || airJuggle) && mv.box && act.t < w + a && act.vx == null) {
+      const o = G.opp(f);
+      const reeling = o.mode === 'hit' || o.mode === 'tumble' || o.mode === 'block';
+      const gap = (o.root.x - f.root.x) * f.facing - (mv.box[0] - mv.box[2] * 0.5) * f.s;
+      if (reeling && gap > 0 && gap < 260) { f.root.x += f.facing * Math.min(gap, 900 * dt); }
+      if (!f.root.grounded && reeling && o.mode === 'tumble') {
+        // in the air, drift toward the juggled foe so air strings connect
+        const c = o.center(), me = f.center();
+        const dx = c.x - (me.x + f.facing * mv.box[0] * f.s * 0.7);
+        if (Math.abs(dx) < 300) f.root.x += clamp(dx, -700 * dt, 700 * dt);
+        f.root.vy = lerp(f.root.vy, clamp((c.y - me.y) * 6, -500, 400), 0.25);
+      }
+    }
     if (mv.box && act.t >= w && act.t < w + a && !act.hitDone) {
       const o = G.opp(f);
       const p = f.local(mv.box[0], mv.box[1]);
       const res = o.hitTest(p.x, p.y, mv.box[2] * f.s);
       if (res) {
-        const out = G.hit(f, o, Object.assign({ kind: mv.kind, name: mv.name }, mv.hit), res.x, res.y, act);
+        const spec = Object.assign({ kind: mv.kind, name: mv.name }, mv.hit);
+        if (act.spike) Object.assign(spec, { kb: [160, 900], launch: true, bounce: true, stun: 0.8 });
+        const out = G.hit(f, o, spec, res.x, res.y, act);
         if (out) act.hitDone = true;
+        if (out === 'hit' && mv.onHit) mv.onHit(G, f, o, act);
       }
     }
     if (mv.slash && act.t >= w && once(act, 'slfx')) {
@@ -680,6 +716,8 @@ const Game = (() => {
       if (f.auraT > 0) f.auraT -= dt;
       if (f.shake > 0) f.shake = Math.max(0, f.shake - dt * 40);
     }
+    for (const c of G.corpses) c.update(dt);
+    G.corpses = G.corpses.filter(c => c.deadT < 3.6);
     separate();
     faceEachOther();
     updateProjs(dt);
@@ -697,7 +735,14 @@ const Game = (() => {
         G.shake(12); Sfx.play('splat');
         if (f.alive) { G.say(c.x, c.y - 140, 'WALL SPLAT', '#ffffff', 34); f.hp -= 15; f.juggle = Math.max(0, f.juggle - 2); f.lastHit = f.lastHit || { att: G.opp(f), kind: 'heavy' }; if (G.stats && f.side === 1 && G.mode !== 'demo') G.stats.splats++; }
       }
-      if (f.mode !== 'tumble') f.splat = false;
+      if (f.mode !== 'tumble') { f.splat = false; f.bounce = 0; }
+      // ground bounce from an air spike: one free bounce to keep the combo going
+      if (f.bounce && f.mode === 'tumble' && f.pelvis.y > GROUND - 60 * f.s && f.pelvis.y - f.pelvis.py > 2) {
+        f.bounce = 0;
+        f.impulse(P.PELVIS, 0, -1500, 0.9);
+        f.stunT = Math.max(f.stunT, 0.7);
+        G.fx.ring(f.pelvis.x, GROUND, '#ffffff', 140, 0.3, 8); G.fx.dust(f.pelvis.x, GROUND, 10); G.shake(8); Sfx.play('splat');
+      }
       // speed afterimages on dashes and supers
       if ((f.dashT > 0 || (f.action && f.action.move.kind === 'super' && f.action.t > f.action.w)) && Math.floor(G.t / 0.05) !== f.lastGhost) { f.lastGhost = Math.floor(G.t / 0.05); G.ghost(f, f.def.aura || f.def.color, 0.22); }
     }
@@ -728,6 +773,10 @@ const Game = (() => {
       for (const f of G.fighters) f.pose = G.stateT < 1.1 ? 'winCross' : null;
       if (G.stateT > 0.25 && !G.introSaid) { G.introSaid = true; G.callout((G.cfg.toWin || 2) === 1 ? (G.cfg.tutorial ? 'LESSON' : 'ONE ROUND') : isFinal() ? 'FINAL ROUND' : 'ROUND ' + G.round, G.cfg.roundSub || G.stage.name, 'round', 1.2); Sfx.play('round'); }
       if (G.stateT > 1.6) { G.state = 'fight'; G.stateT = 0; G.introSaid = false; G.callout('FIGHT!', '', 'fight', 0.8); Sfx.play('fight'); for (const f of G.fighters) f.pose = null; }
+      return;
+    }
+    if (G.state === 'wave') {
+      if (G.stateT > 1.15) spawnWave();
       return;
     }
     if (G.state === 'fight') {
@@ -771,6 +820,19 @@ const Game = (() => {
   function ko(def) {
     const att = G.opp(def);
     const lh = def.lastHit || {};
+    // waves: the next foe drops in right away; the level only ends after the last one
+    const waves = G.cfg.waves;
+    if (def.side === 1 && waves && G.wave < waves.length - 1) {
+      def.die();
+      def.fadeOut = true;
+      G.state = 'wave'; G.stateT = 0;
+      const c = def.center();
+      if (lh.kind === 'super') { G.impact('super', c.x, c.y); G.slow(0.25, 0.9); G.callout('FINISH', (lh.name || '').toUpperCase(), 'finish', 1.3); if (att.side === 0 && G.stats) G.stats.finishers++; }
+      else { G.slow(0.35, 0.6); G.callout('K.O.', '', 'ko', 0.9); }
+      G.shake(14); Sfx.play('ko');
+      for (const f of G.fighters) if (f.action && f.action.move.kind !== 'super') endAction(f);
+      return;
+    }
     def.die();
     G.state = 'ko'; G.stateT = 0; G.winner = att.side; G.koKind = 'ko';
     G.perfectSaid = false;
@@ -794,6 +856,34 @@ const Game = (() => {
       Sfx.play('ko');
     }
     for (const f of G.fighters) { if (f.action && f.action.move.kind !== 'super') endAction(f); }
+  }
+
+  function spawnWave() {
+    const c = G.cfg, p = G.fighters[0];
+    G.wave++;
+    const id = c.waves[G.wave];
+    const x = clamp(p.root.x < 800 ? p.root.x + 520 : p.root.x - 520, WALL_L + 120, WALL_R - 120);
+    const f = new Rag(BY_ID[id], { side: 1, x, facing: x > p.root.x ? -1 : 1, hpMul: (c.waveHp || 1) });
+    if (c.scale) f.s *= c.scale[1] || 1;
+    f.buf = []; f.onLand = () => { onLand(f); if (!f.landedIn) { f.landedIn = true; G.fx.ring(f.root.x, GROUND, f.def.color, 160, 0.4, 10); G.fx.dust(f.root.x, GROUND, 14); G.shake(10); Sfx.play('splat'); } };
+    // drop in from above
+    for (const q of f.pts) { q.y -= 520; q.py = q.y; }
+    f.root.y = GROUND - 520; f.root.grounded = false; f.root.vy = 300;
+    if (f.cape) for (const q of f.cape) { q.y -= 520; q.py = q.y; }
+    f.invuln = 0.6;
+    G.corpses.push(G.fighters[1]);
+    G.fighters[1] = f;
+    G.ctrls[1] = c.waveCtrl ? c.waveCtrl(G.wave) : new CpuCtrl(4);
+    if (G.ctrls[1].reset) G.ctrls[1].reset(f);
+    p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.1);
+    G.projs.length = 0; G.beams.length = 0; G.fields.length = 0;
+    G.combo = [null, null];
+    G.hpShown[1] = f.hp;
+    G.timer = c.timeLimit ? G.timer : Math.max(G.timer, 60);
+    G.state = 'fight'; G.stateT = 0;
+    G.callout('NEXT!', f.def.name, 'round', 0.9);
+    Sfx.play('round');
+    if (c.onWave) c.onWave(G.wave);
   }
 
   function endRound() {
@@ -903,6 +993,7 @@ const Game = (() => {
   };
 
   function drawFighters(time, mono) {
+    for (const c of G.corpses) c.draw(ctx, time, mono);
     const order = G.fighters.slice().sort((a, b) => (a.action ? 1 : 0) - (b.action ? 1 : 0));
     for (const s of G.summons) if (s.kind === 'stand' && !mono) { ctx.globalAlpha = 0.55; ctx.globalCompositeOperation = 'lighter'; s.rag.draw(ctx, time, '#7d5cff'); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; }
     for (const f of order) {
@@ -974,6 +1065,7 @@ const Game = (() => {
     drawTint(vr, time, 'front');
     // screen space
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    Stage.grade(ctx, G.stageId, cw, ch);
     drawWind(time);
     if (G.cut) drawCutin(time);
     if (fr === 'inv' && flashes) { ctx.globalCompositeOperation = 'difference'; ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, cw, ch); ctx.globalCompositeOperation = 'source-over'; }

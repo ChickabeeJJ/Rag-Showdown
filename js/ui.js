@@ -60,15 +60,15 @@ const UI = (() => {
     checkRotate();
   }
 
-  function transition(mid) {
+  function transition(mid, fast) {
     const bars = $('bars');
-    bars.className = 'in';
+    bars.className = 'in' + (fast ? ' fast' : '');
     clearTimeout(U.trT1); clearTimeout(U.trT2);
     U.trT1 = setTimeout(() => {
       try { mid(); } catch (e) { console.error(e); }
-      bars.className = 'out';
-      U.trT2 = setTimeout(() => { bars.className = ''; }, 1400);
-    }, 1280);
+      bars.className = 'out' + (fast ? ' fast' : '');
+      U.trT2 = setTimeout(() => { bars.className = ''; }, fast ? 700 : 1400);
+    }, fast ? 560 : 1280);
   }
 
   /* --------------------------------------------------------------- init */
@@ -237,11 +237,11 @@ const UI = (() => {
   }
 
   /* ------------------------------------------------------------ fights */
-  function beginFight(cfg, instant) {
+  function beginFight(cfg, instant, fast) {
     closeSheet();
     if (U.tut) { U.tut = null; $('tut').classList.add('hidden'); }
     $('coach').classList.add('hidden');
-    const go = instant ? f => f() : transition;
+    const go = instant ? f => f() : fast ? f => transition(f, true) : transition;
     go(() => {
       U.fightOn = true;
       show(null);
@@ -253,6 +253,7 @@ const UI = (() => {
       Game.speed = U.testSpeed || 1;
       Game.startMatch(cfg);
       buildHud(cfg);
+      renderWaveDots();
       $('hud').classList.remove('hidden');
       checkRotate();
     });
@@ -347,20 +348,22 @@ const UI = (() => {
     const me = Save.owned(Save.data.lastPick) ? Save.data.lastPick : 'kaze';
     const foe = Campaign.foeFor(L, me);
     const tw = L.twist;
-    const hpMul = [1, L.boss ? 1.1 : 1];
     const tut = L.tutorial && !Save.data.tutorialDone;
-    const cfg = { p1: me, p2: foe, ctrls: [human(0), tut ? new DummyCtrl('stand') : cpu(L.lv)], stage: L.stage, mode: 'level', toWin: L.toWin,
+    const waves = L.waves.map((id, k) => (k === L.waves.length - 1 ? foe : id === me && !L.recruit ? Campaign.foeFor({ ...L, foe: id }, me) : id));
+    const hpMul = [1, tut ? 1 : L.waveHp];
+    const cfg = { p1: me, p2: waves[0], waves, waveHp: L.waveHp, fastIntro: true, waveCtrl: k => cpu(Math.max(1, L.lv - (k < waves.length - 1 ? 1 : 0))), onWave: k => onWave(k), ctrls: [human(0), tut ? new DummyCtrl('stand') : cpu(Math.max(1, L.lv - (waves.length > 1 ? 1 : 0)))], stage: L.stage, mode: 'level', toWin: L.toWin,
       chip: `LEVEL ${L.label} · ${CHAPTERS[L.c].name}${tw !== 'classic' ? ' · ' + TWISTS[tw].name : ''}`, roundSub: `LEVEL ${L.label}${tw !== 'classic' ? ' · ' + TWISTS[tw].name : ''}`,
       tutorial: tut, hpMul, onEnd: res => setTimeout(() => levelEnd(L, res), 900) };
-    if (tw === 'giant') { cfg.scale = [1, 1.25]; hpMul[1] *= 1.25; }
+    if (tw === 'giant') { cfg.scale = [1, 1.25]; hpMul[1] *= 1.25; cfg.waveHp *= 1.25; }
     if (tw === 'lowgrav') cfg.grav = 0.6;
     if (tw === 'supers') { cfg.meter0 = 100; cfg.meter1 = 100; }
-    if (tw === 'tough') hpMul[1] *= 1.5;
+    if (tw === 'tough') { hpMul[1] *= 1.5; cfg.waveHp *= 1.5; }
     if (tw === 'frenzy') cfg.speedMul = 1.2;
     if (tw === 'glass') cfg.hpStart = [0.5, 0.5];
     if (tw === 'clock') { cfg.timeLimit = 40; cfg.loseOnTime = true; }
     U.run = { mode: 'level', L };
-    beginFight(cfg, instant);
+    beginFight(cfg, instant, U.fastNext);
+    U.fastNext = false;
     U.levelIntro = { L, foe, t: 0, tut };
   }
 
@@ -394,8 +397,8 @@ const UI = (() => {
         <div class="big-stars">${[0, 1, 2].map(k => ic('star', k < stars ? 'on' : '')).join('')}</div>
         <p class="hint">${stars < 3 ? 'Win with more health left to earn more stars.' : 'Flawless. Three stars.'}</p>
         ${rec}${statTiles(res.stats)}${payoutHtml({ total: coins, parts })}
-        <div class="actions">${next ? `<button class="btn primary" id="rNext"><b>NEXT LEVEL</b><small>${next.label} · VS ${BY_ID[Campaign.foeFor(next, Game.cfg.p1)].name}</small></button>` : ''}<button class="btn" id="rRetry"><b>RETRY</b></button><button class="btn" id="rMenu"><b>MENU</b></button></div>`, 'result');
-      if (next) $('rNext').onclick = () => { Sfx.play('fight'); playLevel(next); };
+        <div class="actions"><button class="btn" id="rMenu"><b>MENU</b></button><button class="btn" id="rRetry"><b>RETRY</b></button>${next ? `<button class="btn primary" id="rNext"><b>NEXT LEVEL</b></button>` : ''}</div>`, 'result');
+      if (next) $('rNext').onclick = () => { Sfx.play('fight'); U.fastNext = true; playLevel(next); };
       if (stars < 3) Sfx.play('coin'); else Sfx.play('perfect');
     } else {
       const tips = [
@@ -408,28 +411,28 @@ const UI = (() => {
       ];
       openSheet(`<h2 class="lose">DEFEATED</h2><p class="sub">LEVEL ${L.label} · ${foe.name} WINS</p>
         <p class="tip">${esc(pick(tips))}</p>${statTiles(res.stats)}
-        <div class="actions"><button class="btn primary" id="rRetry"><b>RETRY</b></button><button class="btn" id="rLevels"><b>LEVELS</b></button><button class="btn" id="rMenu"><b>MENU</b></button></div>`, 'result');
+        <div class="actions"><button class="btn" id="rMenu"><b>MENU</b></button><button class="btn" id="rLevels"><b>LEVELS</b></button><button class="btn primary" id="rRetry"><b>RETRY</b></button></div>`, 'result');
       $('rLevels').onclick = () => { Sfx.play('ui'); closeSheet(); endFight(); openLevels(L.c); startDemo(); };
     }
-    $('rRetry').onclick = () => { Sfx.play('fight'); playLevel(L); };
+    $('rRetry').onclick = () => { Sfx.play('fight'); U.fastNext = true; playLevel(L); };
     $('rMenu').onclick = () => { Sfx.play('uiBack'); quitToMenu(); };
   }
 
   /* ------------------------------------------------- the guided first fight */
   const cap = k => `<span class="cap${k.length > 2 ? ' wide' : ''}">${k}</span>`;
   const TUT = [
-    { label: 'MOVE', key: () => cap('A') + cap('D'), touch: 'MOVE WITH THE STICK', focus: '.joy', done: t => t.moved > 0.5 },
+    { label: 'MOVE', key: () => cap('A') + cap('D'), touch: 'MOVE WITH THE STICK', focus: '.joy', done: t => t.moved },
     { label: 'JUMP', key: () => cap('W'), touch: 'FLICK UP OR TAP JUMP', focus: '.orb-j', done: t => t.jumped },
-    { label: 'LIGHT ATTACK', key: () => MOUSE('l'), touch: 'TAP LIGHT', focus: '.orb-l', count: t => `${Math.min(3, t.light)}/3`, done: t => t.light >= 3 },
+    { label: 'LIGHT ATTACK', key: () => MOUSE('l'), touch: 'TAP LIGHT', focus: '.orb-l', done: t => t.light >= 1 },
     { label: 'HEAVY ATTACK', key: () => MOUSE('r'), touch: 'TAP HEAVY', focus: '.orb-h', done: t => t.heavy >= 1 },
-    { label: 'COMBO: LIGHT, LIGHT, HEAVY', key: () => MOUSE('l') + MOUSE('l') + MOUSE('r'), touch: 'LIGHT, LIGHT, HEAVY', focus: '.orb-l, .orb-h', done: t => t.launcher >= 1 },
+    { label: 'COMBO: LIGHT, LIGHT, HEAVY', key: () => MOUSE('l') + MOUSE('l') + MOUSE('r'), touch: 'LIGHT, LIGHT, HEAVY', focus: '.orb-l, .orb-h', done: t => t.ender >= 1 },
     { label: 'SPECIAL MOVE', key: () => cap('Q') + '<span class="plus">/</span>' + cap('E'), touch: 'TAP A SPECIAL', focus: '.orb-s1, .orb-s2', done: t => t.special >= 1 },
-    { label: 'GUARD: HOLD AWAY', key: () => cap('A'), touch: 'HOLD THE STICK AWAY', focus: '.joy', count: t => `${Math.min(2, t.blocked)}/2`, done: t => t.blocked >= 2, start: () => { Game.ctrls[1] = new TutAttacker(); } },
+    { label: 'GUARD: HOLD AWAY', key: () => cap('A'), touch: 'HOLD THE STICK AWAY', focus: '.joy', done: t => t.blocked >= 1 || t.guardHeld > 1.2, start: () => { Game.ctrls[1] = new TutAttacker(); } },
     { label: 'SUPER: METER FULL', key: () => cap('F'), touch: 'TAP SUPER', focus: '.orb-sup', done: t => t.superUsed, start: () => { Game.ctrls[1] = new DummyCtrl('stand'); Game.fighters[0].meter = 100; } },
   ];
   function startTut() {
     $('hudChip').classList.add('hidden');
-    U.tut = { i: 0, moved: 0, jumped: false, light: 0, heavy: 0, launcher: 0, special: 0, blocked: 0, superUsed: false, wait: 0 };
+    U.tut = { i: 0, moved: false, jumped: false, light: 0, heavy: 0, ender: 0, special: 0, blocked: 0, guardHeld: 0, superUsed: false, wait: 0, lastAct: null };
     $('tutDots').innerHTML = TUT.map(() => '<i></i>').join('');
     $('tut').classList.remove('hidden', 'done', 'ok');
     $('tutSkip').onclick = () => { Sfx.play('ui'); endTut(); };
@@ -450,10 +453,19 @@ const UI = (() => {
     const t = U.tut;
     if (!t || !Game.cfg || !Game.cfg.tutorial || Game.state !== 'fight') return;
     const f = Game.fighters[0];
-    if (f.root.grounded && Math.abs(f.root.vx) > 60 && !f.action) t.moved += dt;
-    if (!f.root.grounded && f.root.vy < 0 && !f.action) t.jumped = true;
-    if (f.action && (f.action.key === 'sp1' || f.action.key === 'sp2') && t.i === 5) t.special = 1;
-    if (f.action && f.action.key === 'super' && t.i === 7) t.superUsed = true;
+    // lenient: any press counts, and attacks count whether or not they land
+    if (f.input.x !== 0 || f.dashT > 0) t.moved = true;
+    if (!f.root.grounded) t.jumped = true;
+    if (f.action && f.action !== t.lastAct) {
+      t.lastAct = f.action;
+      const k = f.action.key;
+      if (k === 'l1' || k === 'l2' || k === 'airL') t.light++;
+      if (k === 'h' || k === 'airH' || k === 'hEnd') t.heavy++;
+      if (k === 'hEnd') t.ender++;
+      if ((k === 'sp1' || k === 'sp2') && t.i >= 5) t.special++;
+      if (k === 'super' && t.i >= 7) t.superUsed = true;
+    }
+    if (t.i === 6) { const o = Game.fighters[1]; if (f.input.x === -(Math.sign(o.root.x - f.root.x) || f.facing)) t.guardHeld += dt; }
     if (t.wait > 0) { t.wait -= dt; if (t.wait <= 0) { $('tut').classList.remove('ok'); renderTut(); } return; }
     const step = TUT[t.i];
     if (!step) return;
@@ -485,14 +497,9 @@ const UI = (() => {
   function onFightHit(att, def, spec, r) {
     if (!U.fightOn) return;
     const t = U.tut;
-    if (t && att.side === 0 && r === 'hit') {
-      const k = att.action && att.action.key;
-      if (k === 'l1' || k === 'l2' || k === 'airL') t.light++;
-      if (k === 'h' || k === 'airH') t.heavy++;
-      if (k === 'hEnd') { t.launcher++; t.heavy++; }
-    }
     if (t && def.side === 0 && r === 'block') t.blocked++;
     // tips the first time something matters
+    if (att.side === 0 && r === 'hit' && att.action && att.action.key === 'hEnd' && def.mode === 'tumble') tip('air', isTouch() ? '<b>LAUNCHED!</b> Tap JUMP right away to chase them and keep the combo going.' : '<b>LAUNCHED!</b> Press <kbd>W</kbd> right away to jump after them, then click, click, right-click in the air.');
     if (att.side === 0 && r === 'hit' && def.lastHit && def.lastHit.bf) tip('bf', '<b>BLACK SPARK!</b> Heavy hits can crit for double damage.');
     if (att.side === 0 && r === 'block') { U.blocks = (U.blocks || []).filter(x => performance.now() - x < 4000); U.blocks.push(performance.now()); if (U.blocks.length >= 3) tip('throw', isTouch() ? 'They keep guarding. <b>Throws</b> beat guard: get close and tap LIGHT + HEAVY.' : 'They keep guarding. <b>Throw</b> them: click <b>both mouse buttons</b> together up close.'); }
   }
@@ -518,6 +525,23 @@ const UI = (() => {
     if (f.mode === 'tumble') tip('down', 'Knocked down! You can\'t be hit while you <b>get back up</b>.');
     if (Game.combo[0] && Game.combo[0].n >= 2 && Save.data.tips.dash) tip('cancel', touch ? 'Combo tip: LIGHT, LIGHT, then a <b>SPECIAL</b> cancels straight into it.' : 'Combo tip: click, click, then <b>Q or E</b>. Specials cancel out of hits that connect.');
     if (Game.stateT > 3 && !Save.data.tips.dash && U.run && U.run.mode === 'level' && U.run.L.i >= 1) tip('dash', touch ? 'Flick the stick twice to <b>DASH</b>.' : 'Tap <kbd>A</kbd> or <kbd>D</kbd> twice to <b>DASH</b>.');
+  }
+  function onWave(k) {
+    const f = Game.fighters[1], el = $('hs1');
+    el.style.setProperty('--c', f.def.color);
+    el.querySelector('.pt').style.setProperty('--c', f.def.color);
+    el.querySelector('img').src = Portraits.url(f.def);
+    el.querySelector('.nm b').textContent = f.def.name;
+    el.querySelector('.nm small').textContent = f.def.title;
+    $('sm1').style.setProperty('--c', f.def.color);
+    U.hudCache = {};
+    renderWaveDots();
+  }
+  function renderWaveDots() {
+    const w = Game.cfg && Game.cfg.waves;
+    const el = $('waveDots');
+    if (!w || w.length < 2) { el.innerHTML = ''; return; }
+    el.innerHTML = w.map((_, i) => `<i class="${i < Game.wave ? 'done' : i === Game.wave ? 'now' : ''}"></i>`).join('');
   }
   function levelIntroTick() {
     const li = U.levelIntro;
@@ -688,7 +712,7 @@ const UI = (() => {
       const cp = $('combo' + i);
       const n = c && c.n >= 2 ? c.n : 0;
       if (n) {
-        if (H['c' + i] !== n) { H['c' + i] = n; cp.querySelector('b').textContent = n; cp.classList.remove('hidden', 'pop'); void cp.offsetWidth; cp.classList.add('pop'); }
+        if (H['c' + i] !== n) { H['c' + i] = n; cp.querySelector('b').textContent = n; cp.querySelector('span').textContent = n >= 16 ? 'SHOWDOWN!' : n >= 12 ? 'AMAZING!' : n >= 8 ? 'GREAT!' : n >= 5 ? 'NICE!' : 'HITS'; cp.classList.remove('hidden', 'pop'); void cp.offsetWidth; cp.classList.add('pop'); }
         H['ct' + i] = performance.now();
       } else if (H['c' + i] && performance.now() - (H['ct' + i] || 0) > 900) { H['c' + i] = 0; cp.classList.add('hidden'); }
     }

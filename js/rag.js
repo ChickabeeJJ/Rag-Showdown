@@ -206,6 +206,7 @@ class Rag {
       for (const i of [P.FFOOT, P.BFOOT]) this.pts[i].px += dir;
     }
     this.mode = 'tumble';
+    this.m = 0;            // limp at once: lingering muscle pull toward the standing pose would eat the launch
     this.stunT = Math.max(this.stunT, dur);
     this.action = null;
     this.dashT = 0;
@@ -392,7 +393,7 @@ class Rag {
 
   stepBody(dt) {
     const m = this.m, pts = this.pts, T = this.T, Tp = this.Tp, s = this.s;
-    const g = GRAV * WORLD_G * s * dt * dt * (1 - 0.92 * m);
+    const g = GRAV * WORLD_G * s * dt * dt * (1 - 0.92 * m) * (this.mode === 'tumble' && this.juggle > 0 ? 0.72 : 1);
     const air = m < 0.5 ? 0.997 : 0.99;
     for (let i = 0; i < 11; i++) {
       const p = pts[i];
@@ -504,8 +505,12 @@ class Rag {
       if (res.d < lim && res.d < bd) { bd = res.d; best = { idx: res.t > 0.5 ? b : a, x: lerp(A.x, B.x, res.t), y: lerp(A.y, B.y, res.t) }; }
     }
     if (best) return best;
-    // standing fighters also have a solid core so a hit never slips between swaying limbs
-    if (this.mode !== 'tumble' && this.mode !== 'dead') {
+    // a solid core so a hit never slips between swaying limbs; juggled bodies keep one along the spine
+    if (this.mode === 'tumble') {
+      const a = pts[P.NECK], b = pts[P.PELVIS];
+      const res = segPointDist(a.x, a.y, b.x, b.y, x, y);
+      if (res.d < 20 * s + rad) return { idx: P.NECK, x: lerp(a.x, b.x, res.t), y: lerp(a.y, b.y, res.t) };
+    } else if (this.mode !== 'dead') {
       const r = this.root;
       const res = segPointDist(r.x, r.y - 20 * s, r.x, r.y - 120 * s, x, y);
       if (res.d < 17 * s + rad) return { idx: P.NECK, x: r.x, y: lerp(r.y - 20 * s, r.y - 120 * s, res.t) };

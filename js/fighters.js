@@ -232,7 +232,7 @@ function fighter(def) {
 /* ------------------------------------------------------------- KAZE */
 fighter({
   id: 'kaze', name: 'KAZE', title: 'KI WARRIOR', color: '#ff9b2a', aura: '#ffd34d',
-  hp: 1000, walk: 300, power: 1, stats: [4, 4, 4], price: 0, stage: 'crater',
+  hp: 970, walk: 300, power: 0.97, stats: [4, 4, 4], price: 0, stage: 'crater',
   blurb: 'A martial artist who never stops training. Fires ki blasts, vanishes behind you, and ends fights with a beam that splits the sky.',
   look: { gear: 'headband', cape: true, surge: { accent: '#ffd84d' } },
   ai: { style: 'balanced', range: 260 },
@@ -536,7 +536,7 @@ fighter({
 /* ------------------------------------------------------------- MUGI */
 fighter({
   id: 'mugi', name: 'MUGI', title: 'RUBBER BRAWLER', color: '#ff4fa3', aura: '#ffffff',
-  hp: 960, walk: 305, power: 0.95, stats: [4, 4, 5], price: 0, stage: 'dojo',
+  hp: 990, walk: 305, power: 1.02, stats: [4, 4, 5], price: 0, stage: 'dojo',
   blurb: 'A rubber-bodied brawler who laughs through every fight. His fists stretch across the arena, and his awakening goes giant.',
   look: { gear: 'band', surge: { accent: '#ffffff' } },
   ai: { style: 'balanced', range: 300 },
@@ -629,7 +629,7 @@ fighter({
 /* ------------------------------------------------------------- KOHEI */
 fighter({
   id: 'kohei', name: 'KOHEI', title: 'RISING HERO', color: '#2fd47a', aura: '#7dff8a',
-  hp: 950, walk: 335, power: 1, stats: [4, 5, 3], price: 300, stage: 'city',
+  hp: 920, walk: 335, power: 0.96, stats: [4, 5, 3], price: 300, stage: 'city',
   blurb: 'A hero-in-training whose power could break his own bones. Flicks shockwaves, cracks the ground with a lightning kick, and smashes at max power.',
   look: { gear: 'band' },
   ai: { style: 'rush', range: 220 },
@@ -912,7 +912,7 @@ function phaseless(kind) {
 /* ------------------------------------------------------------- RIPPER */
 fighter({
   id: 'ripper', name: 'RIPPER', title: 'SAW DEVIL', color: '#ff6b2b', aura: '#ffb13d', reach: 16,
-  hp: 1050, walk: 300, power: 1.05, stats: [5, 3, 4], price: 500, stage: 'city',
+  hp: 1080, walk: 300, power: 1.12, stats: [5, 3, 4], price: 500, stage: 'city',
   blurb: 'Pull the cord and he becomes a buzzing nightmare. Rolls saw discs, hooks you with a chain, and revs into a rampage.',
   look: { gear: 'helmet', weapon: 'saw', weaponLen: 58 },
   ai: { style: 'rush', range: 220 },
@@ -1304,7 +1304,7 @@ fighter({
 /* ------------------------------------------------------------- PSYCHIC */
 fighter({
   id: 'psychic', name: 'SHIGE', title: 'PSYCHIC', color: '#00d9ff', aura: '#9ff4ff',
-  hp: 950, walk: 285, power: 1.05, stats: [4, 3, 5], price: 850, stage: 'snow',
+  hp: 990, walk: 285, power: 1.1, stats: [4, 3, 5], price: 850, stage: 'snow',
   blurb: 'A quiet kid holding back a terrifying power. Lifts you with his mind, reflects anything you throw, and when his emotions hit 100%, everything explodes.',
   look: { gear: 'hood' },
   ai: { style: 'zoner', range: 360 },
@@ -1390,6 +1390,62 @@ fighter({
   },
 });
 const easeIn2 = t => t * t;
+
+
+/* =========================================================================
+   Combo enders: light, light, heavy finishes with each fighter's own
+   ability. They all launch (or bounce) so the combo can continue into a
+   special, the super, or a jump-cancel air combo.
+   ========================================================================= */
+(function enders() {
+  const E = (id, o) => { BY_ID[id].moves.hEnd = Object.assign({ id: 'hEnd', key: 'hEnd', kind: 'heavy', w: 0.09, a: 0.12, r: 0.32, ender: true }, o); };
+  const up = (dmg, kb, color, extra) => Object.assign({ dmg, kb, stun: 0.95, bstun: 0.26, hs: 0.11, launch: true, sfx: 'hitH', bf: true, color }, extra || {});
+  const UPPER = phasePose({}, { fh: [14, 32], crouch: 24, lean: 4 }, { fh: [20, -52], bh: [-6, 16], crouch: -6, lift: 10 }, {});
+  const handFx = (G, f, col, n = 10) => { const h = hand(f); G.fx.burst(h.x, h.y, col, n, 420); G.fx.ring(h.x, h.y, col, 80, 0.3, 6); };
+  const multi = (G, f, act, box, n, every, small, last) => {
+    if (phaseOf(act).ph !== 1) return;
+    act.tk = (act.tk || 0) + STEP;
+    if ((act.n || 0) < n && act.tk >= every) {
+      act.tk = 0;
+      const fin = (act.n || 0) === n - 1;
+      const r = boxHit(G, f, act, box, fin ? last : small);
+      if (r) act.n = (act.n || 0) + 1;
+    }
+  };
+
+  E('kaze', { name: 'Ki Uppercut', icon: 'orb', poseFn: UPPER, box: [52, -128, 36], hit: up(66, [200, -1150], '#7fd4ff'),
+    tick: (G, f, act) => { if (act.t >= act.w && once(act, 'fx')) { handFx(G, f, '#7fd4ff', 16); const h = hand(f); G.fx.add({ kind: 'beam', x: h.x, y: h.y, size: 26, life: 0.25, color: '#7fd4ff' }); } } });
+  E('ryo', { name: 'Shadow Spin Kick', icon: 'swarm', poseFn: withSpin(phasePose({}, { ff: [6, -40], crouch: 10 }, { ff: [62, -96], bf: [-12, 0], lean: -20 }, {}), 1, 28), box: [70, -100, 42], a: 0.16,
+    hit: up(64, [380, -980], '#ffe27a'), tick: (G, f, act) => { if (act.t >= act.w && once(act, 'fx')) { G.ghost(f, '#ffe27a', 0.35); G.fx.add({ kind: 'smoke', x: f.root.x, y: f.root.y - 100, size: 50, life: 0.35, color: '#ffffff', add: false }); } } });
+  E('homura', { name: 'Rising Tide', icon: 'wave', poseFn: arcPose(1.3, -1.7, ph => (ph === 1 ? { crouch: -6, lift: 12 } : { crouch: 20 })), box: [80, -130, 40], slash: true,
+    hit: up(64, [220, -1150], '#4fd2ff'), tick: (G, f, act) => { if (act.t >= act.w && once(act, 'fx')) { const n = f.pts[P.NECK]; G.fx.slash(n.x, n.y + 10, 110, f.facing > 0 ? 1.3 : 1.84, f.facing > 0 ? -1.7 : 4.84, '#4fd2ff', 26, 0.35); for (let i = 0; i < 12; i++) G.fx.add({ x: n.x + f.facing * rand(20, 90), y: n.y + rand(-60, 40), vx: rand(-100, 100), vy: rand(-500, -200), g: 1200, life: 0.5, size: 5, color: '#9fe6ff' }); } } });
+  E('mugi', { name: 'Rubber Whip Upper', icon: 'stretch', poseFn: UPPER, box: [104, -150, 40], rubber: 90, hit: up(64, [260, -1200], '#ff4fa3') });
+  E('kohei', { name: 'Volt Upper', icon: 'bolt', poseFn: UPPER, box: [54, -128, 36], hit: up(62, [200, -1150], '#7dff8a'),
+    tick: (G, f, act) => { if (act.t < act.w + act.a && Math.random() < 0.6) { const h = hand(f); G.fx.arc(h.x, h.y, h.x + rand(-60, 60), h.y + rand(-80, 40), '#7dff8a', 0.12); } } });
+  E('blaze', { name: 'Fire Spin Kick', icon: 'flame', poseFn: withSpin(phasePose({}, { ff: [0, -40], crouch: 10 }, { ff: [64, -76], bf: [-10, 0], lean: -16 }, {}), 1, 20), box: [74, -86, 44], a: 0.16,
+    hit: up(66, [480, -900], '#ffc23d'), tick: (G, f, act) => { if (phaseOf(act).ph === 1) { const q = f.pts[P.FFOOT]; for (let i = 0; i < 2; i++) G.fx.add({ kind: 'flame', x: q.x, y: q.y, vx: rand(-200, 200), vy: rand(-300, -60), life: 0.3, size: rand(8, 13), color: i ? '#ff5a1c' : '#ffc23d' }); } } });
+  E('triblade', { name: 'Triple Rise', icon: 'swords', poseFn: arcPose(1.3, -1.7, ph => (ph === 1 ? { lift: 14 } : { crouch: 18 })), a: 0.18,
+    tick: (G, f, act) => multi(G, f, act, [84, -124, 44], 3, 0.05, { dmg: 18, kb: [60, -260], stun: 0.4, hs: 0.03, color: '#fff0b0', kind: 'heavy', sfx: 'slash', slash: true, noLaunch: true }, up(40, [220, -1150], '#fff0b0', { kind: 'heavy', slash: true })) });
+  E('jin', { name: 'Crescent Upper', icon: 'crescent', poseFn: arcPose(1.3, -1.7, ph => (ph === 1 ? { crouch: -6 } : { crouch: 20 })), box: [86, -132, 42], slash: true,
+    hit: up(66, [240, -1150], '#9fe6ff'), tick: (G, f, act) => { if (act.t >= act.w && once(act, 'fx')) { const n = f.pts[P.NECK]; G.fx.slash(n.x + f.facing * 40, n.y - 20, 120, f.facing > 0 ? 0.8 : 2.34, f.facing > 0 ? -2.2 : 5.34, '#9fe6ff', 34, 0.35); } } });
+  E('kensei', { name: 'Seven Star Strike', icon: 'target', poseFn: phasePose({}, { fh: [10, 10], bh: [-12, 18], crouch: 12 }, { fh: [52, -20], bh: [-16, 20], lean: 12, ff: [36, 0] }, {}), box: [74, -116, 34],
+    hit: up(44, [160, -820], '#e2ff9a'), onHit: (G, f, o) => G.mark(f, o, 2) });
+  E('ripper', { name: 'Saw Uplift', icon: 'saw', poseFn: UPPER, a: 0.2,
+    tick: (G, f, act) => { multi(G, f, act, [70, -120, 40], 4, 0.045, { dmg: 11, kb: [40, -200], stun: 0.4, hs: 0.02, color: '#ffcf6a', kind: 'heavy', sfx: 'cut', noLaunch: true }, up(36, [220, -1150], '#ffcf6a', { kind: 'heavy' })); if (phaseOf(act).ph === 1) { const h = hand(f); G.fx.add({ kind: 'spark', x: h.x, y: h.y, vx: rand(-500, 500), vy: rand(-500, 100), life: 0.2, size: 4, color: '#ffcf6a' }); } } });
+  E('aoi', { name: 'Red Flick', icon: 'burst', poseFn: BY_ID.aoi.moves.sp2.poseFn, box: [74, -104, 46], hit: up(58, [1150, -320], '#ff3b4f'),
+    tick: (G, f, act) => { if (act.t >= act.w && once(act, 'fx')) { const h = hand(f); G.fx.ring(h.x, h.y, '#ff3b4f', 110, 0.3, 8); Sfx.play('red'); } } });
+  E('taro', { name: 'Spirit Upper', icon: 'fist', poseFn: phasePose({}, { fh: [20, -30], crouch: 10 }, { fh: [36, -40], lean: 4 }, {}), box: [86, -134, 46], hit: up(66, [200, -1200], '#b39bff'),
+    start: (G, f, act) => { G.stand(f, 0.5); } });
+  E('psychic', { name: 'Psi Pop', icon: 'antigrav', poseFn: phasePose({}, { fh: [30, 20], bh: [24, 24] }, { fh: [44, -30], bh: [38, -24], lean: -4 }, {}), box: [90, -100, 52], hit: up(58, [60, -1350], '#9ff4ff'),
+    onHit: (G, f, o) => { const c = o.center(); G.fx.ring(c.x, c.y, '#00d9ff', 120, 0.35, 8); } });
+  E('monarch', { name: 'Shadow Rise', icon: 'grasp', poseFn: phasePose({}, { fh: [20, 30], bh: [10, 34], crouch: 18 }, { fh: [40, 44], bh: [30, 46], crouch: 28, lean: 16 }, {}), box: [100, -70, 56], hit: up(62, [100, -1250], '#a48bff'),
+    tick: (G, f, act) => { if (act.t >= act.w && once(act, 'fx')) { const x = f.root.x + f.facing * 100 * f.s / 2 * 1.7; for (let i = 0; i < 5; i++) G.fx.add({ kind: 'shard', x: x + (i - 2) * 18, y: GROUND, vx: (i - 2) * 30, vy: -900 - i % 2 * 300, life: 0.3, size: 10, color: '#6a4bdc' }); } } });
+  E('titan', { name: 'Titan Hammer', icon: 'quake', poseFn: phasePose({}, { fh: [8, -48], bh: [-6, -46], lean: -6 }, { fh: [46, 40], bh: [38, 42], lean: 20, crouch: 26 }, {}), w: 0.12, box: [74, -80, 52],
+    hit: { dmg: 76, kb: [120, 800], stun: 0.9, bstun: 0.3, hs: 0.13, launch: true, bounce: true, sfx: 'hitH', bf: true, color: '#ffd27a' },
+    tick: (G, f, act) => { if (act.t >= act.w && once(act, 'fx')) { G.shake(8); G.fx.dust(f.root.x + f.facing * 80, GROUND, 10); } } });
+  E('saibo', { name: 'Casual Upper', icon: 'goldfist', poseFn: UPPER, box: [52, -128, 36], hit: up(70, [150, -1500], '#ffffff'),
+    onHit: (G, f, o) => G.say(f.root.x, f.root.y - 300, '...', '#ffffff', 30) });
+})();
 
 /* ------------------------------------------------------------- stages */
 const STAGES = {

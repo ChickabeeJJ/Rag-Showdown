@@ -24,12 +24,14 @@ python3 -m http.server 8000
   - throwing a guarding opponent;
   - Black Spark.
 - **PLAY** on the home screen drops you straight into your next level, with no select screen or VS screen.
+- **The guide is forgiving:** any press of A or D counts as moving, and an attack counts whether or not it lands. Each control only has to be used once.
 
 ## Levels
 
 The campaign follows Element Rag's stage map: 8 chapters of 6 levels, one per stage. The **Levels** screen shows chapter tabs, cards with stars and twist badges, and the boss highlighted.
 
-- Every level is one round. Level 6 of each chapter is a best-of-three **boss**.
+- **Levels are fast, like Element Rag's.** Each is one round against 1 to 3 foes in **waves**. When one is knocked out, the next drops in from above right away. Your health carries over, with a small heal between waves, and the dots under the timer show your progress. Level 6 of each chapter is a single **boss** with extra health.
+- **Quick to continue:** **Enter** or **Space** takes the main button on a result screen (NEXT LEVEL, RETRY or RESUME). Moving from level to level uses a short transition.
 - **Stars** come from the health you have left (3 stars at 70% or more, 2 at 35% or more). Replaying a level can raise its stars.
 - **Recruits:** beating the fighter marked RECRUIT adds them to your roster, so the cast grows as you play. They can also be unlocked early with coins.
 - **Twists:** most levels change one rule, so neighbouring fights never play alike:
@@ -67,9 +69,11 @@ Other modes:
 The skill bar at the bottom of the screen always shows these: mouse icons for light and heavy, then each special and the super, each with its key. Player 2 in Versus uses the arrow keys with `,` `.` `;` `'` `/` (light, heavy, special 1, special 2, super) and `Enter` to throw, or Numpad `1` `2` `4` `5` `3` `6`.
 
 - **Combos:**
-  - Light, light, heavy is a chain that ends in a launcher.
-  - Any light or heavy that connects can be cancelled into a special, and anything can be cancelled into the super.
-  - When a special starts, its name pops up over your head.
+  - Light, light, heavy always comes out as a chain, whether or not the hits land. The heavy is the fighter's own **combo ender** ability (see the table below).
+  - Chained attacks step in toward a foe who's still reeling, so strings connect.
+  - Any light or heavy that connects can be cancelled into a special, and anything into the super.
+  - **Air combos:** after the ender launches the foe, press **W** right away to jump after them. Air attacks home in on a juggled foe: light, light, then heavy spikes them into the floor, and they bounce once so you can keep going.
+  - The hit counter grades long combos (NICE, GREAT, AMAZING, SHOWDOWN). When a special starts, its name pops up over your head.
 - **Juggles:** a fighter knocked into the air can be hit up to six more times; supers ignore that limit. A fighter who has landed can't be hit, and a fighter getting up is briefly invulnerable. A hard enough hit into a wall makes a **wall splat**.
 - **Guard:** normal attacks do no chip damage when guarded, but specials and supers do. Each block drains the guard gauge under your health bar. When it empties, your guard breaks and you're stunned. Throws can't be guarded.
 - **Black Spark:** a heavy hit has a 13% chance to crit for double damage and +25 meter, with black-and-red impact frames.
@@ -80,6 +84,27 @@ The skill bar at the bottom of the screen always shows these: mouse icons for li
 Every fighter is an Element Rag stickman: a cream mannequin with wrist bands in their colour and Element Rag's own headgear (headband with tails, hood, helmet and plates, or boss crest). Some wear Element Rag's cape, and sword fighters carry plain energy blades. There are no anime character designs, and all names and move names are original. Each kit is built around a common anime archetype, not a specific character.
 
 Specials are keyframed with wind-up, strike and follow-through, and include full-body flips and spins. Energy gathers at the hand during the wind-up, and a burst marks the release.
+
+Each fighter's light-light-heavy **combo ender**:
+
+| Fighter | Ender |
+| --- | --- |
+| Kaze | Ki Uppercut |
+| Ryo | Shadow Spin Kick |
+| Homura | Rising Tide |
+| Mugi | Rubber Whip Upper |
+| Kohei | Volt Upper |
+| Blaze | Fire Spin Kick |
+| Zen | Triple Rise |
+| Jin | Crescent Upper |
+| Kensei | Seven Star Strike (plants marks) |
+| Ripper | Saw Uplift |
+| Aoi | Red Flick (a wall-splat blast) |
+| Taro | Spirit Upper |
+| Shige | Psi Pop |
+| Monarch | Shadow Rise |
+| Goro | Titan Hammer (ground bounce) |
+| Saibo | Casual Upper |
 
 | Fighter | Archetype | Special 1 | Special 2 | Super | Joins |
 | --- | --- | --- | --- | --- | --- |
@@ -102,26 +127,26 @@ Specials are keyframed with wind-up, strike and follow-through, and include full
 
 ## Stages
 
-Eight stages, built like Element Rag's backdrops. Each has far, mid and near layers pre-rendered with haze between them, and the far layers are softer, like depth of field. On top of that, each frame adds:
+Eight stages, built like Element Rag's backdrops. Each has far, mid and near layers pre-rendered with haze between them, and the far layers are softer, like depth of field. Buildings, trees and rocks are shaded and catch a rim of light, and props have soft contact shadows, so nothing floats. On top of that, each frame adds:
 
-- the sky and its light: sun glow and rays, the moon, aurora, neon or spotlights;
-- animated props;
-- a textured floor with reflections or glowing seams;
-- weather and particles;
-- a foreground frame.
+- the sky and its light;
+- animated details;
+- floor reflections;
+- weather;
+- a soft foreground frame;
+- a per-stage colour grade with a vignette.
 
-| Stage | What's in it |
+| Stage | Highlights |
 | --- | --- |
-| Sunset Dojo | swaying lanterns |
-| Neon Rooftop | rain and flickering neon |
-| Sakura Shrine | a torii gate and falling petals |
-| Bamboo Grove | god rays and fireflies |
-| Frost Peak | aurora and snow |
-| Void Rift | nebulae, a glowing rift and floating isles |
-| Crater Plains | an erupting volcano and lava cracks |
-| Grand Arena | the crowd, banners and spotlights |
-
-There's also a Training Room.
+| Neon Rooftop | Rebuilt as a rainy night city: stepped towers with lit window grids, rooftop water tanks and masts, a lattice tower, flickering neon signs with made-up glyphs, an LED screen, and a train on an elevated line. The roof is wet concrete, and the signs reflect in it. |
+| Neon Rooftop: rain | Realistic rain in three depths. Fine, faint far rain; mid rain; and long bright streaks in front of the fighters. It falls at an angle in the wind, with crown splashes, ripples in puddles and ground mist, plus occasional lightning that flashes the sky before the thunder. |
+| Sunset Dojo | A hall on a stone plinth with tiled roofs, lit shoji and swaying lanterns. A fence and stone lanterns stand on the ground, and sun rays shine through. |
+| Sakura Shrine | A shaded torii on stone steps, branching cherry trees with lit blossom clusters, a snow-capped volcano and stone lanterns. |
+| Bamboo Grove | Rounded, shaded stalks with leaves, curved grass, god rays, drifting mist and fireflies. |
+| Frost Peak | Aurora curtains, a snow cap on every peak, snow-laden pines, faceted ice crystals and snow banks. |
+| Void Rift | A glowing tear in the sky, shaded floating isles with crystal clusters, a lit ringed planet, and pillars with pulsing runes. |
+| Crater Plains | An erupting volcano with lava channels and smoke, rim-lit spires, ruined arches with rubble at their feet, and lava cracks. |
+| Grand Arena | A roof truss with spotlights, tiered stands packed with a crowd, camera flashes, a hanging VS screen, and banners on the ring wall. |
 
 ## Testing
 
@@ -154,7 +179,7 @@ NODE_PATH=$(npm root -g) node tools/flow.js
   5. It checks that PLAY goes straight into the fight.
   6. It plays 2-player Versus, Survival, and Training with every pause option, and buys a fighter.
 
-Latest results: the soak ran 256 matches (633 rounds) across all stages and twists with no issues, and win rates fell between 0.3 and 0.67. Monarch and Zen were buffed after that run. All flow checks passed. The game was also checked at iPhone landscape size with touch controls.
+Latest results: the soak ran 256 matches (640 rounds) across all stages and twists with no issues, with CPU combos reaching 32 hits. Win rates fell between 0.30 and 0.73, and the outliers were tuned after that run. All flow checks passed. The game was also checked at iPhone landscape size with touch controls.
 
 ## Project layout
 
