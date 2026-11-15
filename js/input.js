@@ -120,7 +120,7 @@ class HumanCtrl {
         const toward = Math.sign(G.opp(f).root.x - f.root.x) || f.facing;
         k = dir === toward ? 'dashF' : 'dashB';
       }
-      if (k === 'throw' && f.action && f.action.key === 'l1' && f.action.t < 0.08) { f.action = null; }
+      if (k === 'throw' && f.action && f.action.key === 'l1' && f.action.t < 0.08) { f.clearAction(); }
       G.press(this.side, k);
     }
   }

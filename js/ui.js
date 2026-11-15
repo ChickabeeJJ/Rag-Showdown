@@ -361,6 +361,7 @@ const UI = (() => {
     if (tw === 'frenzy') cfg.speedMul = 1.2;
     if (tw === 'glass') cfg.dmgMul = 2;
     if (tw === 'clock') { cfg.timeLimit = 40; cfg.loseOnTime = true; }
+    if (L.boss && !tut) { cfg.introPan = true; cfg.bossIntro = true; cfg.fastIntro = false; }
     U.run = { mode: 'level', L };
     beginFight(cfg, instant, U.fastNext);
     U.fastNext = false;
@@ -569,7 +570,7 @@ const UI = (() => {
     const s = U.sel;
     const stage = s.stage === 'random' ? pick(STAGE_IDS) : s.stage;
     U.run = { mode: 'versus', p1: s.p1, p2: s.p2, p2human: s.p2human, lv: s.cpuLv, stage };
-    const go = () => beginFight({ p1: s.p1, p2: s.p2, ctrls: [human(0), s.p2human ? human(1) : cpu(s.cpuLv)], stage, mode: 'versus', toWin: 2, twoP: s.p2human,
+    const go = () => beginFight({ p1: s.p1, p2: s.p2, ctrls: [human(0), s.p2human ? human(1) : cpu(s.cpuLv)], stage, mode: 'versus', toWin: 2, twoP: s.p2human, introPan: true,
       chip: s.p2human ? 'VERSUS · PLAYER 1 vs PLAYER 2' : `VERSUS · CPU LV ${s.cpuLv}`, onEnd: res => setTimeout(() => versusEnd(res), 900) });
     versusSheet(s.p1, s.p2, s.p2human ? 'PLAYER 1 vs PLAYER 2' : `CPU LEVEL ${s.cpuLv}`, go);
   }
@@ -599,7 +600,7 @@ const UI = (() => {
     const lv = Math.min(9, 2 + Math.floor(r.streak / 2));
     r.cur = { id: oid, lv };
     versusSheet(r.p1, oid, `STREAK ${r.streak} · CPU LV ${lv}`, () => beginFight({ p1: r.p1, p2: oid, ctrls: [human(0), cpu(lv)], stage: pick(STAGE_IDS), mode: 'survival', toWin: 1,
-      hpStart: [r.hp, 1], meter0: r.meter, chip: `SURVIVAL · STREAK ${r.streak} · CPU LV ${lv}`, onEnd: res => setTimeout(() => survivalEnd(res), 700) }), null, 1.6);
+      hpStart: [r.hp, 1], meter0: r.meter, introPan: r.streak === 0, fastIntro: r.streak > 0, chip: `SURVIVAL · STREAK ${r.streak} · CPU LV ${lv}`, onEnd: res => setTimeout(() => survivalEnd(res), 700) }), null, 1.6);
   }
   function survivalEnd(res) {
     const r = U.run;

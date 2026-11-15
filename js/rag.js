@@ -85,6 +85,7 @@ class Rag {
     this.def = def;
     this.side = o.side || 0;
     this.s = RS * (def.scale || 1);
+    this.baseS = this.s;
     this.facing = o.facing || 1;
     this.maxHp = this.hp = Math.round(def.hp * (o.hpMul || 1));
     this.walk = def.walk;
@@ -176,10 +177,23 @@ class Rag {
     }
   }
 
+  // end the current move from outside the move itself (hit, launched, KO,
+  // grabbed, frozen). Runs the move's own cleanup so nothing a move changed
+  // (size, hover, hidden, transparency) can outlive it.
+  clearAction() {
+    const a = this.action;
+    if (!a) return;
+    this.action = null;
+    if (a.move && a.move.end && typeof Game !== 'undefined') a.move.end(Game, this, a);
+    this.root.hover = false;
+    this.hideArm = false;
+    this.alpha = 1;
+  }
+
   // knockback while staying on the feet (hitstun) or blocking
   stagger(kx, ky, idx, stun, blocking) {
     const r = this.root;
-    this.action = null;
+    this.clearAction();
     this.dashT = 0;
     r.vx = kx; r.hover = false;
     if (!r.grounded) r.vy = Math.min(r.vy, ky);
@@ -208,7 +222,7 @@ class Rag {
     this.mode = 'tumble';
     this.m = 0;            // limp at once: lingering muscle pull toward the standing pose would eat the launch
     this.stunT = Math.max(this.stunT, dur);
-    this.action = null;
+    this.clearAction();
     this.dashT = 0;
     r.hover = false;
   }
@@ -220,7 +234,7 @@ class Rag {
     this.m = 0;
     this.deadT = 0;
     this.hp = 0;
-    this.action = null;
+    this.clearAction();
   }
 
   /* ------------------------------------------------------------ update */

@@ -64,6 +64,7 @@ const Game = (() => {
       new Rag(BY_ID[c.p2], { side: 1, x: 1040, facing: -1, hpMul: (c.hpMul || [1, 1])[1] }),
     ];
     if (c.scale) G.fighters.forEach((f, i) => { f.s *= c.scale[i] || 1; });
+    G.fighters.forEach(f => { f.baseS = f.s; });
     WORLD_G = c.grav || 1;
     if (c.p1 === c.p2) G.fighters[1].alt = true;   // mirror match: player 2 is a shade darker
     G.fighters.forEach((f, i) => {
@@ -80,6 +81,7 @@ const Game = (() => {
     G.hpShown = G.fighters.map(f => f.hp);
     if (c.training || c.quickStart) { G.stateT = 1.5; }
     else if (c.fastIntro) G.stateT = 0.8;   // levels get going fast
+    else if (c.introPan) G.stateT = -0.7;    // let the transition clear before the intro pan
     G.wave = 0;
     Sfx.music(G.round >= 3 || (G.wins[0] && G.wins[1]) ? 'final' : 'fight');
   };
@@ -148,6 +150,7 @@ const Game = (() => {
   G.minion = function (owner, o) {
     const r = new Rag(o.def || owner.def, { side: owner.side, x: o.x, facing: owner.facing });
     if (o.scale) r.s *= o.scale;
+    r.baseS = r.s;
     r.hidden = true;
     if (o.hover) { r.root.y = GROUND - 30; r.root.hover = true; r.root.grounded = false; }
     const m = Object.assign({ rag: r, owner, kind: 'minion', life: 0.8, speed: 1000, box: [56, -40, 36], pose: POSES.airK.strike }, o);
@@ -178,7 +181,7 @@ const Game = (() => {
   };
   G.timeStop = function (f, d) {
     const o = G.opp(f);
-    if (o.alive) { o.stopT = d; o.action = null; }
+    if (o.alive) { o.stopT = d; o.clearAction(); }
     G.stopOwner = f; G.stopT = d;
   };
 
@@ -235,9 +238,20 @@ const Game = (() => {
 
     /* -------------------------------------------------------------- hit */
     const cm = G.combo[att.side];
-    const inCombo = def.mode === 'hit' || def.mode === 'tumble' || stopped || def.mode === 'block';
+    const inCombo = def.mode === 'hit' || def.mode === 'tumble' || stopped;
     const n = cm && inCombo ? cm.n + 1 : 1;
-    G.combo[att.side] = { n, t: 0, def };
+    // each move may only start a hit twice in one combo; a third use and the victim breaks free
+    const uses = cm && inCombo ? Object.assign({}, cm.uses) : {};
+    const seen = cm && inCombo ? cm.seen : new Set();
+    const mk = act && act.key && kind !== 'super' && !stopped ? act.key : null;
+    if (mk && !seen.has(act)) {
+      seen.add(act);
+      uses[mk] = (uses[mk] || 0) + 1;
+      if (uses[mk] > 2) { breakFree(att, def, x, y, dir); return 'block'; }
+    }
+    G.combo[att.side] = { n, t: 0, def, uses, seen };
+    // the longer the combo, the less hitstun each hit adds and the further it pushes
+    const decay = Math.max(0.45, 1 - 0.06 * (n - 1));
     let scale = Math.max(kind === 'super' ? 0.55 : 0.3, 1 - 0.09 * (n - 1));
     let tag = null;
     const counter = def.action && def.action.t < def.action.w && def.action.move.kind !== 'super' && kind !== 'super';
@@ -275,9 +289,9 @@ const Game = (() => {
       } else if (launch) {
         def.juggle++;
         const lift = air && !spec.launch ? -520 : 0;
-        def.tumble((spec.stun || 0.6) * (counter ? 1.2 : 1), kx * (willDie ? 1.25 : 1), (ky + lift) * (willDie ? 1.15 : 1) - (willDie ? 500 : 0), P.NECK);
+        def.tumble((spec.stun || 0.6) * (counter ? 1.2 : 1) * (willDie ? 1 : decay), kx * (willDie ? 1.25 : 1), (ky + lift) * (willDie ? 1.15 : 1) - (willDie ? 500 : 0), P.NECK);
       } else {
-        def.stagger(kx, ky, P.NECK, (spec.stun || 0.3) * (counter ? 1.3 : 1), false);
+        def.stagger(kx * Math.min(2.2, 1 + 0.1 * (n - 1)), ky, P.NECK, (spec.stun || 0.3) * (counter ? 1.3 : 1) * decay, false);
       }
     }
 
@@ -305,11 +319,48 @@ const Game = (() => {
       G.shake(6);
     }
     if (tag === 'COUNTER') Sfx.play('counter');
+    // camera: zoom punch and a touch of tilt, scaled to the hit
+    if (bf) { G.punch(0.12); G.tilt(0.035); }
+    else if (spec.big) { G.punch(0.1); G.tilt(0.025); }
+    else if (counter) G.punch(0.05);
+    else if (spec.launch && kind === 'heavy') { G.punch(0.06); if (!willDie) G.slow(0.45, 0.16); }
+    else if (kind === 'heavy' && dmg >= 50) G.punch(0.03);
     if (!willDie) G.hitstop = Math.max(G.hitstop, hs);
     else G.hitstop = Math.max(G.hitstop, 0.12);
     def.shake = 6;
     return 'hit';
   };
+
+  // the victim of a looping combo shakes it off
+  function breakFree(att, def, x, y, dir) {
+    G.combo[att.side] = null;
+    def.invuln = Math.max(def.invuln, 0.55);
+    if (def.mode === 'tumble') def.juggle = JUGGLE_MAX;
+    else { def.mode = 'active'; def.stunT = 0; def.m = 1; def.root.vx = dir * 760; }
+    att.root.vx = -dir * 320;
+    if (att.action && att.action.move.kind !== 'super') endAction(att);
+    G.fx.ring(x, y, '#ffffff', 150, 0.3, 8); G.fx.burst(x, y, '#ffffff', 16, 600);
+    G.say(def.root.x, def.root.y - 300, 'BREAK!', '#8fd6ff', 40);
+    Sfx.play('break'); G.shake(8);
+    G.hitstop = Math.max(G.hitstop, 0.08);
+  }
+
+  // two normals that strike each other on the same frame clash instead of trading
+  function tryClash(f, o, dt) {
+    const live = (q, extra) => q.action && q.mode === 'active' && q.action.move.box && !q.action.hitDone && (q.action.move.kind === 'light' || q.action.move.kind === 'heavy') && q.action.t + extra >= q.action.w && q.action.t < q.action.w + q.action.a;
+    if (G.state !== 'fight' || !live(o, dt)) return false;
+    const mo = o.action.move, pb = o.local(mo.box[0], mo.box[1]);
+    if (!f.hitTest(pb.x, pb.y, mo.box[2] * o.s)) return false;
+    const pa = f.local(f.action.move.box[0], f.action.move.box[1]);
+    const x = (pa.x + pb.x) / 2, y = (pa.y + pb.y) / 2, dir = Math.sign(o.root.x - f.root.x) || 1;
+    endAction(f); endAction(o);
+    f.root.vx = -dir * 620; o.root.vx = dir * 620;
+    G.fx.hit(x, y, '#ffffff', 0.9); G.fx.ring(x, y, '#ffd34d', 200, 0.35, 10);
+    G.say(x, y - 110, 'CLASH!', '#ffd34d', 44);
+    G.hitstop = Math.max(G.hitstop, 0.16); G.punch(0.06); G.shake(10);
+    Sfx.play('clash');
+    return true;
+  }
 
   /* --------------------------------------------------------------- actions */
   function startAction(f, key, opt) {
@@ -450,6 +501,8 @@ const Game = (() => {
       const o = G.opp(f);
       const p = f.local(mv.box[0], mv.box[1]);
       const res = o.hitTest(p.x, p.y, mv.box[2] * f.s);
+      // two normals landing on the same frame clash instead of trading
+      if (res && (mv.kind === 'light' || mv.kind === 'heavy') && tryClash(f, o, dt)) return;
       if (res) {
         const spec = Object.assign({ kind: mv.kind, name: mv.name }, mv.hit);
         if (act.spike) Object.assign(spec, { kb: [160, 900], launch: true, bounce: true, stun: 0.8 });
@@ -768,6 +821,16 @@ const Game = (() => {
   /* -------------------------------------------------------------- rounds */
   function roundLogic(dt) {
     const [a, b] = G.fighters;
+    if (G.state === 'intro' && G.cfg.introPan) {
+      // a cinematic intro: each fighter gets the camera and their name, then the round is called
+      const t = G.stateT;
+      for (const f of G.fighters) f.pose = t < 2.0 ? 'winCross' : null;
+      if (t > 0.1 && !G.nameA) { G.nameA = true; const d = G.fighters[0].def; G.callout(d.name, d.title, 'name', 0.75); G.calloutSide = 0; }
+      if (t > 0.9 && !G.nameB) { G.nameB = true; const d = G.fighters[1].def; G.callout(d.name, G.cfg.bossIntro ? 'BOSS · ' + d.title : d.title, 'name', 0.75); }
+      if (t > 1.7 && !G.introSaid) { G.introSaid = true; G.callout(isFinal() ? 'FINAL ROUND' : (G.cfg.toWin || 2) === 1 ? 'ONE ROUND' : 'ROUND ' + G.round, G.cfg.roundSub || G.stage.name, 'round', 0.9); Sfx.play('round'); }
+      if (t > 2.5) { G.state = 'fight'; G.stateT = 0; G.introSaid = G.nameA = G.nameB = false; G.callout('FIGHT!', '', 'fight', 0.8); Sfx.play('fight'); for (const f of G.fighters) f.pose = null; }
+      return;
+    }
     if (G.state === 'intro') {
       for (const f of G.fighters) f.pose = G.stateT < 1.1 ? 'winCross' : null;
       if (G.stateT > 0.25 && !G.introSaid) { G.introSaid = true; G.callout((G.cfg.toWin || 2) === 1 ? (G.cfg.tutorial ? 'LESSON' : 'ONE ROUND') : isFinal() ? 'FINAL ROUND' : 'ROUND ' + G.round, G.cfg.roundSub || G.stage.name, 'round', 1.2); Sfx.play('round'); }
@@ -809,7 +872,10 @@ const Game = (() => {
     if (G.state === 'ko') {
       for (const f of G.fighters) if (f.hp <= 0 && f.alive && f.stopT <= 0 && G.winner >= 0 && f.side !== G.winner) f.die();
       const w = G.fighters[G.winner];
-      if (G.stateT > 2.0 && w && w.alive && w.mode === 'active' && !w.action) w.pose = w.def.winPose || (w.side ? 'winArms' : 'win');
+      if (G.stateT > 2.0 && w && w.alive && w.mode === 'active' && !w.action) {
+        w.pose = w.def.winPose || (w.side ? 'winArms' : 'win');
+        if (!G.winFocus) { G.winFocus = true; const c = w.center(); G.focus(c.x, c.y, 1.4, 1.9); }
+      }
       if (G.stateT > 2.1 && !G.perfectSaid && w && w.hp >= w.maxHp && G.koKind !== 'time') { G.perfectSaid = true; G.callout('PERFECT', '', 'perfect', 1.4); Sfx.play('perfect'); if (G.winner === 0 && G.stats && G.mode !== 'demo') G.stats.perfects++; }
       if (G.stateT > 3.9) endRound();
     }
@@ -833,7 +899,7 @@ const Game = (() => {
       return;
     }
     def.die();
-    G.state = 'ko'; G.stateT = 0; G.winner = att.side; G.koKind = 'ko';
+    G.state = 'ko'; G.stateT = 0; G.winner = att.side; G.koKind = 'ko'; G.winFocus = false;
     G.perfectSaid = false;
     const c = def.center();
     const finisher = lh.kind === 'super';
@@ -864,6 +930,7 @@ const Game = (() => {
     const x = clamp(p.root.x < 800 ? p.root.x + 520 : p.root.x - 520, WALL_L + 120, WALL_R - 120);
     const f = new Rag(BY_ID[id], { side: 1, x, facing: x > p.root.x ? -1 : 1, hpMul: (c.waveHp || 1) });
     if (c.scale) f.s *= c.scale[1] || 1;
+    f.baseS = f.s;
     f.buf = []; f.onLand = () => { onLand(f); if (!f.landedIn) { f.landedIn = true; G.fx.ring(f.root.x, GROUND, f.def.color, 160, 0.4, 10); G.fx.dust(f.root.x, GROUND, 14); G.shake(10); Sfx.play('splat'); } };
     // drop in from above
     for (const q of f.pts) { q.y -= 520; q.py = q.y; }
@@ -881,6 +948,7 @@ const Game = (() => {
     G.timer = c.timeLimit ? G.timer : Math.max(G.timer, 60);
     G.state = 'fight'; G.stateT = 0;
     G.callout('NEXT!', f.def.name, 'round', 0.9);
+    G.focus(f.root.x, GROUND - 220, 1.22, 0.9);
     Sfx.play('round');
     if (c.onWave) c.onWave(G.wave);
   }
@@ -943,16 +1011,20 @@ const Game = (() => {
 
   function updateCamera(dt) {
     const cam = G.cam;
-    let tx = 800, ty, tz = 1;
+    let tx = 800, tz = 1, top = GROUND;
     if (G.fighters.length === 2) {
       const [a, b] = G.fighters;
-      const ax = a.root.x, bx = b.root.x;
-      tx = (ax + bx) / 2;
-      const d = Math.abs(ax - bx);
+      tx = (a.root.x + b.root.x) / 2;
+      const d = Math.abs(a.root.x - b.root.x);
       tz = clamp(1.2 - (d - 260) / 900 * 0.2, 1.0, 1.18);
-      const top = Math.min(a.head().y, b.head().y);
-      ty = null;
-      if (top < 380) tz = Math.min(tz, 1.05);
+      top = Math.min(a.head().y, b.head().y, a.pelvis.y - 60, b.pelvis.y - 60);
+      if (top < 380) tz = Math.min(tz, 1.06);
+      // the intro pans across the fighters
+      if (G.state === 'intro' && G.cfg && G.cfg.introPan) {
+        const t = G.stateT;
+        if (t < 0.85) { tx = a.root.x; tz = 1.45; top = a.head().y; }
+        else if (t < 1.65) { tx = b.root.x; tz = 1.45; top = b.head().y; }
+      }
     }
     if (G.cut) { const c = G.cut.f.center(); tx = c.x; tz = 1.5; }
     if (G.focusS) {
@@ -961,7 +1033,7 @@ const Game = (() => {
       tx = lerp(tx, fs.x, k); tz = lerp(tz, fs.z, k);
       if (fs.t >= fs.d) G.focusS = null;
     }
-    const lerpK = 1 - Math.exp(-dt * (G.cut ? 10 : 5));
+    const lerpK = 1 - Math.exp(-dt * (G.cut ? 10 : G.state === 'intro' ? 6 : 5));
     cam.z = lerp(cam.z, tz, lerpK);
     const halfW = W / (2 * cam.z);
     const visW = cw / (kView * cam.z);
@@ -969,25 +1041,36 @@ const Game = (() => {
     tx = clamp(tx, WALL_L - 40 + half, WALL_R + 40 - half);
     if (WALL_R + 40 - half < WALL_L - 40 + half) tx = 800;
     cam.x = lerp(cam.x, tx, lerpK);
-    // keep the floor near the bottom of the screen
+    // keep the floor near the bottom, but rise to follow a juggle into the air
     const visH = ch / (kView * cam.z);
-    cam.y = GROUND + 60 - visH / 2 + (visH - H / cam.z) * 0.0 - 0;
-    cam.y = Math.min(cam.y, GROUND + 110 - visH * 0.5);
+    const floorY = GROUND + 110 - visH * 0.5;
+    const follow = Math.max(floorY - 240, Math.min(floorY, top - 110 + visH * 0.5));
+    cam.y = cam.y == null || !Number.isFinite(cam.y) ? floorY : lerp(cam.y, follow, 1 - Math.exp(-dt * 4));
+    // zoom punches and tilt on big hits ease back out
+    G.punchA = (G.punchA || 0) * Math.exp(-dt * 7);
+    G.tiltA = (G.tiltA || 0) * Math.exp(-dt * 6);
   }
+  // cinematic camera kicks
+  G.punch = a => { G.punchA = Math.min(0.2, (G.punchA || 0) + a); };
+  G.tilt = a => { if (Save.data.settings.shake) G.tiltA = (Math.random() < 0.5 ? -1 : 1) * a; };
 
   /* --------------------------------------------------------------- render */
+  const zoomNow = () => G.cam.z * kView * (1 + (G.punchA || 0));
   function worldTransform(shake = true) {
-    const z = G.cam.z * kView;
+    const z = zoomNow();
     let sx = 0, sy = 0;
     if (shake && G.shakeA > 0) { sx = rand(-1, 1) * G.shakeA * dpr; sy = rand(-1, 1) * G.shakeA * dpr; }
-    ctx.setTransform(z, 0, 0, z, cw / 2 - G.cam.x * z + sx, ch / 2 - G.cam.y * z + sy);
+    const t = G.tiltA || 0;
+    const c = Math.cos(t) * z, sn = Math.sin(t) * z;
+    // rotate and scale about the screen centre, looking at the camera point
+    ctx.setTransform(c, sn, -sn, c, cw / 2 + sx - (c * G.cam.x - sn * G.cam.y), ch / 2 + sy - (sn * G.cam.x + c * G.cam.y));
   }
   function viewRect() {
-    const z = G.cam.z * kView;
+    const z = zoomNow() * (1 - Math.abs(G.tiltA || 0) * 2.5);
     return { x0: G.cam.x - cw / 2 / z, x1: G.cam.x + cw / 2 / z, y0: G.cam.y - ch / 2 / z, y1: G.cam.y + ch / 2 / z };
   }
   G.toScreen = function (x, y) {
-    const z = G.cam.z * kView;
+    const z = zoomNow();
     return { x: (cw / 2 + (x - G.cam.x) * z) / dpr, y: (ch / 2 + (y - G.cam.y) * z) / dpr };
   };
 
@@ -1070,7 +1153,9 @@ const Game = (() => {
     if (fr === 'inv' && flashes) { ctx.globalCompositeOperation = 'difference'; ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, cw, ch); ctx.globalCompositeOperation = 'source-over'; }
     else if (fr && !flashes) { ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(0, 0, cw, ch); speedLines(G.toScreen(G.impactPos.x, G.impactPos.y), time, 'rgba(255,255,255,0.5)'); }
     if (G.flashC) { ctx.globalAlpha = clamp(G.flashC.a, 0, 1); ctx.fillStyle = G.flashC.color; ctx.fillRect(0, 0, cw, ch); ctx.globalAlpha = 1; }
-    if (G.slowT > 0 && G.slowK < 0.5) letterbox(clamp(G.slowT * 3, 0, 1));
+    const superOn = G.fighters.some(f => f.action && f.action.move.kind === 'super' && f.action.t > f.action.w);
+    G.boxK = lerp(G.boxK || 0, superOn ? 0.75 : G.slowT > 0 && G.slowK < 0.5 ? 1 : 0, 0.15);
+    if (G.boxK > 0.01) letterbox(G.boxK);
     drawCallouts();
   };
 
@@ -1406,7 +1491,18 @@ const Game = (() => {
       ctx.translate(cw / 2, ch * (c.style === 'round' ? 0.36 : 0.42));
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       const base = Math.min(cw, ch * 1.7);
-      if (c.style === 'round') {
+      if (c.style === 'name') {
+        // a name card that sweeps in, big and slanted
+        const sz = base * 0.085;
+        ctx.translate((1 - pop) * -120 * dpr + u * 40 * dpr, ch * 0.18);
+        ctx.font = `italic 900 ${Math.round(sz)}px Rubik, sans-serif`;
+        ctx.lineJoin = 'round'; ctx.lineWidth = sz * 0.16; ctx.strokeStyle = '#000'; ctx.strokeText(c.text, 0, 0);
+        ctx.fillStyle = '#ffffff'; ctx.fillText(c.text, 0, 0);
+        ctx.font = `900 ${Math.round(sz * 0.3)}px Rubik, sans-serif`;
+        const sw = ctx.measureText(c.sub).width + sz * 0.6;
+        ctx.fillStyle = '#ffc933'; ctx.fillRect(-sw / 2, sz * 0.62, sw, sz * 0.42);
+        ctx.fillStyle = '#1a1404'; ctx.fillText(c.sub, 0, sz * 0.84);
+      } else if (c.style === 'round') {
         const sz = base * 0.06;
         ctx.font = `900 ${Math.round(sz)}px Rubik, sans-serif`;
         const tw = ctx.measureText(c.text).width + sz * 2;

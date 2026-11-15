@@ -584,12 +584,28 @@ const Stage = (() => {
           const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, rgba(c, 0.3)); gr.addColorStop(1, rgba(c, 0));
           g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
         }
-        // a ringed planet, lit from one side
+        // a ringed planet, lit from one side: the far half of the ring passes behind the planet,
+        // the near half crosses in front of it
         const px = 1250, py = 250, pr = 110;
-        g.fillStyle = vgrad(g, py - pr, py + pr, '#6a4cb0', '#24164a'); g.beginPath(); g.arc(px, py, pr, 0, TAU); g.fill();
-        g.fillStyle = 'rgba(0,0,0,0.4)'; g.beginPath(); g.arc(px + 30, py + 20, pr, 0, TAU); g.fill();
-        g.strokeStyle = 'rgba(210,190,255,0.6)'; g.lineWidth = 6; g.beginPath(); g.ellipse(px, py, 210, 42, -0.3, 0, TAU); g.stroke();
-        g.strokeStyle = 'rgba(210,190,255,0.25)'; g.lineWidth = 12; g.beginPath(); g.ellipse(px, py, 230, 48, -0.3, 0, TAU); g.stroke();
+        const ring = (from, to) => {
+          g.strokeStyle = 'rgba(210,190,255,0.22)'; g.lineWidth = 14; g.beginPath(); g.ellipse(px, py, 230, 48, -0.3, from, to); g.stroke();
+          g.strokeStyle = 'rgba(225,210,255,0.65)'; g.lineWidth = 5; g.beginPath(); g.ellipse(px, py, 210, 42, -0.3, from, to); g.stroke();
+        };
+        ring(Math.PI, TAU);
+        g.save();
+        g.beginPath(); g.arc(px, py, pr, 0, TAU); g.clip();
+        g.fillStyle = vgrad(g, py - pr, py + pr, '#6a4cb0', '#24164a'); g.fillRect(px - pr, py - pr, pr * 2, pr * 2);
+        // night side, kept inside the disc
+        g.fillStyle = 'rgba(8,4,24,0.45)'; g.beginPath(); g.arc(px + 46, py + 30, pr, 0, TAU); g.fill();
+        // faint bands
+        g.strokeStyle = 'rgba(255,255,255,0.06)'; g.lineWidth = 8;
+        for (let k = -2; k <= 2; k++) { g.beginPath(); g.ellipse(px, py + k * 34, pr * 1.1, 10, -0.3, 0, TAU); g.stroke(); }
+        g.restore();
+        // the ring's shadow on the planet, then the near half of the ring
+        g.save(); g.beginPath(); g.arc(px, py, pr, 0, TAU); g.clip();
+        g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 10; g.beginPath(); g.ellipse(px + 4, py + 10, 210, 42, -0.3, 0, Math.PI); g.stroke();
+        g.restore();
+        ring(0, Math.PI);
       }, 800);
       d.far = layer(0.5, g => {
         // floating rock isles: shaded tops, jagged undersides, glowing crystal clusters

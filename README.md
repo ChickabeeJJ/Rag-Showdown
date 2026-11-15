@@ -23,6 +23,7 @@ python3 -m http.server 8000
   - getting knocked down;
   - throwing a guarding opponent;
   - Black Spark.
+- **Cinematic camera:** the camera opens each round with a pan across both fighters while their names come up, follows a juggle up into the air, and jolts and tilts on big hits. Black bars slide in during supers. Boss levels open with a longer intro pan.
 - **PLAY** on the home screen drops you straight into your next level, with no select screen or VS screen.
 - **The guide is forgiving:** any press of A or D counts as moving, and an attack counts whether or not it lands. Each control only has to be used once.
 
@@ -74,7 +75,9 @@ The skill bar at the bottom of the screen always shows these: mouse icons for li
   - Any light or heavy that connects can be cancelled into a special, and anything into the super.
   - **Air combos:** after the ender launches the foe, press **W** right away to jump after them. Air attacks home in on a juggled foe: light, light, then heavy spikes them into the floor, and they bounce once so you can keep going.
   - The hit counter grades long combos (NICE, GREAT, AMAZING, SHOWDOWN). When a special starts, its name pops up over your head.
-- **Juggles:** a fighter knocked into the air can be hit up to six more times; supers ignore that limit. A fighter lying on the ground can't be hit, but there's no immunity once they're back on their feet, so pressure them as they get up. A hard enough hit into a wall makes a **wall splat**.
+- **No infinites:** each move can be used at most twice in one combo. A third use makes the victim **BREAK!** free: they're shoved out of reach and the combo ends. Each hit later in a combo also adds less hitstun and pushes further, so mashing light can't hold anyone in place. The way to keep a combo going is to mix moves: normals, the ender, air chains, specials and the super.
+- **Clashes:** if two normal attacks hit each other on the same frame, they **CLASH!** and both fighters bounce apart instead of trading hits.
+- **Juggles:** a fighter knocked into the air can be hit up to nine times; supers ignore that limit. A fighter lying on the ground can't be hit, but there's no immunity once they're back on their feet, so pressure them as they get up. A hard enough hit into a wall makes a **wall splat**.
 - **Guard:** normal attacks do no chip damage when guarded, but specials and supers do. Each block drains the guard gauge under your health bar. When it empties, your guard breaks and you're stunned. Throws can't be guarded.
 - **Black Spark:** a heavy hit has a 13% chance to crit for double damage and +25 meter, with black-and-red impact frames.
 - **Impact frames** can be turned off in Settings to reduce flashing.
@@ -150,7 +153,7 @@ Eight stages, built like Element Rag's backdrops. Each has far, mid and near lay
 
 ## Testing
 
-Both test tools drive the real game in headless Chromium with Playwright. Serve the repo on port 8123 first.
+All three test tools drive the real game in headless Chromium with Playwright. Serve the repo on port 8123 first.
 
 ```bash
 python3 -m http.server 8123
@@ -164,6 +167,10 @@ NODE_PATH=$(npm root -g) node tools/soak.js 1
 NODE_PATH=$(npm root -g) node tools/flow.js
 ```
 
+```bash
+NODE_PATH=$(npm root -g) node tools/exploit.js
+```
+
 - `tools/soak.js` runs CPU-vs-CPU matches for every pairing of the 16 fighters, at 16x speed, across all stages and every twist. It fails on:
   - errors;
   - NaN positions or bodies escaping the arena;
@@ -171,6 +178,10 @@ NODE_PATH=$(npm root -g) node tools/flow.js
   - broken HP or meter values.
 
   It also prints win rates per fighter.
+- `tools/exploit.js` hunts for broken combos. For every fighter it mashes patterns (light only, heavy only, light-heavy, light-light-heavy, chains into specials, jump-ins, specials, throws) against a dummy that never fights back and reports the longest combo each pattern gets. It then fuzzes random inputs and fails on:
+  - NaN positions or bodies escaping the arena;
+  - fighters left invisible or at the wrong size after a move;
+  - fighters stuck unable to act.
 - `tools/flow.js` plays like a new player, with real mouse clicks and keys:
   1. It boots straight into level 1-1 and completes every step of the guide.
   2. It clears levels and checks stars and coins.
@@ -179,7 +190,7 @@ NODE_PATH=$(npm root -g) node tools/flow.js
   5. It checks that PLAY goes straight into the fight.
   6. It plays 2-player Versus, Survival, and Training with every pause option, and buys a fighter.
 
-Latest results: the soak ran 256 matches (640 rounds) across all stages and twists with no issues, with CPU combos reaching 32 hits. Win rates fell between 0.30 and 0.73, and the outliers were tuned after that run. All flow checks passed. The game was also checked at iPhone landscape size with touch controls.
+Latest results: mashing light now tops out at 4 hits for every fighter, and the fuzz found no issues on two full runs. The soak ran 256 matches (640 rounds) across all stages and twists with no issues, with CPU combos reaching 32 hits. Win rates fell between 0.30 and 0.73, and the outliers were tuned after that run. All flow checks passed. The game was also checked at iPhone landscape size with touch controls.
 
 ## Project layout
 
@@ -202,6 +213,6 @@ js/ai.js          CPU fighters, levels 1-9
 js/save.js        localStorage progress and settings
 js/ui.js          home + demo, levels, guide and tips, select / shop, Versus, Survival, Training, HUD
 js/main.js        boot, loop, input routing
-tools/            headless soak and UI flow tests
+tools/            headless soak, exploit and UI flow tests
 assets/fonts/     Rubik (SIL Open Font License)
 ```

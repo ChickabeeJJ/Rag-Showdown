@@ -116,7 +116,7 @@ function throwTick(G, f, act) {
   const { ph } = phaseOf(act);
   if (ph === 1 && !act.target && !act.missed) {
     const close = o && Math.abs(o.root.x - f.root.x) < 96 * f.s && o.root.grounded && o.mode === 'active' && o.invuln <= 0 && !o.airborneHit;
-    if (close) { act.target = o; act.hold = true; act.a = 0.42; o.action = null; o.mode = 'hit'; o.stunT = 1; Sfx.play('grab'); }
+    if (close) { act.target = o; act.hold = true; act.a = 0.42; o.clearAction(); o.mode = 'hit'; o.stunT = 1; Sfx.play('grab'); }
     else act.missed = true;
   }
   if (act.target) {
@@ -380,7 +380,7 @@ fighter({
         const o = G.opp(f);
         if (act.t >= act.w && once(act, 'domain')) {
           G.tint('void', 2.4);
-          if (o.alive && !(o.invuln > 0 && o.mode !== 'rising')) { o.stopT = 1.35; o.action = null; o.flash = 1; G.say(o.root.x, o.root.y - 300, 'FROZEN IN THE VOID', '#d9e4ff', 34); }
+          if (o.alive && !(o.invuln > 0 && o.mode !== 'rising')) { o.stopT = 1.35; o.clearAction(); o.flash = 1; G.say(o.root.x, o.root.y - 300, 'FROZEN IN THE VOID', '#d9e4ff', 34); }
         }
         if (act.t >= act.w + 0.95 && once(act, 'violet')) {
           const h = hand(f);
@@ -1057,7 +1057,7 @@ fighter({
         if (ph === 1 && !act.target && !act.missed) {
           act.vx = f.facing * 900;
           const close = o && Math.abs(o.root.x - f.root.x) < 120 * f.s / 2 * 1.2 && o.root.grounded && o.mode !== 'tumble' && o.mode !== 'dead' && o.invuln <= 0 && o.stopT <= 0;
-          if (close) { act.vx = 0; act.target = o; act.hold = true; act.a = 0.5; o.action = null; o.mode = 'hit'; o.stunT = 1; Sfx.play('grab'); G.say(o.root.x, o.root.y - 300, 'CAUGHT', '#ffd27a', 34); }
+          if (close) { act.vx = 0; act.target = o; act.hold = true; act.a = 0.5; o.clearAction(); o.mode = 'hit'; o.stunT = 1; Sfx.play('grab'); G.say(o.root.x, o.root.y - 300, 'CAUGHT', '#ffd27a', 34); }
         }
         if (ph === 2 && !act.target) { act.missed = true; act.vx = 0; }
         if (act.target) {
@@ -1157,7 +1157,7 @@ fighter({
         }
         if (k >= 0.55 && once(act, 'turn')) {
           // he turns his back and walks away; the target is frozen
-          if (o.alive) { o.stopT = 1.5; o.action = null; }
+          if (o.alive) { o.stopT = 1.5; o.clearAction(); }
           G.mark(f, o, 3);
           f.facing = -f.facing;
           G.teleport(f, clamp(f.root.x + f.facing * 160, WALL_L + 50, WALL_R - 50), GROUND);
@@ -1325,7 +1325,7 @@ fighter({
           if (d < 820 && o.alive) {
             const c = o.center();
             const r = G.hit(f, o, { dmg: 16, kb: [0, -100], stun: 0.6, bstun: 0.2, hs: 0.04, chip: 0.2, color: '#9ff4ff', kind: 'special', sfx: 'zap', noLaunch: true }, c.x, c.y, act);
-            if (r === 'hit') { act.target = o; o.mode = 'hit'; o.stunT = 1; o.action = null; }
+            if (r === 'hit') { act.target = o; o.mode = 'hit'; o.stunT = 1; o.clearAction(); }
           }
         }
         if (act.target && !act.slammed) {
