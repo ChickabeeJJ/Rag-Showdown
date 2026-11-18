@@ -153,8 +153,8 @@ const SHOTS = process.argv[3] || null;
   await p.waitForFunction(() => UI.screen === 'home' && !UI.fightOn, null, { timeout: 10000 });
   console.log('training ok');
 
-  // ---------------- roster: buy a fighter
-  await ev(() => { Save.data.coins = Math.max(Save.data.coins, 600); Save.save(); });
+  // ---------------- roster: buy a coin-exclusive fighter
+  await ev(() => { Save.data.coins = Math.max(Save.data.coins, 900); Save.save(); });
   await click('#btnRoster');
   await p.click('.ftile[data-id="ripper"]');
   await click('#sdBuy');

@@ -934,12 +934,17 @@ const Game = (() => {
     if (G.state === 'ko') {
       for (const f of G.fighters) if (f.hp <= 0 && f.alive && f.stopT <= 0 && G.winner >= 0 && f.side !== G.winner) f.die();
       const w = G.fighters[G.winner];
-      if (G.stateT > 2.0 && w && w.alive && w.mode === 'active' && !w.action) {
-        w.pose = w.def.winPose || (w.side ? 'winArms' : 'win');
-        if (!G.winFocus) { G.winFocus = true; const c = w.center(); G.focus(c.x, c.y, 1.4, 1.9); }
+      if (G.stateT > 1.5 && w && w.alive && w.mode === 'active' && !w.action) {
+        if (!w.cele) {
+          w.celebrate();
+          const perfect = w.hp >= w.maxHp && G.koKind !== 'time';
+          G.callout(w.def.name, perfect ? 'PERFECT WIN' : 'WINS', 'name', 1.8);
+          if (perfect) { G.perfectSaid = true; Sfx.play('perfect'); if (G.winner === 0 && G.stats && G.mode !== 'demo') G.stats.perfects++; }
+        }
+        if (!G.winFocus) { G.winFocus = true; const c = w.center(); G.focus(c.x, c.y - 40, 1.3, 2.4); }
       }
       if (G.stateT > 2.1 && !G.perfectSaid && w && w.hp >= w.maxHp && G.koKind !== 'time') { G.perfectSaid = true; G.callout('PERFECT', '', 'perfect', 1.4); Sfx.play('perfect'); if (G.winner === 0 && G.stats && G.mode !== 'demo') G.stats.perfects++; }
-      if (G.stateT > 3.9) endRound();
+      if (G.stateT > 4.6) endRound();
     }
   }
   function isFinal() { return G.wins[0] === (G.cfg.toWin || 2) - 1 && G.wins[1] === (G.cfg.toWin || 2) - 1; }

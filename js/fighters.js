@@ -851,7 +851,7 @@ fighter({
 /* ------------------------------------------------------------- SAIBO */
 fighter({
   id: 'saibo', name: 'SAIBO', title: 'BORED HERO', color: '#e8323f', aura: '#ffffff',
-  hp: 1050, walk: 265, power: 1.05, stats: [5, 3, 3], price: 1500, unlockByClear: true, stage: 'crater', boss: true,
+  hp: 1050, walk: 265, power: 1.05, stats: [5, 3, 3], price: 1500, coinOnly: true, stage: 'crater', boss: true,
   blurb: 'A hero who got too strong to enjoy a fight. He fights bored, until he stops holding back. Recruit him in the final level of the Grand Arena.',
   look: { gear: 'crest', cape: true },
   ai: { style: 'balanced', range: 240 },
@@ -1031,7 +1031,7 @@ function phaseless(kind) {
 /* ------------------------------------------------------------- RIPPER */
 fighter({
   id: 'ripper', name: 'RIPPER', title: 'SAW DEVIL', color: '#ff6b2b', aura: '#ffb13d', reach: 16,
-  hp: 1080, walk: 300, power: 1.12, stats: [5, 3, 4], price: 500, stage: 'city',
+  hp: 1080, walk: 300, power: 1.12, stats: [5, 3, 4], price: 850, coinOnly: true, stage: 'city',
   blurb: 'Pull the cord and he becomes a buzzing nightmare. Rolls saw discs, hooks you with a chain, and revs into a rampage.',
   look: { gear: 'helmet', weapon: 'saw', weaponLen: 58 },
   ai: { style: 'rush', range: 220 },
@@ -1107,7 +1107,7 @@ fighter({
 /* ------------------------------------------------------------- MONARCH */
 fighter({
   id: 'monarch', name: 'MONARCH', title: 'SHADOW SUMMONER', color: '#7a5cff', aura: '#a48bff',
-  hp: 1060, walk: 300, power: 1.14, stats: [4, 3, 5], price: 650, stage: 'void',
+  hp: 1060, walk: 300, power: 1.14, stats: [4, 3, 5], price: 1000, coinOnly: true, stage: 'void',
   blurb: 'Once the weakest of hunters, now the lord of an army that rises from every shadow. He rarely fights alone.',
   look: { gear: 'hood', cape: true },
   ai: { style: 'zoner', range: 340 },
@@ -1152,7 +1152,7 @@ fighter({
 /* ------------------------------------------------------------- TITAN */
 fighter({
   id: 'titan', name: 'GORO', title: 'TITAN SHIFTER', color: '#c98a4a', aura: '#ffd27a', scale: 1.12,
-  hp: 1180, walk: 235, power: 1.1, stats: [5, 1, 3], price: 700, stage: 'crater',
+  hp: 1180, walk: 235, power: 1.1, stats: [5, 1, 3], price: 1100, coinOnly: true, stage: 'crater',
   blurb: 'A soldier who can bite down and become a giant. Slow, huge and terrifying up close; nothing he grabs gets away.',
   look: { gear: 'helmet', cape: true },
   ai: { style: 'rush', range: 200 },
@@ -1357,7 +1357,7 @@ fighter({
 /* ------------------------------------------------------------- TRIBLADE */
 fighter({
   id: 'triblade', name: 'ZEN', title: 'THREE-SWORD STYLE', color: '#e7b84c', aura: '#fff0b0', reach: 20,
-  hp: 1080, walk: 320, power: 1.2, stats: [5, 3, 5], price: 600, stage: 'forest',
+  hp: 1080, walk: 320, power: 1.2, stats: [5, 3, 5], price: 900, coinOnly: true, stage: 'forest',
   blurb: 'A swordsman who fights with a blade in each hand and a third that floats at his shoulder. Spins up tornadoes and cuts in threes.',
   look: { gear: 'band', weapon: 'tri', weaponLen: 56 },
   ai: { style: 'balanced', range: 240 },

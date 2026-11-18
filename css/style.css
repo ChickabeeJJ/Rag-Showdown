@@ -726,3 +726,31 @@ body.modal-open #hud { visibility: hidden; }
    timer, the guide and tips */
 body.playing #toasts { top: auto; bottom: calc(96px + var(--safe-b)); }
 body.playing.touch #toasts { bottom: calc(18px + var(--safe-b)); }
+
+/* ------------------------------------------------------------ how to play */
+.how-tabs { flex: none; }
+.how-body.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 560px) { .how-body.cards { grid-template-columns: 1fr; } }
+.how-card { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border-radius: 8px; background: rgba(255, 255, 255, 0.045); }
+.how-ic { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 9px; color: var(--acc); background: color-mix(in srgb, var(--acc) 14%, var(--ink-2)); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--acc) 40%, transparent); }
+.how-ic .ic { width: 20px; height: 20px; }
+.how-card h4 { font-weight: 900; font-size: 13px; letter-spacing: 0.08em; color: #fff; margin-bottom: 4px; }
+.how-card p { font-size: 13px; font-weight: 500; line-height: 1.45; color: var(--muted); }
+.how-card p b { color: #fff; }
+.seq { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 2px 0 6px; }
+.seq-ar { font-weight: 900; color: var(--acc); font-size: 16px; }
+.mk { display: inline-grid; place-items: center; width: 22px; height: 28px; color: #fff; vertical-align: middle; }
+.mk .mouse-ic { width: 18px; height: 25px; }
+.tk { display: inline-block; padding: 3px 7px; border-radius: 4px; background: #eef0f6; color: #141824; font-weight: 900; font-size: 10px; letter-spacing: 0.06em; }
+.ctrl-grid { display: grid; grid-template-columns: max-content max-content max-content; gap: 8px 22px; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: var(--text); }
+.ctrl-grid .hd { font-weight: 900; font-size: 11px; letter-spacing: 0.1em; color: var(--acc); }
+.ctrl-grid > span { display: flex; align-items: center; gap: 4px; }
+.ctrl-grid small { color: var(--muted); font-size: 11px; }
+.ctrl-grid > span:nth-child(3n+1) { color: var(--muted); }
+
+/* coin-exclusive fighters wear a gold price tag */
+.ftile .price.excl { background: linear-gradient(180deg, #ffd95e, #f0a92a); color: #2a1a02; }
+.ftile .price.excl .ic { color: #2a1a02; }
+.lock-note b { color: var(--acc); }
+.how-sheet .hint { margin-top: 4px; }
+.ctrl-grid + .hint { margin-top: 10px; }

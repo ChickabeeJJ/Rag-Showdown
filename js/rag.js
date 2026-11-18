@@ -107,6 +107,17 @@ const HURT = {
 };
 const KNEEL = { ff: [28, 0], bf: [-26, -1], fh: [40, 62], bh: [-6, 44], lean: 22, crouch: 42 };
 
+/* ------------------------------------------------------------ celebrations
+   The winner doesn't just strike a pose: each style has its own short routine
+   (with real jumps, spins and hovers), confetti and a little camera drama. */
+const CELE_BY_STANCE = {
+  karate: 'pump', boxer: 'pump', soldier: 'pump', loose: 'pump',
+  ninja: 'flip', kungfu: 'flip', sword: 'flip', dual: 'flip',
+  mystic: 'aura', calm: 'aura', regal: 'aura', monk: 'aura', reaper: 'aura',
+  giant: 'roar', feral: 'roar', casual: 'wave',
+};
+const CROSSED = { fh: [16, 22], bh: [-6, 22], lean: -2, crouch: 0, ff: [14, 0], bf: [-14, 0] };
+
 function mergePose(base, over) {
   const o = Object.assign({}, base);
   if (over) for (const k in over) o[k] = over[k];
@@ -248,6 +259,78 @@ class Rag {
     }
   }
 
+  celebrate() {
+    this.pose = null;
+    this.cele = { t: 0, kind: CELE_BY_STANCE[this.def.look.stance] || 'pump' };
+  }
+  // confetti in the fighter's colour, white and gold
+  confetti(x, y, n, up = 900) {
+    if (typeof Game === 'undefined') return;
+    const cols = [this.def.color, '#ffffff', '#ffd34d', this.def.aura || '#ffffff'];
+    for (let i = 0; i < n; i++) Game.fx.add({ kind: 'chunk', x: x + rand(-20, 20), y, vx: rand(-520, 520), vy: rand(-up, -up * 0.45), g: 1100, color: cols[i % cols.length], size: rand(4, 8), life: rand(1.2, 2), vr: rand(-12, 12), add: false });
+  }
+  celeTick(dt) {
+    const c = this.cele, r = this.root, s = this.s, t = c.t, G = typeof Game !== 'undefined' ? Game : null;
+    c.t += dt;
+    const once = k => (c[k] ? false : (c[k] = true));
+    if (!G) return;
+    const hd = this.pts[P.HEAD];
+    if (c.kind === 'pump' || c.kind === 'flip') {
+      const jumpAt = c.kind === 'pump' ? 0.28 : 0.22;
+      if (t >= jumpAt && once('jump')) { r.vy = -(c.kind === 'pump' ? 950 : 1100) * s / 2 * 1.1; r.grounded = false; G.fx.dust(r.x, GROUND, 8); Sfx.play('whoosh'); }
+      if (t >= jumpAt + 0.32 && once('pop')) { this.confetti(hd.x, hd.y - 20, 36); G.fx.ring(hd.x, hd.y, this.def.color, 140, 0.5, 8); Sfx.play('pop'); }
+      if (c.jump && r.grounded && t > jumpAt + 0.2 && once('land')) { G.fx.ring(r.x, GROUND, '#ffffff', 120, 0.35, 6); G.fx.dust(r.x, GROUND, 14); G.shake(5); }
+    } else if (c.kind === 'aura') {
+      // rise, flare, drift back down
+      const lift = t < 0.8 ? easeInOut(t / 0.8) : t < 1.8 ? 1 : 1 - easeInOut(Math.min(1, (t - 1.8) / 0.6));
+      r.hover = t < 2.4; r.vy = 0;
+      if (t < 2.4) { r.y = GROUND - lift * 70 * s; r.grounded = false; }
+      if (t >= 0.8 && once('flare')) { this.surge = Math.max(this.surge, 1.6); this.auraT = 1.6; const c0 = this.center(); G.fx.ring(c0.x, c0.y, this.def.aura || this.def.color, 220, 0.6, 10); G.fx.burst(c0.x, c0.y, this.def.color, 30, 520); this.confetti(c0.x, c0.y - 40, 24, 700); Sfx.play('charge'); }
+      if (t >= 2.4 && once('down')) { r.hover = false; }
+    } else if (c.kind === 'roar') {
+      if (t >= 0.45 && once('roar')) { G.shake(14); G.fx.ring(r.x, GROUND - 10, '#ffffff', 260, 0.6, 12); G.fx.dust(r.x, GROUND, 18); G.fx.chunks(r.x, GROUND - 4, '#b9a58f', 12, 600, 7); Sfx.play('drum'); this.surge = Math.max(this.surge, 1.2); }
+      if (t >= 1.5 && t < 2.3 && Math.floor(t * 6) !== c.beat) { c.beat = Math.floor(t * 6); const ch = this.chest(); G.fx.ring(ch.x, ch.y, this.def.color, 50, 0.2, 4); }
+      if (t >= 0.5 && once('conf')) this.confetti(r.x, GROUND - 260 * s / 2, 28);
+    } else {
+      if (t >= 0.9 && once('conf')) this.confetti(hd.x, hd.y - 30, 28);
+    }
+  }
+  celePose(G0) {
+    const c = this.cele, t = c.t, r = this.root;
+    const P = o => mergePose(G0, o);
+    const bl = (a, b, k) => lerpPose(P(a), P(b), easeInOut(clamp(k, 0, 1)));
+    const settle = (from, t0) => bl(from, CROSSED, (t - t0) / 0.4);
+    if (c.kind === 'pump') {
+      if (t < 0.28) return bl({}, { crouch: 28, fh: [10, 30], bh: [-8, 32], lean: 10 }, t / 0.2);
+      if (!r.grounded) return P({ fh: [16, -54], bh: [-20, 6], ff: [18, -30], bf: [-16, -12], lean: -6, crouch: -2 });
+      if (t < 2.0) { const up = Math.sin((t - 0.9) * 11) > 0; return P({ fh: [14, up ? -52 : -16], bh: [-10, 24], lean: up ? -4 : 2, crouch: up ? 2 : 10, ff: [18, 0], bf: [-20, 0] }); }
+      return settle({ fh: [14, -16], bh: [-10, 24] }, 2.0);
+    }
+    if (c.kind === 'flip') {
+      if (t < 0.22) return bl({}, { crouch: 30, fh: [-10, 24], bh: [-20, 26], lean: 8 }, t / 0.18);
+      if (!r.grounded) { const k = clamp((t - 0.24) / 0.6, 0, 1); return Object.assign(P({ fh: [20, 10], bh: [-10, 14], ff: [16, -40], bf: [-6, -34], crouch: 4 }), { spin: -TAU * easeInOut(k) }); }
+      if (t < 1.7) return P({ crouch: 32, fh: [46, 6], bh: [-34, -12], lean: 16, ff: [36, 0], bf: [-46, 0] });
+      if (t < 2.3) return bl({ crouch: 32, fh: [46, 6], bh: [-34, -12], lean: 16 }, { fh: [-12, 30], bh: [-18, 32], lean: -2, crouch: 0 }, (t - 1.7) / 0.35);
+      return P({ fh: [-12, 30], bh: [-18, 32], lean: -2, crouch: 0, ff: [14, 0], bf: [-14, 0] });
+    }
+    if (c.kind === 'aura') {
+      const open = { fh: [30, -34], bh: [-30, -34], lean: -8, crouch: 0, ff: [10, -6], bf: [-12, -2] };
+      if (t < 0.8) return bl({ fh: [20, 20], bh: [-10, 22] }, open, t / 0.8);
+      if (t < 2.0) return P(Object.assign({}, open, { fh: [32, -38 + Math.sin(t * 5) * 4], bh: [-32, -38 + Math.sin(t * 5 + 1) * 4] }));
+      return bl(open, { fh: [12, 40], bh: [-12, 40], lean: -3, crouch: 0, ff: [13, 0], bf: [-13, 0] }, (t - 2.0) / 0.5);
+    }
+    if (c.kind === 'roar') {
+      if (t < 0.4) return bl({}, { crouch: 24, fh: [26, 30], bh: [-22, 30], lean: 14, ff: [34, 0], bf: [-40, 0] }, t / 0.3);
+      if (t < 1.5) return P({ crouch: 14, fh: [26, -42], bh: [-26, -42], lean: -10 + Math.sin(t * 30) * 2, ff: [34, 0], bf: [-40, 0] });
+      if (t < 2.3) { const a = Math.floor(t * 6) % 2; return P({ crouch: 8, fh: a ? [10, 8] : [24, 4], bh: a ? [6, 4] : [-8, 10], lean: -6, ff: [30, 0], bf: [-34, 0] }); }
+      return P({ crouch: 8, fh: [26, -42], bh: [-26, -42], lean: -8, ff: [30, 0], bf: [-34, 0] });
+    }
+    // wave: a big stretch, then a wave, then a thumbs-up
+    if (t < 0.8) return bl({}, { fh: [6, -58], bh: [-6, -58], lean: -8, crouch: -2 }, t / 0.6);
+    if (t < 2.0) return P({ fh: [22 + Math.sin(t * 12) * 9, -50], bh: [-8, 40], lean: 2, crouch: 0 });
+    return bl({ fh: [22, -50], bh: [-8, 40] }, { fh: [34, -6], bh: [-8, 40], lean: 4 }, (t - 2.0) / 0.3);
+  }
+
   // the body point nearest a world position (where a hit lands)
   nearestIdx(x, y) {
     let bi = P.NECK, bd = Infinity;
@@ -341,6 +424,7 @@ class Rag {
       this.stunT -= dt;
       if (this.stunT <= 0 && this.root.grounded) this.mode = 'active';
     }
+    if (this.cele && this.mode === 'active') this.celeTick(dt);
     if (this.mode === 'active' || this.mode === 'rising' || this.mode === 'hit' || this.mode === 'block') {
       if (this.mode === 'rising') {
         this.riseT += dt;
@@ -378,7 +462,7 @@ class Rag {
     } else {
       const act = this.action;
       let want = 0;
-      if (control && !act && r.grounded) want = this.input.x * this.walk * this.s * (this.input.x === -this.facing ? 0.82 : 1);
+      if (control && !act && r.grounded && !this.cele) want = this.input.x * this.walk * this.s * (this.input.x === -this.facing ? 0.82 : 1);
       if (act && act.vx != null) {
         r.vx = act.vx;
       } else {
@@ -410,6 +494,7 @@ class Rag {
 
   basePose() {
     const r = this.root, st = this.st, G0 = st.pose;
+    if (this.cele && this.mode === 'active') return this.celePose(G0);
     if (this.pose) return mergePose(G0, POSES[this.pose] || this.pose);
     if (this.mode === 'rising') {
       // push up off one knee, then settle into the stance

@@ -23,7 +23,8 @@ python3 -m http.server 8000
   - getting knocked down;
   - throwing a guarding opponent;
   - Black Spark.
-- **Cinematic camera:** the camera opens each round with a pan across both fighters while their names come up, follows a juggle up into the air, and jolts and tilts on big hits. Black bars slide in during supers. Boss levels open with a longer intro pan.
+- **Cinematic camera:** rounds start straight away (no character introductions). The camera follows a juggle up into the air, and jolts and tilts on big hits. Black bars slide in during supers.
+- **Victory celebrations:** the winner performs a short routine that suits their style: a fist-pump leap (karate, boxers, brawlers), a backflip into a low pose (ninjas, sword fighters, kung fu), floating up in a flare of aura (mystics, monks), a roar, flex and chest beat (Goro, Ripper), or a stretch and a wave (Saibo). Confetti in their colours, a landing shockwave, a slow camera push-in, and a "WINS" callout ("PERFECT WIN" at full health).
 - **PLAY** on the home screen drops you straight into your next level, with no select screen or VS screen.
 - **The guide is forgiving:** any press of A or D counts as moving, and an attack counts whether or not it lands. Each control only has to be used once.
 
@@ -35,6 +36,7 @@ The campaign follows Element Rag's stage map: 8 chapters of 6 levels, one per st
 - **Quick to continue:** **Enter** or **Space** takes the main button on a result screen (NEXT LEVEL, RETRY or RESUME). Moving from level to level uses a short transition.
 - **Stars** come from the health you have left (3 stars at 70% or more, 2 at 35% or more). Replaying a level can raise its stars.
 - **Recruits:** beating the fighter marked RECRUIT adds them to your roster, so the cast grows as you play. They can also be unlocked early with coins.
+- **Coin exclusives:** Zen, Ripper, Monarch, Goro and Saibo never join through levels. They can only be bought with coins, and wear a gold price tag on the select screen.
 - **Twists:** most levels change one rule, so neighbouring fights never play alike:
   - Giant Foe;
   - Low Gravity;
@@ -128,16 +130,16 @@ Each fighter's light-light-heavy **combo ender**:
 | **Mugi** | Rubber brawler | Stretch Punch | Rapid Barrage | **Titan Fist** | start |
 | **Kohei** | Rising hero | Air Flick | Volt Kick (flip, then axe kick) | **Max Impact** | recruit 1-3 |
 | **Blaze** | Fire soldier | Flame Kick (spinning fire wave) | Jet Boost (air dash kick) | **Inferno Meteor** | recruit 1-6 |
-| **Zen** | Three-sword style | Tornado Slash | Triple Cross | **Nine Phantom Cuts** (sheathes, then the cuts land) | recruit 2-3 |
+| **Zen** | Three-sword style | Tornado Slash | Triple Cross | **Nine Phantom Cuts** (sheathes, then the cuts land) | coins only |
 | **Jin** | Reaper | Crescent Wave | Blink Step | **Eclipse Crescent** | recruit 2-6 |
 | **Kensei** | Pressure point master | Hundred Crack Fists | Pressure Point (plants timed marks that burst) | **Already Done** (walks away, then the foe bursts) | recruit 3-3 |
-| **Ripper** | Saw devil | Saw Disc (rolls along the floor) | Chain Hook (yanks the foe in) | **Revving Rampage** (carries the foe on the saws) | recruit 3-6 |
+| **Ripper** | Saw devil | Saw Disc (rolls along the floor) | Chain Hook (yanks the foe in) | **Revving Rampage** (carries the foe on the saws) | coins only |
 | **Aoi** | Sorcerer | Azure Pull | Crimson Burst | **Infinite Expanse** (a domain, then Violet Void) | recruit 4-3 |
 | **Taro** | Spirit master | Spirit Rush | Spirit Finger | **Time Halt** | recruit 4-6 |
 | **Shige** | Psychic | Psi Lift (lift and slam) | Psi Barrier (reflects projectiles) | **Psychic 100%** | recruit 5-3 |
-| **Monarch** | Shadow summoner | Shadow Soldier | Shadow Grasp (hands rise under the foe) | **Army of Shadows** | recruit 5-6 |
-| **Goro** | Titan shifter | Quake Stomp | Titan Grab (command grab) | **Colossus Form** (grows giant) | recruit 6-6 |
-| **Saibo** | Bored hero (boss) | Hundred Fists | Plain Punch | **Final Punch** | recruit 8-6 |
+| **Monarch** | Shadow summoner | Shadow Soldier | Shadow Grasp (hands rise under the foe) | **Army of Shadows** | coins only |
+| **Goro** | Titan shifter | Quake Stomp | Titan Grab (command grab) | **Colossus Form** (grows giant) | coins only |
+| **Saibo** | Bored hero (boss) | Hundred Fists | Plain Punch | **Final Punch** | coins only |
 
 ## Stages
 

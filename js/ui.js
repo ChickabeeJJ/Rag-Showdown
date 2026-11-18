@@ -154,7 +154,7 @@ const UI = (() => {
     $('survSub').textContent = `BEST ${d.survivalBest}`;
     $('homePick').innerHTML = `${pt(def)}<div><small>YOUR FIGHTER</small><b>${def.name}</b><small style="color:${def.color}">${def.title}</small></div><button class="btn small" id="homeChange"><b>CHANGE</b></button>`;
     $('homeChange').onclick = () => { Sfx.play('ui'); openSelect('roster'); };
-    const canBuy = ROSTER.some(f => !Save.owned(f.id) && !f.unlockByClear && d.coins >= f.price);
+    const canBuy = ROSTER.some(f => !Save.owned(f.id) && d.coins >= f.price);
     $('rosterNote').classList.toggle('hidden', !canBuy);
     const ready = Save.dailyReady();
     $('daily').className = 'daily' + (ready ? '' : ' done');
@@ -181,7 +181,7 @@ const UI = (() => {
       const tags = [];
       if (s.p1 === f.id && s.mode !== 'roster') tags.push('<span>P1</span>');
       if (s.mode === 'versus' && s.p2 === f.id) tags.push(`<span class="p2">${s.p2human ? 'P2' : 'CPU'}</span>`);
-      const right = !own ? `<span class="price">${f.unlockByClear && Save.data.coins < f.price ? ic('lock') : ic('coins', 'coin') + fmt(f.price)}</span>` : Save.data.clears[f.id] != null ? `<span class="clear ic" data-icon="trophy"></span>` : '';
+      const right = !own ? `<span class="price${f.coinOnly ? ' excl' : ''}">${ic('coins', 'coin') + fmt(f.price)}</span>` : Save.data.clears[f.id] != null ? `<span class="clear ic" data-icon="trophy"></span>` : '';
       return `<button class="ftile ${s.view === f.id ? 'on' : ''}" data-id="${f.id}" style="--c:${f.color}">${pt(f, own ? '' : 'locked')}<span class="tagc">${tags.join('')}</span>${right}<b>${f.name}</b><small>${f.title}</small></button>`;
     }).join('');
     grid.querySelectorAll('.ftile').forEach(b => {
@@ -217,7 +217,7 @@ const UI = (() => {
     if (!own) {
       const can = Save.data.coins >= def.price;
       const rec = Campaign.levels.find(L => L.recruit === def.id);
-      foot = `<div class="lock-note">${ic('lock')}${rec ? `Beat ${def.name} in LEVEL ${rec.label} to recruit them, or unlock now for ${fmt(def.price)} coins.` : `Unlock for ${fmt(def.price)} coins. Win fights to earn coins.`}</div>
+      foot = `<div class="lock-note">${ic(def.coinOnly ? 'coins' : 'lock', 'coin')}${def.coinOnly ? `<span><b>COIN EXCLUSIVE.</b> ${def.name} never joins through levels: unlock for ${fmt(def.price)} coins.</span>` : rec ? `Beat ${def.name} in LEVEL ${rec.label} to recruit them, or unlock now for ${fmt(def.price)} coins.` : `Unlock for ${fmt(def.price)} coins. Win fights to earn coins.`}</div>
         <div class="sd-foot"><button class="btn primary" id="sdBuy" ${can ? '' : 'disabled'}><b>UNLOCK · ${fmt(def.price)}</b></button></div>`;
     } else if (s.mode === 'roster') {
       foot = `<div class="sd-foot"><button class="btn primary" id="sdMain" ${Save.data.lastPick === def.id ? 'disabled' : ''}><b>${Save.data.lastPick === def.id ? 'YOUR FIGHTER' : 'SET AS YOUR FIGHTER'}</b></button><button class="btn" id="sdTry"><b>TRY IN TRAINING</b></button></div>`;
@@ -394,7 +394,6 @@ const UI = (() => {
     if (tw === 'frenzy') cfg.speedMul = 1.2;
     if (tw === 'glass') cfg.dmgMul = 2;
     if (tw === 'clock') { cfg.timeLimit = 75; cfg.loseOnTime = true; }
-    if (L.boss && !tut) { cfg.introPan = true; cfg.bossIntro = true; cfg.fastIntro = false; }
     U.run = { mode: 'level', L };
     beginFight(cfg, instant, U.fastNext);
     U.fastNext = false;
@@ -603,7 +602,7 @@ const UI = (() => {
     const s = U.sel;
     const stage = s.stage === 'random' ? pick(STAGE_IDS) : s.stage;
     U.run = { mode: 'versus', p1: s.p1, p2: s.p2, p2human: s.p2human, lv: s.cpuLv, stage };
-    const go = () => beginFight({ p1: s.p1, p2: s.p2, ctrls: [human(0), s.p2human ? human(1) : cpu(s.cpuLv)], stage, mode: 'versus', toWin: 2, twoP: s.p2human, introPan: true,
+    const go = () => beginFight({ p1: s.p1, p2: s.p2, ctrls: [human(0), s.p2human ? human(1) : cpu(s.cpuLv)], stage, mode: 'versus', toWin: 2, twoP: s.p2human,
       chip: s.p2human ? 'VERSUS · PLAYER 1 vs PLAYER 2' : `VERSUS · CPU LV ${s.cpuLv}`, onEnd: res => setTimeout(() => versusEnd(res), 900) });
     versusSheet(s.p1, s.p2, s.p2human ? 'PLAYER 1 vs PLAYER 2' : `CPU LEVEL ${s.cpuLv}`, go);
   }
@@ -633,7 +632,7 @@ const UI = (() => {
     const lv = Math.min(8, 1 + Math.floor(r.streak / 2));
     r.cur = { id: oid, lv };
     versusSheet(r.p1, oid, `STREAK ${r.streak} · CPU LV ${lv}`, () => beginFight({ p1: r.p1, p2: oid, ctrls: [human(0), cpu(lv)], stage: pick(STAGE_IDS), mode: 'survival', toWin: 1,
-      hpStart: [r.hp, 1], meter0: r.meter, introPan: r.streak === 0, fastIntro: r.streak > 0, chip: `SURVIVAL · STREAK ${r.streak} · CPU LV ${lv}`, onEnd: res => setTimeout(() => survivalEnd(res), 700) }), null, 1.6);
+      hpStart: [r.hp, 1], meter0: r.meter, fastIntro: r.streak > 0, chip: `SURVIVAL · STREAK ${r.streak} · CPU LV ${lv}`, onEnd: res => setTimeout(() => survivalEnd(res), 700) }), null, 1.6);
   }
   function survivalEnd(res) {
     const r = U.run;
@@ -872,27 +871,54 @@ const UI = (() => {
     };
   }
 
-  function openHow(first) {
-    openSheet(`<h2>${first ? 'WELCOME TO RAG SHOWDOWN' : 'HOW TO PLAY'}</h2>
-      <div class="keys two">
-        <span class="hd">ACTION</span><span class="hd">KEYBOARD</span><span class="hd">GAMEPAD</span>
-        <span>Move · dash</span><span><kbd>A</kbd><kbd>D</kbd> · tap twice</span><span>Stick / D-pad</span>
-        <span>Jump</span><span><kbd>W</kbd> / <kbd>SPACE</kbd></span><span>A</span>
-        <span>Guard</span><span>Hold away</span><span>Hold away</span>
-        <span>Light · Heavy</span><span>Left click · Right click</span><span>X · Y</span>
-        <span>Specials</span><span><kbd>Q</kbd> · <kbd>E</kbd></span><span>B · RB</span>
-        <span>Super (full meter)</span><span><kbd>F</kbd> / middle click</span><span>RT</span>
-        <span>Throw</span><span>Both clicks together</span><span>LB</span>
-        <span>Pause</span><span><kbd>P</kbd></span><span>START</span>
-      </div>
-      <div class="how">
-        <div><h4>COMBOS</h4><p><b>Light, light, heavy</b> chains into a launcher. Any light or heavy that connects can be cancelled into a <b>special</b>, and anything into your <b>super</b>.</p></div>
-        <div><h4>SUPERS &amp; FINISHERS</h4><p>Deal and take damage to fill the meter. A super that lands the knockout plays a <b>FINISHER</b> with impact frames and slow motion.</p></div>
-        <div><h4>BLACK SPARK</h4><p>Heavy hits have a small chance to strike with a <b>Black Spark</b>: double damage and a burst of meter. Longer combos raise the odds.</p></div>
-        <div><h4>DEFENCE</h4><p>Hold away to <b>guard</b>. Guarding drains the guard gauge under your health; when it empties, your guard breaks. <b>Throws</b> beat guard.</p></div>
-      </div>
-      <p class="hint">Two players: P2 uses the arrow keys with <kbd>,</kbd> <kbd>.</kbd> <kbd>;</kbd> <kbd>'</kbd> <kbd>/</kbd> (or Numpad 1 2 4 5 3), or a second gamepad. On touch screens, use the stick and the buttons.</p>
-      <div class="actions"><button class="btn primary" id="hOk"><b>${first ? "LET'S FIGHT" : 'GOT IT'}</b></button></div>`, 'wide');
+  // How to Play: four short tabs, each a handful of cards with the real
+  // buttons drawn in. The controls tab follows the device you're on.
+  function openHow(first, tab = 0) {
+    const touch = isTouch();
+    const K = k => `<kbd>${k}</kbd>`, M = side => `<span class="mk">${MOUSE(side)}</span>`;
+    const T = name => `<span class="tk">${name}</span>`;
+    const B = { l: touch ? T('LIGHT') : M('l'), h: touch ? T('HEAVY') : M('r'), j: touch ? T('JUMP') : K('W'), s: touch ? T('SP 1') + T('SP 2') : K('Q') + K('E'), sup: touch ? T('SUPER') : K('F'), away: touch ? 'stick away' : 'hold ' + K('A') + ' / ' + K('D') + ' away' };
+    const arrow = '<span class="seq-ar">›</span>';
+    const card = (icon, title, body, seq) => `<div class="how-card"><span class="how-ic">${ic(icon)}</span><div><h4>${title}</h4>${seq ? `<div class="seq">${seq}</div>` : ''}<p>${body}</p></div></div>`;
+    const tabs = [
+      ['CONTROLS', touch ? `
+        ${card('haste', 'MOVE, DASH, JUMP', 'Slide the stick to walk. Flick it twice to dash. Flick it up, or tap JUMP, to jump.')}
+        ${card('fist', 'ATTACK', 'LIGHT is fast and safe to start with. HEAVY hits harder but is slower.', B.l + B.h)}
+        ${card('burst', 'SPECIALS & SUPER', 'Each special recharges after use; the ring shows when. SUPER glows when your meter is full.', B.s + B.sup)}
+        ${card('shield', 'GUARD', 'Hold the stick away from your opponent to block.')}` : `
+        <div class="ctrl-grid">
+          <span class="hd">ACTION</span><span class="hd">MOUSE + KEYBOARD</span><span class="hd">GAMEPAD</span>
+          <span>Move · dash</span><span>${K('A')}${K('D')} <small>tap twice</small></span><span>Stick</span>
+          <span>Jump</span><span>${K('W')} / ${K('SPACE')}</span><span>A</span>
+          <span>Guard</span><span>Hold away</span><span>Hold away</span>
+          <span>Light · Heavy</span><span>${M('l')} ${M('r')}</span><span>X · Y</span>
+          <span>Specials</span><span>${K('Q')} ${K('E')}</span><span>B · RB</span>
+          <span>Super</span><span>${K('F')} <small>or middle click</small></span><span>RT</span>
+          <span>Throw</span><span>${M('l')}+${M('r')}</span><span>LB</span>
+          <span>Pause · retry</span><span>${K('P')} · ${K('R')}</span><span>START</span>
+        </div>
+        <p class="hint">Player 2: arrow keys with ${K(',')} ${K('.')} ${K(';')} ${K("'")} ${K('/')}, or a second gamepad.</p>`],
+      ['COMBOS', `
+        ${card('swords', 'THE STRING', 'Light, light, then heavy chains into your fighter\'s own finisher. Press each button while the last one is still landing.', B.l + arrow + B.l + arrow + B.h)}
+        ${card('up', 'TAKE IT TO THE AIR', 'After the finisher launches them, jump straight away and chain light, light, heavy in the air. They bounce once per combo.', B.h + arrow + B.j + arrow + B.l + arrow + B.h)}
+        ${card('burst', 'CANCEL INTO SPECIALS', 'A light or heavy that hits can be cancelled into a special, and anything into your super.', B.l + arrow + B.s + arrow + B.sup)}
+        ${card('timestop', "DON'T MASH", 'Mashing light only gives two hits, and the second leaves you open. Long combos also deal less damage as they go.')}`],
+      ['DEFENCE', `
+        ${card('shield', 'GUARD', `Block by holding away (${B.away}). Normals do no chip damage; specials and supers chip a little.`)}
+        ${card('heart', 'GUARD GAUGE', 'Each block drains the gauge under your health. If it empties, your guard breaks and you are stunned. It refills when you stop blocking.')}
+        ${card('fist', 'THROWS', touch ? 'Up close, tap LIGHT and HEAVY together. Throws go straight through a guard.' : 'Up close, click both mouse buttons together. Throws go straight through a guard.')}
+        ${card('target', 'AFTER A STRING', 'When their combo ends, guard or jab first. Pressing buttons after a blocked string gets you hit.')}`],
+      ['MODES & COINS', `
+        ${card('map', 'LEVELS', 'Eight chapters of quick fights. Win with more health for more stars. Some fighters join you when you beat them on a RECRUIT level.')}
+        ${card('coins', 'COINS', 'Earned from wins, stars, finishers, Black Sparks and the first win each day. Spend them on fighters, and some fighters can <b>only</b> be bought with coins.')}
+        ${card('infinity', 'SURVIVAL', 'One fighter, endless opponents. A little health returns after each win.')}
+        ${card('target', 'TRAINING & VERSUS', 'Practise combos on a dummy, or fight the CPU or a friend.')}`],
+    ];
+    const sh = openSheet(`<h2>${first ? 'WELCOME TO RAG SHOWDOWN' : 'HOW TO PLAY'}</h2>
+      <nav class="seg how-tabs">${tabs.map((t, k) => `<button data-k="${k}" class="${k === tab ? 'active' : ''}">${t[0]}</button>`).join('')}</nav>
+      <div class="how-body ${tab === 0 && !touch ? '' : 'cards'}">${tabs[tab][1]}</div>
+      <div class="actions"><button class="btn primary" id="hOk"><b>${first ? "LET'S FIGHT" : 'GOT IT'}</b></button></div>`, 'wide how-sheet');
+    sh.querySelectorAll('.how-tabs button').forEach(b => { b.onclick = () => { Sfx.play('ui'); openHow(first, +b.dataset.k); }; });
     $('hOk').onclick = () => { Sfx.play('ui'); closeSheet(); };
     U.sheetDismiss = closeSheet;
   }

@@ -10,13 +10,13 @@
 
 const CHAPTERS = [
   { name: 'SUNSET DOJO', stage: 'dojo', foes: ['ryo', 'mugi', 'kohei', 'homura', 'ryo', 'blaze'], recruit: { 2: 'kohei', 5: 'blaze' } },
-  { name: 'SAKURA SHRINE', stage: 'temple', foes: ['homura', 'kohei', 'triblade', 'blaze', 'mugi', 'jin'], recruit: { 2: 'triblade', 5: 'jin' } },
-  { name: 'BAMBOO GROVE', stage: 'forest', foes: ['triblade', 'kaze', 'kensei', 'jin', 'ryo', 'ripper'], recruit: { 2: 'kensei', 5: 'ripper' } },
+  { name: 'SAKURA SHRINE', stage: 'temple', foes: ['homura', 'kohei', 'triblade', 'blaze', 'mugi', 'jin'], recruit: { 5: 'jin' } },
+  { name: 'BAMBOO GROVE', stage: 'forest', foes: ['triblade', 'kaze', 'kensei', 'jin', 'ryo', 'ripper'], recruit: { 2: 'kensei' } },
   { name: 'NEON ROOFTOP', stage: 'city', foes: ['ripper', 'jin', 'aoi', 'kohei', 'kensei', 'taro'], recruit: { 2: 'aoi', 5: 'taro' } },
-  { name: 'FROST PEAK', stage: 'snow', foes: ['aoi', 'blaze', 'psychic', 'taro', 'triblade', 'monarch'], recruit: { 2: 'psychic', 5: 'monarch' } },
-  { name: 'VOID RIFT', stage: 'void', foes: ['monarch', 'psychic', 'aoi', 'ripper', 'kensei', 'titan'], recruit: { 5: 'titan' } },
+  { name: 'FROST PEAK', stage: 'snow', foes: ['aoi', 'blaze', 'psychic', 'taro', 'triblade', 'monarch'], recruit: { 2: 'psychic' } },
+  { name: 'VOID RIFT', stage: 'void', foes: ['monarch', 'psychic', 'aoi', 'ripper', 'kensei', 'titan'], recruit: {} },
   { name: 'CRATER PLAINS', stage: 'crater', foes: ['titan', 'blaze', 'monarch', 'taro', 'jin', 'kaze'], recruit: {} },
-  { name: 'GRAND ARENA', stage: 'arena', foes: ['psychic', 'titan', 'aoi', 'monarch', 'taro', 'saibo'], recruit: { 5: 'saibo' } },
+  { name: 'GRAND ARENA', stage: 'arena', foes: ['psychic', 'titan', 'aoi', 'monarch', 'taro', 'saibo'], recruit: {} },
 ];
 const STARTERS = ['kaze', 'ryo', 'homura', 'mugi'];
 
