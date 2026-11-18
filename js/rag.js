@@ -11,8 +11,9 @@
 
 const STEP = 1 / 120;
 const GROUND = 800;
-const WALL_L = 60;
-const WALL_R = 1540;
+const WALL_L = -360;           // a wide stage the camera pans across
+const WALL_R = 1960;
+const MAX_SEP = 1180;          // fighters can't walk further apart than one screen
 const RS = 2.0;               // fighter scale
 
 const P = { HEAD: 0, NECK: 1, PELVIS: 2, FELB: 3, FHAND: 4, BELB: 5, BHAND: 6, FKNEE: 7, FFOOT: 8, BKNEE: 9, BFOOT: 10 };
@@ -33,6 +34,8 @@ const JOINT_LIMITS = [
   [0, 3, 22, 60], [0, 5, 22, 60],
 ];
 const HEAD_R = 13;
+// hip-knee-foot and shoulder-elbow-hand chains that bend only one way
+const HINGES = [[2, 7, 8], [2, 9, 10], [1, 3, 4], [1, 5, 6]];
 const GRAV = 2700;
 let WORLD_G = 1;              // gravity multiplier (Low Gravity levels)
 
@@ -67,6 +70,42 @@ const POSES = {
   winCross:{ fh: [16, 22], bh: [-6, 22], lean: -2, crouch: 0, ff: [14, 0], bf: [-14, 0] },
 };
 
+/* --------------------------------------------------------------- stances
+   Every fighter stands, breathes and walks in their own style. A stance is
+   the guard pose plus how it idles: breath rate, a bounce (boxers hop on the
+   balls of their feet), a slow weight shift, hand drift, and the walk's
+   stride and lean. Attacks start from and settle back into the stance. */
+const ST = (pose, o) => Object.assign({
+  pose: Object.assign({ fh: [24, 10], bh: [13, 16], ff: [20, 0], bf: [-18, 0], lean: 3, crouch: 7 }, pose),
+  breathe: 1.7, bounce: 0, bounceF: 0, hop: false, sway: 0.7, swayA: 1.2, hand: 1.3, handA: 1.6,
+  stride: 26, step: 9, walkLean: 5, backLean: -4,
+}, o || {});
+const STANCES = {
+  karate:  ST({ fh: [32, 6], bh: [4, 26], ff: [30, 0], bf: [-37, 0], lean: 5, crouch: 14 }, { bounce: 1.4, bounceF: 2.1 }),
+  ninja:   ST({ fh: [30, 20], bh: [-16, 30], ff: [34, 0], bf: [-42, 0], lean: 13, crouch: 24 }, { bounce: 1.2, bounceF: 2.6, stride: 30, walkLean: 9 }),
+  mystic:  ST({ fh: [28, -2], bh: [-20, 2], ff: [13, 0], bf: [-19, 0], lean: -2, crouch: 2 }, { breathe: 1.2, hand: 1.6, handA: 4.5, sway: 0.5, swayA: 1.6, stride: 20, walkLean: 2 }),
+  sword:   ST({ fh: [26, 16], bh: [18, 22], ff: [32, 0], bf: [-38, 0], lean: 7, crouch: 16 }, { bounce: 1, bounceF: 1.8, handA: 0.8 }),
+  reaper:  ST({ fh: [30, 40], bh: [-6, 34], ff: [28, 0], bf: [-32, 0], lean: 15, crouch: 12 }, { breathe: 1.3, sway: 0.5, swayA: 2.2, handA: 1 }),
+  loose:   ST({ fh: [16, 40], bh: [-10, 42], ff: [16, 0], bf: [-22, 0], lean: 2, crouch: 5 }, { bentBack: true, bounce: 3.6, bounceF: 5.4, hop: true, hand: 2.7, handA: 4, sway: 1.4, swayA: 2.5 }),
+  boxer:   ST({ fh: [22, -10], bh: [12, -4], ff: [20, 0], bf: [-30, 0], lean: 7, crouch: 10 }, { bounce: 3.2, bounceF: 6.2, hop: true, hand: 3.1, handA: 1.6, stride: 24 }),
+  monk:    ST({ fh: [24, 2], bh: [6, 16], ff: [17, 0], bf: [-24, 0], lean: 0, crouch: 5 }, { breathe: 1.1, sway: 0.4, swayA: 0.8, handA: 0.9, stride: 22 }),
+  casual:  ST({ fh: [6, 44], bh: [-9, 44], ff: [12, 0], bf: [-14, 0], lean: -1, crouch: 0 }, { breathe: 0.9, sway: 0.35, swayA: 1, handA: 0.6, stride: 22, walkLean: 1, backLean: -1 }),
+  feral:   ST({ fh: [36, 30], bh: [-26, 30], ff: [30, 0], bf: [-38, 0], lean: 19, crouch: 22 }, { bounce: 2, bounceF: 3.4, hand: 4.6, handA: 3, sway: 2.3, swayA: 2, stride: 30, walkLean: 10 }),
+  regal:   ST({ fh: [10, 42], bh: [-12, 40], ff: [13, 0], bf: [-13, 0], lean: -3, crouch: 0 }, { breathe: 0.9, sway: 0.3, swayA: 0.6, handA: 0.5, stride: 22, walkLean: 0, backLean: -2 }),
+  giant:   ST({ fh: [30, 22], bh: [-4, 28], ff: [32, 0], bf: [-36, 0], lean: 9, crouch: 15 }, { breathe: 1, bounce: 1.8, bounceF: 1.2, sway: 0.6, swayA: 2, handA: 1.2, stride: 30, step: 7 }),
+  kungfu:  ST({ fh: [40, -2], bh: [-2, -16], ff: [26, -3], bf: [-24, 0], lean: 2, crouch: 19 }, { bounce: 1, bounceF: 2, hand: 1.9, handA: 2.6, bentBack: true }),
+  soldier: ST({ fh: [26, 8], bh: [14, 14], ff: [22, 0], bf: [-32, 0], lean: 8, crouch: 11 }, { bounce: 2, bounceF: 4.4, hop: true, handA: 1.2 }),
+  dual:    ST({ fh: [32, 12], bh: [-28, 10], ff: [32, 0], bf: [-40, 0], lean: 6, crouch: 18 }, { bounce: 1.2, bounceF: 2, handA: 1.2 }),
+  calm:    ST({ fh: [14, 32], bh: [-10, 34], ff: [14, 0], bf: [-15, 0], lean: 0, crouch: 1 }, { breathe: 1.1, sway: 0.3, swayA: 0.6, handA: 0.8, stride: 20, walkLean: 1 }),
+};
+// reactions: snapped back by a head hit, doubled over by a body hit, buckled by a low one
+const HURT = {
+  high: { fh: [-4, 4], bh: [-26, 10], lean: -17, crouch: 5 },
+  mid:  { fh: [12, 40], bh: [2, 42], lean: 17, crouch: 19 },
+  low:  { fh: [20, 28], bh: [-22, 18], lean: 7, crouch: 27 },
+};
+const KNEEL = { ff: [28, 0], bf: [-26, -1], fh: [40, 62], bh: [-6, 44], lean: 22, crouch: 42 };
+
 function mergePose(base, over) {
   const o = Object.assign({}, base);
   if (over) for (const k in over) o[k] = over[k];
@@ -97,6 +136,9 @@ class Rag {
     this.stunT = 0;
     this.t = Math.random() * 10;
     this.walkPh = 0;
+    this.st = STANCES[def.look.stance] || STANCES.karate;
+    this.hurtKind = 'mid';
+    this.riseT = 0;
     this.input = { x: 0 };
     this.action = null;
     this.cds = { sp1: 0, sp2: 0 };
@@ -122,16 +164,44 @@ class Rag {
     for (let i = 0; i < 11; i++) { this.pts.push({ x: o.x, y: GROUND, px: o.x, py: GROUND }); this.T.push({ x: o.x, y: GROUND }); this.Tp.push({ x: o.x, y: GROUND }); }
     this.computeTargets();
     this.snapToPose();
-    this.cape = null;
-    if (def.look.cape) {
-      this.cape = [];
-      for (let i = 0; i < 7; i++) this.cape.push({ x: o.x, y: GROUND - 200, px: o.x, py: GROUND - 200 });
+    this.initCloth();
+    this.settleCloth();
+  }
+
+  /* ------------------------------------------------------------- cloth
+     Scarves, capes, hair and coat tails are short verlet chains hung off
+     the body. They lag, swing and settle on their own, which sells the
+     weight of every move without any extra animation. */
+  initCloth() {
+    const L = this.def.look, x = this.root.x;
+    this.chains = [];
+    const add = (kind, n, len, w0, w1, color, o) => this.chains.push(Object.assign({ kind, n, len, w0, w1, color, drag: 0.93, grav: 1400, pts: Array.from({ length: n }, () => ({ x, y: GROUND - 200, px: x, py: GROUND - 200 })) }, o || {}));
+    if (L.cape) add('cape', 7, 9, 8, 4.8, 'acc');
+    if (L.hair === 'ponytail') add('hair', 5, 7, 6, 2.6, L.hairC || '#2a2630', { drag: 0.9 });
+    if (L.hair === 'long') add('hair', 4, 8.5, 12, 8, L.hairC || '#3a2c24', { drag: 0.9 });
+    if (L.coat) add('coat', 4, 9, 11, 13, L.coat, { drag: 0.88, grav: 1700 });
+    if (L.belt && L.beltTails !== false) add('belt', 3, 6.5, 3.6, 2.6, L.belt, { drag: 0.9 });
+    this.cape = (this.chains.find(c => c.kind === 'cape') || {}).pts || null;
+  }
+  clothAnchor(c) {
+    const s = this.s, f = this.facing, n = this.pts[P.NECK], pv = this.pts[P.PELVIS], h = this.pts[P.HEAD], hr = HEAD_R * s;
+    if (c.kind === 'cape') return [n.x - f * 3 * s, n.y + 3 * s];
+    if (c.kind === 'hair') return c.n === 5 ? [h.x - f * hr * 0.75, h.y - hr * 0.55] : [h.x - f * hr * 0.55, h.y - hr * 0.2];
+    if (c.kind === 'coat') return [lerp(n.x, pv.x, 0.86) - f * 6 * s, lerp(n.y, pv.y, 0.86)];
+    return [lerp(n.x, pv.x, 0.88) + f * 7 * s, lerp(n.y, pv.y, 0.88) + 2 * s];
+  }
+  // hang every chain straight down from its anchor (spawns, teleports, portraits)
+  settleCloth() {
+    for (const c of this.chains) {
+      const [ax, ay] = this.clothAnchor(c);
+      c.pts.forEach((p, i) => { p.x = p.px = ax - this.facing * i * c.len * this.s * 0.35; p.y = p.py = ay + i * c.len * this.s * 0.9; });
     }
   }
+  shiftCloth(dx, dy) { for (const c of this.chains) for (const p of c.pts) { p.x += dx; p.y += dy; p.px += dx; p.py += dy; } }
 
   snapToPose() {
     for (let i = 0; i < 11; i++) { const p = this.pts[i]; p.x = p.px = this.T[i].x; p.y = p.py = this.T[i].y; this.Tp[i].x = this.T[i].x; this.Tp[i].y = this.T[i].y; }
-    if (this.cape) { const n = this.pts[P.NECK]; for (const c of this.cape) { c.x = c.px = n.x; c.y = c.py = n.y; } }
+    if (this.chains) this.settleCloth();
   }
 
   get alive() { return this.mode !== 'dead'; }
@@ -177,6 +247,13 @@ class Rag {
     }
   }
 
+  // the body point nearest a world position (where a hit lands)
+  nearestIdx(x, y) {
+    let bi = P.NECK, bd = Infinity;
+    for (let i = 0; i < 11; i++) { const p = this.pts[i], d = (p.x - x) ** 2 + (p.y - y) ** 2; if (d < bd) { bd = d; bi = i; } }
+    return bi;
+  }
+
   // end the current move from outside the move itself (hit, launched, KO,
   // grabbed, frozen). Runs the move's own cleanup so nothing a move changed
   // (size, hover, hidden, transparency) can outlive it.
@@ -199,6 +276,7 @@ class Rag {
     if (!r.grounded) r.vy = Math.min(r.vy, ky);
     this.impulse(idx != null ? idx : P.NECK, kx * (blocking ? 0.3 : 0.9), (ky - 120) * (blocking ? 0.2 : 0.6), 0.35);
     this.mode = blocking ? 'block' : 'hit';
+    if (!blocking) this.hurtKind = idx === P.HEAD || idx === P.NECK || idx === P.FELB || idx === P.BELB || idx === P.FHAND || idx === P.BHAND ? 'high' : idx === P.FKNEE || idx === P.BKNEE || idx === P.FFOOT || idx === P.BFOOT ? 'low' : 'mid';
     this.stunT = stun;
     this.knockT = 0.2;
   }
@@ -264,6 +342,7 @@ class Rag {
     }
     if (this.mode === 'active' || this.mode === 'rising' || this.mode === 'hit' || this.mode === 'block') {
       if (this.mode === 'rising') {
+        this.riseT += dt;
         this.m = Math.min(1, this.m + dt / 0.5);
         if (this.m >= 0.9) { this.mode = 'active'; this.juggle = 0; }
       } else if (this.mode === 'hit') {
@@ -279,7 +358,7 @@ class Rag {
     }
     this.stepBody(dt);
     if (this.mode === 'tumble') this.followBody(dt);
-    if (this.cape) this.stepCape(dt);
+    this.stepCloth(dt);
   }
 
   releaseStored() {
@@ -324,29 +403,74 @@ class Rag {
     const m = 24 * this.s;
     if (r.x < WALL_L + m) { r.x = WALL_L + m; if (r.vx < 0) r.vx = 0; }
     if (r.x > WALL_R - m) { r.x = WALL_R - m; if (r.vx > 0) r.vx = 0; }
-    if (r.grounded && Math.abs(r.vx) > 30 && !this.action) this.walkPh += r.vx * this.facing * dt * 0.05 / this.s;
+    // the gait phase advances with distance travelled, so planted feet never slide
+    if (r.grounded && Math.abs(r.vx) > 30 && !this.action) this.walkPh += r.vx * this.facing * dt / (2 * this.st.stride * this.s);
   }
 
   basePose() {
-    const r = this.root;
-    if (this.pose) return mergePose(GUARD, POSES[this.pose] || this.pose);
-    if (this.mode === 'hit') return mergePose(GUARD, POSES.hurt);
-    if (this.mode === 'block' || this.blocking) return mergePose(GUARD, POSES.block);
-    if (!r.grounded) {
-      const tuck = clamp(-r.vy * 0.012 / this.s, -8, 16);
-      return mergePose(GUARD, { ff: [16, -26 - tuck], bf: [-10, -12 - tuck * 0.5], fh: [22, 4], bh: [10, 10], crouch: 0 });
+    const r = this.root, st = this.st, G0 = st.pose;
+    if (this.pose) return mergePose(G0, POSES[this.pose] || this.pose);
+    if (this.mode === 'rising') {
+      // push up off one knee, then settle into the stance
+      const k = easeInOut(clamp((this.riseT - 0.12) / 0.38, 0, 1));
+      return lerpPose(mergePose(G0, KNEEL), G0, k);
     }
-    if (this.dashT > 0) return mergePose(GUARD, { lean: Math.sign(this.dashV) * this.facing * 14, crouch: 14 });
-    const moving = Math.abs(r.vx) > 40 * this.s;
-    if (moving) {
-      const a = this.walkPh;
-      return mergePose(GUARD, {
-        ff: [20 + Math.sin(a) * 15, -Math.max(0, Math.cos(a)) * 12],
-        bf: [-18 + Math.sin(a + Math.PI) * 15, -Math.max(0, Math.cos(a + Math.PI)) * 12],
-        lean: clamp(r.vx * this.facing * 0.012 / this.s, -6, 8),
+    if (this.mode === 'hit') {
+      const k = clamp(this.stunT / 0.22, 0, 1);
+      return lerpPose(G0, mergePose(G0, HURT[this.hurtKind] || HURT.mid), easeOut(k));
+    }
+    if (this.mode === 'block' || this.blocking) return mergePose(G0, POSES.block);
+    if (!r.grounded) {
+      // tuck toward the apex, reach the legs down to land, arms out for balance
+      const k = clamp(r.vy / (950 * this.s), -1, 1), tuck = 1 - Math.abs(k);
+      const up = Math.max(0, -k), down = Math.max(0, k);
+      return mergePose(G0, {
+        ff: [18 + tuck * 6, -8 - tuck * 30 + up * 4], bf: [-12 - down * 6, -4 - tuck * 22 - up * 6],
+        fh: [26 - down * 4, 2 - tuck * 8 - up * 10], bh: [-14 - down * 8, 6 - up * 12],
+        lean: 4 * tuck - down * 3, crouch: -4 + tuck * 6,
       });
     }
-    return GUARD;
+    if (this.dashT > 0) {
+      const fwd = Math.sign(this.dashV) === this.facing;
+      return mergePose(G0, { lean: fwd ? 18 : -10, crouch: 16, fh: [fwd ? 30 : 20, fwd ? 14 : -4], bh: [fwd ? -20 : 10, fwd ? 22 : 4], ff: [fwd ? 34 : 18, 0], bf: [fwd ? -36 : -26, -6] });
+    }
+    const t = this.t, br = Math.sin(t * st.breathe * TAU * 0.35);
+    const moving = Math.abs(r.vx) > 40 * this.s;
+    const p = {
+      fh: [G0.fh[0] + Math.cos(t * st.hand) * st.handA, G0.fh[1] + Math.sin(t * st.hand * 1.3) * st.handA - br * 1.2],
+      bh: [G0.bh[0] + Math.cos(t * st.hand + 2.1) * st.handA * 0.7, G0.bh[1] + Math.sin(t * st.hand * 1.3 + 1.7) * st.handA * 0.7 - br],
+      ff: G0.ff.slice(), bf: G0.bf.slice(),
+      lean: G0.lean + br * 0.9 + Math.sin(t * st.sway) * st.swayA,
+      crouch: G0.crouch + (st.bounce ? (st.hop ? 1 - Math.abs(Math.sin(t * st.bounceF)) : 0.5 + 0.5 * Math.sin(t * st.bounceF)) * st.bounce : 0),
+    };
+    // the back leg stays nearly straight in a fighting stance (it's what the
+    // weight pushes off), so place the back foot at full reach from the hip
+    if (!st.bentBack) {
+      const h = 52 - p.crouch, reach = 57 * 0.985;
+      if (h < reach) p.bf[0] = Math.min(p.bf[0], -Math.sqrt(reach * reach - h * h) + p.lean * 0.35);
+    }
+    if (moving) {
+      // a fighting-game shuffle: the feet keep their order, each one is planted
+      // for half the cycle (sliding back exactly as fast as the body moves) and
+      // swings forward for the other half
+      const fwd = r.vx * this.facing > 0;
+      const L = st.stride, H = st.step;
+      const gait = u => {
+        u = ((u % 1) + 1) % 1;
+        if (u < 0.5) return [L / 2 - L * u * 2, 0];
+        const k = (u - 0.5) * 2, e = k * k * (3 - 2 * k);
+        return [-L / 2 + L * e, -Math.sin(k * Math.PI) * H];
+      };
+      const a = gait(this.walkPh), b = gait(this.walkPh + 0.5);
+      p.ff = [G0.ff[0] * 0.75 + a[0], a[1]];
+      p.bf = [G0.bf[0] * 0.75 + b[0], b[1]];
+      p.crouch = G0.crouch + 2 + Math.cos(this.walkPh * TAU * 2) * 1.6;
+      p.lean = G0.lean + (fwd ? st.walkLean : st.backLean);
+      // walking back keeps the guard tight; walking in, the arms swing a touch
+      if (fwd) { p.fh[0] -= a[0] * 0.18; p.bh[0] -= b[0] * 0.18; }
+      else { p.fh = [G0.fh[0] - 4, G0.fh[1] - 6]; p.bh = [G0.bh[0] + 4, G0.bh[1] - 4]; }
+    }
+    return p;
   }
 
   actionPose(base) {
@@ -366,7 +490,7 @@ class Rag {
     for (let i = 0; i < 11; i++) { Tp[i].x = T[i].x; Tp[i].y = T[i].y; }
     let pose = this.basePose();
     if (this.action && this.mode === 'active') pose = this.actionPose(pose);
-    const bob = this.idle && r.grounded ? Math.sin(this.t * 4.2) * 2.2 * s : 0;
+    const bob = 0;
     const crouch = (pose.crouch + this.landT * 16) * s;
     const lean = pose.lean * s * f;
     const gx = r.x, gy = r.y;
@@ -441,6 +565,25 @@ class Rag {
       for (const [ia, ib, lo, hi] of JOINT_LIMITS) solve(pts[ia], pts[ib], INV_MASS[ia], INV_MASS[ib], lo * s, hi * s, 0.6);
       for (const p of pts) this.contain(p, limp);
     }
+    // hinge joints: knees and elbows only bend one way, even when limp. The
+    // bend direction comes from the animated pose (a 2D cross product keeps its
+    // sign under rotation), and a joint bent the wrong way is mirrored back
+    // across its limb line, which keeps both bone lengths
+    if (limp || this.mode === 'hit') {
+      for (const [a, b, c] of HINGES) {
+        const want = Math.sign((T[b].x - T[a].x) * (T[c].y - T[b].y) - (T[b].y - T[a].y) * (T[c].x - T[b].x));
+        const A = pts[a], B = pts[b], C = pts[c];
+        const cr = (B.x - A.x) * (C.y - B.y) - (B.y - A.y) * (C.x - B.x);
+        if (want && cr * want < -40 * s * s) {
+          const dx = C.x - A.x, dy = C.y - A.y, l2 = dx * dx + dy * dy || 1;
+          const u = ((B.x - A.x) * dx + (B.y - A.y) * dy) / l2;
+          const fx = A.x + dx * u, fy = A.y + dy * u;
+          const nx = 2 * fx - B.x, ny = 2 * fy - B.y;
+          B.px += (nx - B.x) * 0.5; B.py += (ny - B.y) * 0.5;
+          B.x = lerp(B.x, nx, 0.5); B.y = lerp(B.y, ny, 0.5);
+        }
+      }
+    }
     // safety: never let a broken step leave NaN or a body far outside the arena
     const pv = pts[P.PELVIS];
     if (!Number.isFinite(pv.x) || !Number.isFinite(pv.y)) { this.computeTargets(); this.snapToPose(); }
@@ -472,35 +615,40 @@ class Rag {
     if (!low || (speed > 220 * this.s && this.stunT > -1.5)) return;
     r.y = GROUND; r.vx = 0; r.vy = 0; r.grounded = true; r.jumps = 0;
     this.mode = 'rising';
+    this.riseT = 0;
     this.m = 0.05;
     this.juggle = 0;
   }
 
-  stepCape(dt) {
-    const c = this.cape, n = this.pts[P.NECK];
-    const L = 9 * this.s;
-    const ax = n.x - this.facing * 3 * this.s, ay = n.y + 3 * this.s;
-    c[0].x = ax; c[0].y = ay;
-    const g = 1400 * this.s * dt * dt;
-    const wind = Math.sin(this.t * 1.7) * 0.12 - this.facing * 0.18;
-    for (let i = 1; i < c.length; i++) {
-      const p = c[i];
-      const vx = (p.x - p.px) * 0.93, vy = (p.y - p.py) * 0.93;
-      p.px = p.x; p.py = p.y;
-      p.x += vx + wind; p.y += vy + g;
-      if (p.y > GROUND - 2) p.y = GROUND - 2;
-    }
-    for (let it = 0; it < 4; it++) {
-      for (let i = 1; i < c.length; i++) {
-        const a = c[i - 1], b = c[i];
-        const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1e-4;
-        const diff = (d - L) / d;
-        if (i === 1) { b.x -= dx * diff; b.y -= dy * diff; }
-        else { a.x += dx * diff * 0.5; a.y += dy * diff * 0.5; b.x -= dx * diff * 0.5; b.y -= dy * diff * 0.5; }
+  stepCloth(dt) {
+    const s = this.s, f = this.facing;
+    const wind = Math.sin(this.t * 1.7) * 0.12;
+    for (const c of this.chains) {
+      const P0 = c.pts, L = c.len * s;
+      const [ax, ay] = this.clothAnchor(c);
+      P0[0].x = ax; P0[0].y = ay;
+      const g = c.grav * s * dt * dt;
+      // cloth trails behind the way the fighter faces, a little
+      const push = c.kind === 'coat' ? -f * 0.1 : -f * 0.18;
+      for (let i = 1; i < P0.length; i++) {
+        const p = P0[i];
+        const vx = (p.x - p.px) * c.drag, vy = (p.y - p.py) * c.drag;
+        p.px = p.x; p.py = p.y;
+        p.x += vx + wind + push; p.y += vy + g;
+        if (p.y > GROUND - 2) { p.y = GROUND - 2; p.px = lerp(p.px, p.x, 0.4); }
       }
-      c[0].x = ax; c[0].y = ay;
+      for (let it = 0; it < 4; it++) {
+        for (let i = 1; i < P0.length; i++) {
+          const a = P0[i - 1], b = P0[i];
+          const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1e-4;
+          const diff = (d - L) / d;
+          if (i === 1) { b.x -= dx * diff; b.y -= dy * diff; }
+          else { a.x += dx * diff * 0.5; a.y += dy * diff * 0.5; b.x -= dx * diff * 0.5; b.y -= dy * diff * 0.5; }
+        }
+        P0[0].x = ax; P0[0].y = ay;
+      }
+      for (const p of P0) if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) { p.x = p.px = ax; p.y = p.py = ay; }
     }
-    for (const p of c) if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) { p.x = p.px = ax; p.y = p.py = ay; }
   }
 
   /* ---------------------------------------------------------- hurtbox */
@@ -542,7 +690,7 @@ class Rag {
   }
 
   draw(ctx, time, mono) {
-    const s = this.s, pts = this.pts;
+    const s = this.s, pts = this.pts, L = this.def.look, f = this.facing;
     if (this.hidden) return;
     const fade = (this.mode === 'dead' && this.fadeOut ? clamp(1 - (this.deadT - 2.5) / 1, 0, 1) : 1) * this.alpha;
     if (fade <= 0) return;
@@ -552,55 +700,129 @@ class Rag {
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     const fl = mono ? 0 : this.flash;
     const stopped = this.stopT > 0 && !mono;
-    const dark = this.surge > 0 && this.def.look.surge && this.def.look.surge.dark;
+    const dark = this.surge > 0 && L.surge && L.surge.dark;
     const baseBody = stopped ? '#a3a3ab' : dark ? '#3a3a44' : this.alt ? '#e4ddcf' : '#f7f2e7';
     const baseShade = stopped ? '#86868e' : dark ? '#2a2a32' : this.alt ? '#c2b7a2' : '#d6cab4';
     const body = mono || (fl > 0 ? mixHex(baseBody, '#ffffff', fl) : baseBody);
     const shade = mono || (fl > 0 ? mixHex(baseShade, '#ffffff', fl) : baseShade);
     const acc = mono || this.accent();
-    const seg = (a, b, w, col) => {
-      ctx.strokeStyle = col; ctx.lineWidth = w * s;
-      ctx.beginPath(); ctx.moveTo(pts[a].x, pts[a].y); ctx.lineTo(pts[b].x, pts[b].y); ctx.stroke();
+    // garment colours: 'acc' means the fighter's colour; back limbs get a darker tone
+    const tone = (c, back) => {
+      if (mono) return mono;
+      if (!c) return null;
+      let col = c === 'acc' ? this.accent() : c;
+      if (stopped) col = mixHex(col, '#9a9aa2', 0.75);
+      else if (dark) col = mixHex(col, '#000000', 0.45);
+      else if (this.alt && c !== 'acc') col = mixHex(col, '#000000', 0.2);
+      if (back) col = mixHex(col, '#000000', 0.22);
+      if (fl > 0) col = mixHex(col, '#ffffff', fl);
+      return col;
     };
-    const plated = this.def.look.gear === 'helmet' || this.def.look.gear === 'crest';
-    const cuff = (e, h, col) => {
-      const E = pts[e], Hh = pts[h];
-      ctx.strokeStyle = col; ctx.lineWidth = (plated ? 15.5 : 11.5) * s;
+    const B = L.build || {};
+    const legW = B.leg || 1, armW = B.arm || 1;
+    // a limb that tapers from one end to the other
+    const cap = (a, b, wa, wb, col) => {
+      const A = pts[a], Bp = pts[b];
+      const dx = Bp.x - A.x, dy = Bp.y - A.y, l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l;
+      const ra = wa * s / 2, rb = wb * s / 2;
+      ctx.fillStyle = col;
       ctx.beginPath();
-      ctx.moveTo(lerp(E.x, Hh.x, plated ? 0.43 : 0.56), lerp(E.y, Hh.y, plated ? 0.43 : 0.56));
-      ctx.lineTo(lerp(E.x, Hh.x, 0.83), lerp(E.y, Hh.y, 0.83));
-      ctx.stroke();
+      ctx.moveTo(A.x + nx * ra, A.y + ny * ra); ctx.lineTo(Bp.x + nx * rb, Bp.y + ny * rb);
+      ctx.lineTo(Bp.x - nx * rb, Bp.y - ny * rb); ctx.lineTo(A.x - nx * ra, A.y - ny * ra); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.arc(A.x, A.y, ra, 0, TAU); ctx.arc(Bp.x, Bp.y, rb, 0, TAU); ctx.fill();
     };
-    if (this.cape) this.drawCape(ctx, acc);
+    // a band part-way along a limb (cuffs, wraps, boots)
+    const band = (a, b, u0, u1, w, col) => {
+      const A = pts[a], Bp = pts[b];
+      ctx.strokeStyle = col; ctx.lineWidth = w * s; ctx.lineCap = 'butt';
+      ctx.beginPath(); ctx.moveTo(lerp(A.x, Bp.x, u0), lerp(A.y, Bp.y, u0)); ctx.lineTo(lerp(A.x, Bp.x, u1), lerp(A.y, Bp.y, u1)); ctx.stroke();
+      ctx.lineCap = 'round';
+    };
+    const plated = L.gear === 'helmet' || L.gear === 'crest';
+    const leg = (hip, knee, foot, back) => {
+      const col = back ? shade : body;
+      cap(hip, knee, 14.5 * legW, 12 * legW, col); cap(knee, foot, 12 * legW, 10 * legW, col);
+      const pc = tone(L.pants, back);
+      if (pc) {
+        if (L.pantsKind === 'shorts') cap(hip, knee, 16.5 * legW, 14 * legW, pc);
+        else if (L.pantsKind === 'hakama') {
+          // wide pleated trousers flare out toward the ankle
+          cap(hip, knee, 16.5 * legW, 17 * legW, pc); cap(knee, foot, 17 * legW, 18 * legW, pc);
+        } else { cap(hip, knee, 16 * legW, 13.5 * legW, pc); cap(knee, foot, 13.5 * legW, 11.5 * legW, pc); }
+      }
+      const bc = tone(L.boots, back);
+      if (bc) band(knee, foot, 0.55, 1.08, 12.5 * legW, bc);
+      if (L.shinWrap) { const wc = tone(L.shinWrap, back); for (const u of [0.35, 0.55, 0.75]) band(knee, foot, u, u + 0.08, 12.6 * legW, wc); }
+    };
+    const arm = (sh, el, hand, back) => {
+      const col = back ? shade : body;
+      cap(sh, el, 11.5 * armW, 10 * armW, col); cap(el, hand, 10 * armW, 8.5 * armW, col);
+      const sc = tone(L.top, back);
+      if (sc && L.sleeve === 'short') cap(sh, el, 13.5 * armW, 12 * armW, sc);
+      if (sc && L.sleeve === 'long') { cap(sh, el, 13.5 * armW, 12 * armW, sc); cap(el, hand, L.wideSleeve ? 15 : 11.5 * armW, L.wideSleeve ? 18 : 10 * armW, sc); }
+      if (L.stripes) band(sh, el, 0.55, 0.7, 13.8 * armW, tone('#e9f0b0', back));
+      if (L.wraps) { const wc = tone(L.wraps === true ? '#ece6d8' : L.wraps, back); band(el, hand, 0.45, 0.85, 10.6 * armW, wc); }
+      else if (!L.glove && !(sc && L.sleeve === 'long')) {
+        // Element Rag's wrist band
+        ctx.strokeStyle = back ? mixHex(acc, '#000000', 0.15) : acc; ctx.lineWidth = (plated ? 15.5 : 11.5) * s;
+        ctx.beginPath(); ctx.moveTo(lerp(pts[el].x, pts[hand].x, plated ? 0.43 : 0.56), lerp(pts[el].y, pts[hand].y, plated ? 0.43 : 0.56));
+        ctx.lineTo(lerp(pts[el].x, pts[hand].x, 0.83), lerp(pts[el].y, pts[hand].y, 0.83)); ctx.stroke();
+      }
+      const gc = tone(L.glove, back);
+      ctx.fillStyle = gc || col;
+      ctx.beginPath(); ctx.arc(pts[hand].x, pts[hand].y, (gc ? 8.2 : back ? 5.3 : 5.8) * s, 0, TAU); ctx.fill();
+      if (gc) band(el, hand, 0.72, 0.92, 11 * armW, gc);
+    };
+
+    // cloth behind the body: cape / scarf, hair, coat tails
+    for (const c of this.chains) if (c.kind !== 'belt') this.drawChain(ctx, c, c.color === 'acc' ? acc : tone(c.color));
     if (!mono && (this.surge > 0 || this.auraT > 0)) this.drawAura(ctx, time);
     // back limbs in the shade tone
-    seg(2, 9, 13, shade); seg(9, 10, 11, shade);
-    seg(1, 5, 11, shade); seg(5, 6, 9.5, shade);
-    cuff(P.BELB, P.BHAND, acc);
-    ctx.fillStyle = shade;
-    ctx.beginPath(); ctx.arc(pts[P.BHAND].x, pts[P.BHAND].y, 5.3 * s, 0, TAU); ctx.fill();
-    // torso, front leg, head
-    seg(1, 2, 22, body);
-    seg(2, 7, 13.5, body); seg(7, 8, 11.5, body);
+    leg(P.PELVIS, P.BKNEE, P.BFOOT, true);
+    arm(P.NECK, P.BELB, P.BHAND, true);
+    // torso: a tapered chest-to-waist shape
+    this.drawTorso(ctx, body, tone(L.top), tone(L.trim), acc, mono);
+    if (L.pantsKind === 'robe' && L.pants) this.drawSkirt(ctx, tone(L.pants));
+    leg(P.PELVIS, P.FKNEE, P.FFOOT, false);
+    if (L.belt) {
+      const bc = tone(L.belt), n = pts[P.NECK], pv = pts[P.PELVIS];
+      const ang = Math.atan2(pv.y - n.y, pv.x - n.x) - Math.PI / 2;
+      ctx.save(); ctx.translate(lerp(n.x, pv.x, 0.86), lerp(n.y, pv.y, 0.86)); ctx.rotate(ang);
+      ctx.fillStyle = bc; ctx.fillRect(-11 * s * (B.waist || 1), -2.6 * s, 22 * s * (B.waist || 1), 5.4 * s);
+      ctx.restore();
+      const bt = this.chains.find(c => c.kind === 'belt');
+      if (bt) this.drawChain(ctx, bt, bc);
+    }
+    if (L.extra === 'beads') {
+      const n = pts[P.NECK];
+      ctx.fillStyle = mono || '#6b3b2a';
+      for (let i = 0; i < 9; i++) { const a = Math.PI * (0.15 + i * 0.0875); ctx.beginPath(); ctx.arc(n.x + Math.cos(a) * 12 * s, n.y + Math.sin(a) * 9 * s - 2 * s, 2.6 * s, 0, TAU); ctx.fill(); }
+    }
     const hd = pts[P.HEAD], hr = HEAD_R * s;
     ctx.fillStyle = body;
     ctx.beginPath(); ctx.roundRect(hd.x - hr, hd.y - hr * 1.05, hr * 2, hr * 2.1, hr * 0.8); ctx.fill();
+    this.drawHair(ctx, hd, tone(L.hairC || '#2a2630'), mono);
     this.drawHeadgear(ctx, hd, time, acc, mono);
-    // front arm on top, with the blade if the fighter carries one
-    if (!this.hideArm) {
-      seg(1, 3, 11, body); seg(3, 4, 9.5, body);
-      cuff(P.FELB, P.FHAND, acc);
-      ctx.fillStyle = body;
-      ctx.beginPath(); ctx.arc(pts[P.FHAND].x, pts[P.FHAND].y, 5.8 * s, 0, TAU); ctx.fill();
+    this.drawFace(ctx, hd, tone, acc, mono, time);
+    if (L.extra === 'pauldron') {
+      const n = pts[P.NECK], e = pts[P.FELB];
+      ctx.fillStyle = tone(L.trim || '#8c8c96');
+      ctx.beginPath(); ctx.ellipse(lerp(n.x, e.x, 0.3), lerp(n.y, e.y, 0.3) - 2 * s, 12 * s, 8 * s, Math.atan2(e.y - n.y, e.x - n.x), 0, TAU); ctx.fill();
     }
-    if (this.def.look.weapon) this.drawWeapon(ctx, acc, mono);
+    // front arm on top, with the blade if the fighter carries one
+    if (!this.hideArm) arm(P.NECK, P.FELB, P.FHAND, false);
+    if (L.weapon) this.drawWeapon(ctx, acc, mono);
     if (!mono && !stopped && this.alive) {
       ctx.globalCompositeOperation = 'lighter';
       Glow.draw(ctx, acc, pts[P.FHAND].x, pts[P.FHAND].y, 16 * s, 0.45);
+      if (L.extra === 'orbs') for (let i = 0; i < 3; i++) {
+        const a = time * 1.6 + i * TAU / 3, c = this.center();
+        Glow.draw(ctx, acc, c.x + Math.cos(a) * 34 * s, c.y - 26 * s + Math.sin(a) * 12 * s, 9 * s, 0.6);
+      }
       ctx.globalCompositeOperation = 'source-over';
     }
     if (!mono && this.mode === 'block' && this.stunT > 0) {
-      const c = this.chest(), f = this.facing;
+      const c = this.chest();
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = 0.5 * Math.min(1, this.stunT * 5);
       ctx.strokeStyle = '#8fd6ff'; ctx.lineWidth = 4;
@@ -608,6 +830,132 @@ class Rag {
       ctx.globalCompositeOperation = 'source-over';
     }
     ctx.restore();
+  }
+
+  // chest wider than the waist; tops, vests and jackets drawn over it
+  drawTorso(ctx, body, top, trim, acc, mono) {
+    const s = this.s, f = this.facing, pts = this.pts, L = this.def.look, B = L.build || {};
+    const n = pts[P.NECK], pv = pts[P.PELVIS];
+    const dx = pv.x - n.x, dy = pv.y - n.y, l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l, nx = -uy, ny = ux;
+    const cw = 13 * (B.chest || 1) * s, ww = 10.5 * (B.waist || 1) * s;
+    const shape = (c0, c1, k0 = 0, k1 = 1) => {
+      const ax = n.x + dx * k0, ay = n.y + dy * k0, bx = n.x + dx * k1, by = n.y + dy * k1;
+      const w0 = lerp(cw, ww, k0), w1 = lerp(cw, ww, k1);
+      ctx.beginPath();
+      ctx.moveTo(ax + nx * w0 * c0, ay + ny * w0 * c0);
+      ctx.quadraticCurveTo(ax + nx * w0 * 1.05 + ux * 8 * s, ay + ny * w0 * 1.05 + uy * 8 * s, bx + nx * w1, by + ny * w1);
+      ctx.lineTo(bx - nx * w1, by - ny * w1);
+      ctx.quadraticCurveTo(ax - nx * w0 * 1.05 + ux * 8 * s, ay - ny * w0 * 1.05 + uy * 8 * s, ax - nx * w0 * c1, ay - ny * w0 * c1);
+      ctx.closePath();
+    };
+    ctx.fillStyle = body;
+    shape(1, 1); ctx.fill();
+    ctx.beginPath(); ctx.arc(n.x + ux * 3 * s, n.y + uy * 3 * s, cw * 0.98, 0, TAU); ctx.arc(pv.x, pv.y, ww, 0, TAU); ctx.fill();
+    if (!top) return;
+    const kind = L.topKind || 'tank';
+    ctx.fillStyle = top;
+    if (kind === 'vest') {
+      // open down the middle: two panels, the chest shows between them
+      for (const sd of [1, -1]) {
+        ctx.beginPath();
+        ctx.moveTo(n.x + nx * cw * sd, n.y + ny * cw * sd);
+        ctx.lineTo(pv.x + nx * ww * sd, pv.y + ny * ww * sd);
+        ctx.lineTo(pv.x + nx * ww * sd * 0.25, pv.y + ny * ww * sd * 0.25);
+        ctx.lineTo(n.x + nx * cw * sd * 0.35 + ux * 10 * s, n.y + ny * cw * sd * 0.35 + uy * 10 * s);
+        ctx.closePath(); ctx.fill();
+      }
+    } else {
+      shape(1, 1, kind === 'tank' ? 0.12 : 0, 1.04); ctx.fill();
+      if (kind !== 'tank') { ctx.beginPath(); ctx.arc(n.x + ux * 3 * s, n.y + uy * 3 * s, cw * 0.98, 0, TAU); ctx.fill(); }
+      if (kind === 'gi' || kind === 'robe' || kind === 'haori') {
+        // the crossed collar: a V of skin and a trim line
+        ctx.fillStyle = body;
+        ctx.beginPath(); ctx.moveTo(n.x - nx * cw * 0.15 * f, n.y - ny * cw * 0.15 * f); ctx.lineTo(n.x + ux * 22 * s, n.y + uy * 22 * s); ctx.lineTo(n.x + nx * cw * 0.55 * f, n.y + ny * cw * 0.55 * f); ctx.closePath(); ctx.fill();
+        if (trim) { ctx.strokeStyle = trim; ctx.lineWidth = 3 * s; ctx.beginPath(); ctx.moveTo(n.x + nx * cw * 0.6 * f, n.y + ny * cw * 0.6 * f); ctx.lineTo(n.x + ux * 24 * s, n.y + uy * 24 * s); ctx.stroke(); }
+      }
+      if (kind === 'hoodie' || kind === 'jacket') {
+        // a collar or a hood bunched behind the neck
+        ctx.fillStyle = top;
+        ctx.beginPath(); ctx.ellipse(n.x - f * 6 * s, n.y - 1 * s, 10 * s, 7 * s, 0, 0, TAU); ctx.fill();
+        if (trim) { ctx.strokeStyle = trim; ctx.lineWidth = 2.6 * s; ctx.beginPath(); ctx.moveTo(n.x + ux * 4 * s, n.y + uy * 4 * s); ctx.lineTo(pv.x - ux * 2 * s, pv.y - uy * 2 * s); ctx.stroke(); }
+      }
+    }
+    if (L.stripes) {
+      ctx.strokeStyle = mono || '#e9f0b0'; ctx.lineWidth = 3.4 * s; ctx.lineCap = 'butt';
+      for (const u of [0.55, 0.68]) { const x = lerp(n.x, pv.x, u), y = lerp(n.y, pv.y, u), w = lerp(cw, ww, u); ctx.beginPath(); ctx.moveTo(x + nx * w, y + ny * w); ctx.lineTo(x - nx * w, y - ny * w); ctx.stroke(); }
+      ctx.lineCap = 'round';
+    }
+    if (L.sash) {
+      // a cloth sash across the chest
+      ctx.strokeStyle = trim || acc; ctx.lineWidth = 5 * s; ctx.lineCap = 'butt';
+      ctx.beginPath(); ctx.moveTo(n.x + nx * cw * f, n.y + ny * cw * f); ctx.lineTo(pv.x - nx * ww * f, pv.y - ny * ww * f); ctx.stroke();
+      ctx.lineCap = 'round';
+    }
+  }
+
+  // a robe hangs from the waist to the knees
+  drawSkirt(ctx, col) {
+    const s = this.s, pts = this.pts, pv = pts[P.PELVIS], a = pts[P.FKNEE], b = pts[P.BKNEE];
+    const lo = Math.max(a.y, b.y) + 6 * s, x0 = Math.min(a.x, b.x, pv.x) - 9 * s, x1 = Math.max(a.x, b.x, pv.x) + 9 * s;
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.moveTo(pv.x - 11 * s, pv.y - 4 * s); ctx.lineTo(pv.x + 11 * s, pv.y - 4 * s);
+    ctx.quadraticCurveTo(x1, lerp(pv.y, lo, 0.5), x1 + 2 * s, lo); ctx.lineTo(x0 - 2 * s, lo);
+    ctx.quadraticCurveTo(x0, lerp(pv.y, lo, 0.5), pv.x - 11 * s, pv.y - 4 * s); ctx.fill();
+  }
+
+  // hair shapes on the head (long hair and ponytails are cloth chains)
+  drawHair(ctx, hd, col, mono) {
+    const L = this.def.look, kind = L.hair;
+    if (!kind) return;
+    const s = this.s, f = this.facing, hr = HEAD_R * s;
+    ctx.fillStyle = col;
+    const top = hd.y - hr * 1.02;
+    if (kind === 'tuft') {
+      ctx.beginPath(); ctx.moveTo(hd.x - f * hr * 1.05, hd.y - hr * 0.2);
+      ctx.quadraticCurveTo(hd.x - f * hr * 1.1, top - 4 * s, hd.x + f * hr * 0.2, top - 3 * s);
+      ctx.quadraticCurveTo(hd.x + f * hr * 1.1, top - 6 * s, hd.x + f * hr * 1.15, top + 6 * s);
+      ctx.quadraticCurveTo(hd.x + f * hr * 0.4, top + 3 * s, hd.x - f * hr * 0.3, hd.y - hr * 0.45); ctx.closePath(); ctx.fill();
+    } else if (kind === 'spikes') {
+      ctx.beginPath(); ctx.moveTo(hd.x - f * hr * 1.05, hd.y - hr * 0.1);
+      const tips = [[-1.25, -0.6], [-0.75, -1.45], [-0.15, -1.62], [0.45, -1.48], [1.0, -1.05]];
+      let px = -1.0, py = -0.75;
+      for (const [tx, ty] of tips) { ctx.lineTo(hd.x + f * hr * tx, hd.y + hr * ty); px += 0.5; ctx.lineTo(hd.x + f * hr * (tx + 0.3), hd.y + hr * (ty + 0.55)); }
+      ctx.lineTo(hd.x + f * hr * 1.05, hd.y - hr * 0.4); ctx.lineTo(hd.x - f * hr * 0.5, hd.y - hr * 0.5); ctx.closePath(); ctx.fill();
+    } else if (kind === 'topknot' || kind === 'buns') {
+      ctx.beginPath(); ctx.ellipse(hd.x, hd.y - hr * 0.55, hr * 1.04, hr * 0.62, 0, Math.PI, 0); ctx.fill();
+      const knots = kind === 'buns' ? [[-0.75, -1.05], [0.65, -1.15]] : [[-0.25, -1.35]];
+      for (const [kx, ky] of knots) { ctx.beginPath(); ctx.arc(hd.x + f * hr * kx, hd.y + hr * ky, hr * (kind === 'buns' ? 0.45 : 0.42), 0, TAU); ctx.fill(); }
+      if (kind === 'topknot' && !mono) { ctx.fillStyle = this.accent(); ctx.fillRect(hd.x - f * hr * 0.25 - 2 * s, hd.y - hr * 1.02, 4 * s, 3 * s); }
+    } else if (kind === 'mohawk') {
+      ctx.beginPath(); ctx.moveTo(hd.x - f * hr * 0.9, hd.y - hr * 0.5);
+      ctx.quadraticCurveTo(hd.x - f * hr * 0.6, top - hr * 0.9, hd.x + f * hr * 0.75, top - hr * 0.35);
+      ctx.lineTo(hd.x + f * hr * 0.4, top + 4 * s); ctx.quadraticCurveTo(hd.x - f * hr * 0.2, top + 2 * s, hd.x - f * hr * 0.9, hd.y - hr * 0.5); ctx.fill();
+    } else if (kind === 'buzz' || kind === 'long' || kind === 'ponytail' || kind === 'part') {
+      ctx.beginPath(); ctx.ellipse(hd.x - f * hr * 0.08, hd.y - hr * 0.42, hr * 1.06, hr * 0.72, 0, Math.PI, 0); ctx.fill();
+      if (kind !== 'buzz') { ctx.beginPath(); ctx.ellipse(hd.x - f * hr * 0.55, hd.y - hr * 0.2, hr * 0.55, hr * 0.62, 0, 0, TAU); ctx.fill(); }
+      if (kind === 'part') { ctx.beginPath(); ctx.moveTo(hd.x - f * hr * 0.2, top); ctx.quadraticCurveTo(hd.x + f * hr * 1.0, top - 2 * s, hd.x + f * hr * 1.08, hd.y - hr * 0.05); ctx.lineTo(hd.x + f * hr * 0.55, hd.y - hr * 0.5); ctx.closePath(); ctx.fill(); }
+    }
+    if (L.horns) {
+      ctx.fillStyle = mono || '#2c2622';
+      for (const sd of [-0.55, 0.55]) { ctx.beginPath(); ctx.moveTo(hd.x + hr * sd - 4 * s, top + 4 * s); ctx.quadraticCurveTo(hd.x + hr * sd * 1.6, top - 10 * s, hd.x + hr * sd * 1.25 + f * 4 * s, top - 18 * s); ctx.lineTo(hd.x + hr * sd + 4 * s, top + 3 * s); ctx.fill(); }
+    }
+  }
+
+  // masks, visors and goggles over the faceless head
+  drawFace(ctx, hd, tone, acc, mono, time) {
+    const L = this.def.look, s = this.s, f = this.facing, hr = HEAD_R * s;
+    if (L.face === 'mask') {
+      ctx.fillStyle = tone(L.maskC || '#2b2f40');
+      ctx.beginPath(); ctx.roundRect(hd.x - hr * 1.02, hd.y + hr * 0.02, hr * 2.04, hr * 1.04, [2 * s, 2 * s, hr * 0.8, hr * 0.8]); ctx.fill();
+    } else if (L.face === 'visor') {
+      ctx.fillStyle = mono || '#1c1d26';
+      ctx.beginPath(); ctx.roundRect(hd.x - hr * 0.9 + f * hr * 0.15, hd.y - hr * 0.42, hr * 1.9, hr * 0.62, hr * 0.3); ctx.fill();
+      if (!mono) { ctx.fillStyle = acc; ctx.fillRect(hd.x + f * hr * 0.15 - (f > 0 ? 0 : hr * 0.75), hd.y - hr * 0.18, hr * 0.75, 2.4 * s); }
+    } else if (L.face === 'goggles') {
+      ctx.fillStyle = mono || '#2c2c34';
+      ctx.fillRect(hd.x - hr * 1.02, hd.y - hr * 0.78, hr * 2.04, 4 * s);
+      for (const sd of [0.1, 0.62]) { ctx.fillStyle = mono || '#2c2c34'; ctx.beginPath(); ctx.arc(hd.x + f * hr * sd, hd.y - hr * 0.72, 5.2 * s, 0, TAU); ctx.fill(); if (!mono) { ctx.fillStyle = '#ffd27a'; ctx.beginPath(); ctx.arc(hd.x + f * hr * sd, hd.y - hr * 0.72, 3 * s, 0, TAU); ctx.fill(); } }
+    }
   }
 
   // Element Rag's headgear: the hero's headband with tails, a caster's hood,
@@ -625,7 +973,8 @@ class Rag {
       ctx.quadraticCurveTo(hd.x - f * (hr + 10 * s), hd.y - hr * 0.5 + wave, hd.x - f * (hr + 18 * s), hd.y - hr * 0.1 + wave);
       ctx.stroke();
     } else if (gear === 'hood') {
-      ctx.fillStyle = mono || (this.stopT > 0 ? '#86868e' : '#d6cab4');
+      const hc = this.def.look.hoodC;
+      ctx.fillStyle = mono || (this.stopT > 0 ? '#86868e' : hc ? (this.alt ? mixHex(hc, '#000000', 0.2) : hc) : '#d6cab4');
       ctx.beginPath();
       ctx.moveTo(hd.x - hr - 3 * s, hd.y + hr * 0.4);
       ctx.quadraticCurveTo(hd.x - hr * 0.4, hd.y - hr * 1.8, hd.x - f * hr * 0.9, hd.y - hr * 2.4);
@@ -650,7 +999,7 @@ class Rag {
         ctx.fillStyle = acc;
         ctx.fillRect(hd.x - hr - 2 * s, hd.y - hr * 0.2, hr * 2 + 4 * s, 3.5 * s);
       }
-    } else {
+    } else if (gear === 'band') {
       // plain band (Element Rag's grunt)
       ctx.fillStyle = acc;
       ctx.fillRect(hd.x - hr, hd.y - hr * 0.55, hr * 2, 5 * s);
@@ -677,8 +1026,10 @@ class Rag {
       // a blade in each hand and one held in the teeth
       this.drawBlade(ctx, this.weaponLine(), acc, mono, false);
       this.drawBlade(ctx, this.weaponLine(true), acc, mono, false);
-      const hd = this.pts[P.HEAD], f = this.facing, s = this.s;
-      this.drawBlade(ctx, { x0: hd.x - f * 4 * s, y0: hd.y + 5 * s, x1: hd.x + f * 46 * s, y1: hd.y + 2 * s }, acc, mono, false);
+      // the third blade hovers over the shoulder, point up, and follows the body
+      const n = this.pts[P.NECK], f = this.facing, s = this.s, bob = Math.sin(this.t * 2.4) * 3 * s;
+      const bx = n.x - f * 22 * s, by = n.y - 30 * s + bob;
+      this.drawBlade(ctx, { x0: bx + f * 6 * s, y0: by + 28 * s, x1: bx - f * 10 * s, y1: by - 26 * s }, acc, mono, false);
       return;
     }
     this.drawBlade(ctx, this.weaponLine(), acc, mono, kind === 'cleaver', kind === 'saw');
@@ -714,23 +1065,24 @@ class Rag {
     }
   }
 
-  drawCape(ctx, color) {
-    const c = this.cape;
+  // a tapered ribbon along a cloth chain
+  drawChain(ctx, c, color) {
+    const P0 = c.pts, s = this.s;
     ctx.fillStyle = color;
     ctx.beginPath();
-    const w0 = 8 * this.s;
     const left = [], right = [];
-    for (let i = 0; i < c.length; i++) {
-      const a = c[Math.max(0, i - 1)], b = c[Math.min(c.length - 1, i + 1)];
+    for (let i = 0; i < P0.length; i++) {
+      const a = P0[Math.max(0, i - 1)], b = P0[Math.min(P0.length - 1, i + 1)];
       const dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1;
-      const w = w0 * (1 - i / c.length * 0.4);
-      left.push([c[i].x - dy / l * w, c[i].y + dx / l * w]);
-      right.push([c[i].x + dy / l * w, c[i].y - dx / l * w]);
+      const w = lerp(c.w0, c.w1, i / (P0.length - 1)) * s;
+      left.push([P0[i].x - dy / l * w, P0[i].y + dx / l * w]);
+      right.push([P0[i].x + dy / l * w, P0[i].y - dx / l * w]);
     }
     ctx.moveTo(left[0][0], left[0][1]);
     for (const p of left) ctx.lineTo(p[0], p[1]);
     for (let i = right.length - 1; i >= 0; i--) ctx.lineTo(right[i][0], right[i][1]);
     ctx.closePath(); ctx.fill();
+    if (c.w1 < 7) { const e = P0[P0.length - 1]; ctx.beginPath(); ctx.arc(e.x, e.y, c.w1 * s, 0, TAU); ctx.fill(); }
   }
 
   drawAura(ctx, time) {

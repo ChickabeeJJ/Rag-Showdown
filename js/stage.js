@@ -1116,7 +1116,7 @@ const Portraits = (() => {
     r.root.y = GROUND; r.t = 0;
     r.pose = { fh: [20, 26], bh: [8, 30], lean: 0, crouch: 0, ff: [16, 0], bf: [-16, 0] };
     r.computeTargets(); r.snapToPose();
-    if (r.cape) for (let i = 0; i < r.cape.length; i++) { const n = r.pts[P.NECK]; r.cape[i].x = n.x - 8 - i * 4; r.cape[i].y = n.y + i * 18; }
+    r.settleCloth();
     rags[def.id] = r;
     return r;
   }
@@ -1125,7 +1125,7 @@ const Portraits = (() => {
     const r = rag(def);
     r.facing = facing;
     r.computeTargets(); r.snapToPose();
-    if (r.cape) for (let i = 0; i < r.cape.length; i++) { const n = r.pts[P.NECK]; r.cape[i].x = n.x - facing * (8 + i * 4); r.cape[i].y = n.y + i * 18; }
+    r.settleCloth();
     const n = r.pts[P.NECK], h = r.pts[P.HEAD];
     const k = size / (70 * r.s);
     ctx.save();

@@ -15,6 +15,21 @@
   if (q.has('speed')) UI.testSpeed = clamp(+q.get('speed') || 1, 1, 16);
   Game.init(canvas);
   UI.init();
+  // one UI scale for every screen size: the layout is designed at 1280x720 and
+  // zoomed to fit, with phones getting a bit more so text stays readable
+  // (touch buttons are sized separately, in real thumb-sized pixels)
+  const fitUi = () => {
+    const w = window.innerWidth, h = window.innerHeight, touch = document.body.classList.contains('touch');
+    let k = Math.min(w / 1280, h / 720);
+    if (touch && Math.min(w, h) < 600) k *= 1.32;
+    k = clamp(k, 0.6, 1.6);
+    document.documentElement.style.setProperty('--ui', k.toFixed(3));
+    document.body.classList.toggle('short', h < 480);
+    // on touch screens the fighters stand higher, clear of the thumbs
+    Game.floorPad = touch ? 200 : 110;
+  };
+  UI.fitUi = fitUi;
+  fitUi();
 
   const inFight = () => UI.screen === null && UI.fightOn && !UI.modalOpen();
   for (const ev of ['pointerdown', 'keydown', 'touchend']) window.addEventListener(ev, () => Sfx.ensure(), { capture: true, passive: true });
@@ -23,6 +38,7 @@
   canvas.addEventListener('pointerdown', e => {
     if (e.pointerType === 'mouse') document.body.classList.remove('touch');
     else { lastTouch = performance.now(); document.body.classList.add('touch'); }
+    fitUi();
   });
   canvas.addEventListener('mousedown', e => {
     if (performance.now() - lastTouch < 900) return;   // emulated mouse after a touch
@@ -40,6 +56,11 @@
       }
       return;
     }
+    // R retries straight from a result sheet
+    if (e.code === 'KeyR' && UI.modalOpen() && !e.repeat) {
+      const r = document.querySelector('#sheet #rRetry');
+      if (r) { e.preventDefault(); r.click(); return; }
+    }
     // Enter / Space take the main action on a result sheet (NEXT LEVEL, RETRY, RESUME...)
     if ((e.code === 'Enter' || e.code === 'Space') && UI.modalOpen() && !e.repeat) {
       const b = document.querySelector('#sheet .btn.primary');
@@ -50,7 +71,7 @@
   });
   window.addEventListener('keyup', e => Input.keyup(e));
   window.addEventListener('blur', () => Input.clearAll());
-  window.addEventListener('resize', () => { Game.resize(); UI.checkRotate(); });
+  window.addEventListener('resize', () => { Game.resize(); fitUi(); UI.checkRotate(); });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { if (inFight() && Game.state !== 'over') UI.openPause(); Sfx.suspend(true); }
     else Sfx.suspend(false);

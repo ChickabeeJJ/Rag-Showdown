@@ -1448,6 +1448,37 @@ const easeIn2 = t => t * t;
 })();
 
 /* ------------------------------------------------------------- stages */
+/* -------------------------------------------------------------- wardrobe
+   Every fighter is still Element Rag's faceless cream mannequin, dressed so
+   no two read alike at a glance: their own stance, hair, clothes, cloth that
+   swings, and the fighter's colour as the accent. All of it is generic
+   martial-arts and street wear, built from simple shapes. */
+(function wardrobe() {
+  const INK = '#2b3046', NIGHT = '#1d2034', CHAR = '#34343e', EARTH = '#4a3a2c';
+  const W = {
+    kaze:     { stance: 'karate', gear: 'headband', hair: 'tuft', hairC: '#2a2630', pants: INK, belt: 'acc', wraps: true, cape: true },
+    ryo:      { stance: 'ninja', gear: 'headband', hair: 'ponytail', hairC: '#231f28', face: 'mask', maskC: '#2a2d3c', top: '#2a2d3c', topKind: 'tank', pants: '#2a2d3c', shinWrap: '#d8d0bf', belt: 'acc', beltTails: true },
+    aoi:      { stance: 'mystic', gear: 'hood', hoodC: '#3b2d62', top: '#3b2d62', topKind: 'robe', sleeve: 'long', wideSleeve: true, trim: 'acc', pants: '#2d2450', pantsKind: 'robe', extra: 'orbs' },
+    homura:   { stance: 'sword', gear: 'none', hair: 'topknot', hairC: '#1f1b22', top: '#1e4a55', topKind: 'haori', sleeve: 'short', trim: 'acc', pants: '#23283a', pantsKind: 'hakama', belt: '#d8d0bf', beltTails: false, coat: '#1e4a55', cape: false },
+    jin:      { stance: 'reaper', gear: 'hood', hoodC: '#1c1f3a', top: '#1c1f3a', topKind: 'jacket', sleeve: 'long', trim: 'acc', pants: NIGHT, boots: '#14162a', coat: '#1c1f3a', cape: false },
+    mugi:     { stance: 'loose', gear: 'none', hair: 'buns', hairC: '#3a2626', top: 'acc', topKind: 'tank', pants: '#35507a', pantsKind: 'shorts', boots: null },
+    kohei:    { stance: 'boxer', gear: 'none', hair: 'spikes', hairC: '#1d2a24', top: '#1d3b2c', topKind: 'tank', pants: 'acc', pantsKind: 'shorts', glove: 'acc', belt: '#f2f2f2', beltTails: false },
+    taro:     { stance: 'monk', gear: 'none', hair: 'buzz', hairC: '#5c5f6b', top: '#4f5f80', topKind: 'robe', sleeve: 'short', trim: 'acc', sash: true, pants: '#3a4560', pantsKind: 'hakama', extra: 'beads', cape: false },
+    saibo:    { stance: 'casual', gear: 'none', hair: 'part', hairC: '#26262e', face: 'visor', top: CHAR, topKind: 'jacket', sleeve: 'long', trim: 'acc', pants: CHAR, boots: '#1d1d24', cape: true },
+    ripper:   { stance: 'feral', gear: 'none', hair: 'mohawk', hairC: '#3a2c22', horns: true, top: '#2d2a28', topKind: 'vest', pants: '#2b2a30', boots: '#1d1c22', wraps: '#cfc6b4' },
+    monarch:  { stance: 'regal', gear: 'none', hair: 'long', hairC: '#c9cde0', top: '#241d40', topKind: 'jacket', sleeve: 'long', trim: 'acc', pants: '#1a1630', boots: '#120f22', extra: 'pauldron', coat: '#241d40', cape: true },
+    titan:    { stance: 'giant', gear: 'none', hair: 'long', hairC: '#3e2d22', pants: EARTH, belt: '#6b4a2e', beltTails: false, wraps: '#d9cbb0', extra: 'pauldron', trim: '#7a6a58', cape: false, build: { chest: 1.3, waist: 1.15, arm: 1.2, leg: 1.15 } },
+    kensei:   { stance: 'kungfu', gear: 'band', hair: 'part', hairC: '#262028', top: '#24302a', topKind: 'vest', pants: '#202428', belt: 'acc', wraps: true, cape: false },
+    blaze:    { stance: 'soldier', gear: 'none', hair: 'spikes', hairC: '#3a1e14', face: 'goggles', top: '#2a2a30', topKind: 'jacket', sleeve: 'long', stripes: true, trim: 'acc', pants: '#2a2a30', boots: '#18181c' },
+    triblade: { stance: 'dual', gear: 'band', hair: 'mohawk', hairC: '#2f3a22', top: '#4a3a1e', topKind: 'tank', pants: '#2a261c', belt: 'acc', beltTails: true, wraps: true },
+    psychic:  { stance: 'calm', gear: 'none', hair: 'part', hairC: '#1c1c22', top: '#1d3a44', topKind: 'hoodie', sleeve: 'long', trim: 'acc', pants: '#22252e', extra: 'orbs' },
+  };
+  for (const id in W) if (BY_ID[id]) BY_ID[id].look = Object.assign({}, BY_ID[id].look, W[id]);
+  // a slimmer build for the quick fighters, a heavier one for the bruisers
+  for (const id of ['ryo', 'aoi', 'psychic', 'kohei']) BY_ID[id].look.build = Object.assign({ chest: 0.92, waist: 0.9, arm: 0.92, leg: 0.95 }, BY_ID[id].look.build);
+  for (const id of ['ripper', 'blaze']) BY_ID[id].look.build = Object.assign({ chest: 1.08, waist: 1, arm: 1.05, leg: 1.02 }, BY_ID[id].look.build);
+})();
+
 const STAGES = {
   dojo:   { name: 'SUNSET DOJO', sky: ['#ff9a5a', '#ffcf7a', '#ffe6b0'], ground: '#7a4a2e', line: '#5e3820', far: '#c7724a', near: '#8d4a35', sun: '#fff1c4' },
   city:   { name: 'NEON ROOFTOP', sky: ['#0b0f2a', '#251a4d', '#4a2a6a'], ground: '#23263a', line: '#3a3f5a', far: '#1a1f3d', near: '#13162b', neon: ['#ff4fa3', '#4fd8ff', '#ffd34d'] },

@@ -135,13 +135,13 @@ const Game = (() => {
     f.root.x = x; f.root.y = y; f.root.vx = 0; f.root.vy = 0;
     f.root.grounded = y >= GROUND - 1;
     for (const p of f.pts) { p.x += dx; p.y += dy; p.px += dx; p.py += dy; }
-    if (f.cape) for (const p of f.cape) { p.x += dx; p.y += dy; p.px += dx; p.py += dy; }
+    f.shiftCloth(dx, dy);
     G.fx.add({ kind: 'smoke', x: x, y: y - 100 * f.s, size: 40, life: 0.3, color: '#ffffff', add: false });
   };
   G.ghost = function (f, color, life = 0.35) {
     const g = Object.create(f);
     g.pts = f.pts.map(p => ({ x: p.x, y: p.y, px: p.x, py: p.y }));
-    g.cape = f.cape ? f.cape.map(p => ({ x: p.x, y: p.y })) : null;
+    g.chains = f.chains.map(c => Object.assign({}, c, { pts: c.pts.map(p => ({ x: p.x, y: p.y })) }));
     g.shake = 0; g.alpha = 1; g.surge = 0; g.auraT = 0; g.eyeGlint = 0; g.stopT = 0; g.hidden = false; g.invuln = 0; g.mode = 'active';
     G.ghosts.push({ g, color, t: 0, life });
     if (G.ghosts.length > 24) G.ghosts.shift();
@@ -229,7 +229,7 @@ const Game = (() => {
         G.hitstop = Math.max(G.hitstop, 0.12);
         return 'hit';
       }
-      def.stagger(dir * (spec.kb ? Math.abs(spec.kb[0]) : 200) * KB * 0.55, 0, P.NECK, spec.bstun || 0.2, true);
+      def.stagger(dir * (spec.kb ? Math.abs(spec.kb[0]) : 200) * KB * 0.55, 0, P.FHAND, spec.bstun || 0.2, true);
       // pushback on the attacker when the defender is pinned to a wall
       if (def.root.x < WALL_L + 70 * def.s || def.root.x > WALL_R - 70 * def.s) if (att.root.grounded && !att.action?.ghost) att.root.vx = -dir * 380;
       G.hitstop = Math.max(G.hitstop, 0.04);
@@ -249,7 +249,8 @@ const Game = (() => {
       uses[mk] = (uses[mk] || 0) + 1;
       if (uses[mk] > 2) { breakFree(att, def, x, y, dir); return 'block'; }
     }
-    G.combo[att.side] = { n, t: 0, def, uses, seen };
+    const bounced = !!(cm && inCombo && cm.bounced);
+    G.combo[att.side] = { n, t: 0, def, uses, seen, bounced: bounced || !!spec.bounce };
     // the longer the combo, the less hitstun each hit adds and the further it pushes
     const decay = Math.max(0.45, 1 - 0.06 * (n - 1));
     let scale = Math.max(kind === 'super' ? 0.55 : 0.3, 1 - 0.09 * (n - 1));
@@ -260,8 +261,9 @@ const Game = (() => {
     if (spec.bf && !stopped && Math.random() < BF_CHANCE + (n >= 3 ? 0.06 : 0)) { bf = true; scale *= 2.0; }
     const dmg = Math.max(1, Math.round(spec.dmg * att.def.power * scale * (G.cfg.dmgMul || 1)));
     def.hp -= dmg;
+    G.combo[att.side].dmg = (cm && inCombo ? cm.dmg || 0 : 0) + dmg;
     def.lastHit = Object.assign({ att }, spec, { bf });
-    if (spec.bounce) def.bounce = 1;
+    if (spec.bounce && !bounced) def.bounce = 1;   // one ground bounce per combo, as in the Vs. games
     def.flash = 0.75;
     att.meter = Math.min(100, att.meter + dmg * (kind === 'super' ? 0 : 0.085) + (bf ? 25 : 0));
     def.meter = Math.min(100, def.meter + dmg * 0.06);
@@ -270,6 +272,8 @@ const Game = (() => {
       else G.stats.taken += dmg;
     }
     const kx = dir * (spec.kb ? spec.kb[0] : 200) * KB, ky = (spec.kb ? spec.kb[1] : 0) * KB;
+    // the force goes in where the blow lands: a jab to the face snaps the head back
+    const at = def.nearestIdx(x, y);
     const willDie = def.hp <= 0;
     let hs = spec.hs != null ? spec.hs : 0.06;
 
@@ -289,9 +293,11 @@ const Game = (() => {
       } else if (launch) {
         def.juggle++;
         const lift = air && !spec.launch ? -520 : 0;
-        def.tumble((spec.stun || 0.6) * (counter ? 1.2 : 1) * (willDie ? 1 : decay), kx * (willDie ? 1.25 : 1), (ky + lift) * (willDie ? 1.15 : 1) - (willDie ? 500 : 0), P.NECK);
+        def.tumble((spec.stun || 0.6) * (counter ? 1.2 : 1) * (willDie ? 1 : decay), kx * (willDie ? 1.25 : 1), (ky + lift) * (willDie ? 1.15 : 1) - (willDie ? 500 : 0), spec.launch || at === P.HEAD ? P.NECK : at);
       } else {
-        def.stagger(kx * Math.min(2.2, 1 + 0.1 * (n - 1)), ky, P.NECK, (spec.stun || 0.3) * (counter ? 1.3 : 1) * decay, false);
+        def.stagger(kx * Math.min(2.2, 1 + 0.1 * (n - 1)), ky, at, (spec.stun || 0.3) * (counter ? 1.3 : 1) * decay, false);
+        // pinned in the corner: the push goes back onto the attacker instead
+        if ((def.root.x < WALL_L + 90 * def.s || def.root.x > WALL_R - 90 * def.s) && att.root.grounded && kind !== 'super') att.root.vx = -dir * (260 + 40 * Math.min(n, 6));
       }
     }
 
@@ -468,12 +474,42 @@ const Game = (() => {
       if (tryAction(f, f.buf[i].k)) { f.buf.splice(0, i + 1); break; }
     }
   }
+  // any button during the round intro skips straight to FIGHT!
+  G.skipIntro = function () {
+    if (G.state !== 'intro' || G.stateT < 0.3) return false;
+    G.callouts.length = 0;
+    G.state = 'fight'; G.stateT = 0; G.introSaid = G.nameA = G.nameB = false;
+    G.callout('FIGHT!', '', 'fight', 0.6); Sfx.play('fight');
+    for (const f of G.fighters) { f.pose = null; if (f.buf) f.buf.length = 0; }
+    return true;
+  };
   G.press = function (side, k) {
     const f = G.fighters[side];
     if (!f || !f.buf) return;
+    if (G.state === 'intro' && G.ctrls[side] && G.ctrls[side].human && G.mode !== 'demo') { G.skipIntro(); return; }
     f.buf.push({ k, t: G.t });
     if (f.buf.length > 8) f.buf.shift();
   };
+
+  /* Frame data, the way Street Fighter does it: a grounded normal's hitstun
+     is whatever is left of the attacker's swing plus a fixed advantage.
+     A jab leaves you a hair ahead (+), so it can be CHAINED into the next
+     button while it's still out, but not re-pressed from neutral; the second
+     light leaves you slightly behind (-), so mashing after a string gets
+     you jabbed. Blocked normals leave the attacker minus, heavies most. */
+  const ADV = {
+    l1: { hit: 0.03, block: -0.01 },
+    l2: { hit: -0.03, block: -0.05 },
+    h: { hit: 0.02, block: -0.08 },
+  };
+  function frameData(f, o, act, mv, spec) {
+    const fd = mv.adv || ADV[act.key];
+    if (!fd || spec.launch || !f.root.grounded || !o.root.grounded || o.mode === 'tumble') return;
+    const left = Math.max(0, act.w + act.a + act.r - act.t);
+    spec.stun = Math.max(0.08, left + fd.hit);
+    spec.bstun = Math.max(0.06, left + fd.block);
+  }
+  G.ADV = ADV;
 
   function runAction(f, dt) {
     const act = f.action;
@@ -488,7 +524,7 @@ const Game = (() => {
       const o = G.opp(f);
       const reeling = o.mode === 'hit' || o.mode === 'tumble' || o.mode === 'block';
       const gap = (o.root.x - f.root.x) * f.facing - (mv.box[0] - mv.box[2] * 0.5) * f.s;
-      if (reeling && gap > 0 && gap < 260) { f.root.x += f.facing * Math.min(gap, 900 * dt); }
+      if (reeling && gap > 0 && gap < 110) { f.root.x += f.facing * Math.min(gap, 700 * dt); }
       if (!f.root.grounded && reeling && o.mode === 'tumble') {
         // in the air, drift toward the juggled foe so air strings connect
         const c = o.center(), me = f.center();
@@ -506,6 +542,7 @@ const Game = (() => {
       if (res) {
         const spec = Object.assign({ kind: mv.kind, name: mv.name }, mv.hit);
         if (act.spike) Object.assign(spec, { kb: [160, 900], launch: true, bounce: true, stun: 0.8 });
+        frameData(f, o, act, mv, spec);
         const out = G.hit(f, o, spec, res.x, res.y, act);
         if (out) act.hitDone = true;
         if (out === 'hit' && mv.onHit) mv.onHit(G, f, o, act);
@@ -551,6 +588,26 @@ const Game = (() => {
     if (b.root.x + sgn * pb < lo || b.root.x + sgn * pb > hi) { pa += pb; pb = 0; }
     a.root.x = clamp(a.root.x - sgn * pa, lo, hi);
     b.root.x = clamp(b.root.x + sgn * pb, lo, hi);
+  }
+
+  // the screen is the leash: like Street Fighter, two grounded fighters can
+  // never be further apart than the camera can frame, so the one walking away
+  // stops at the edge of the screen instead of the edge of the stage
+  function leash() {
+    const [a, b] = G.fighters;
+    if (!a || !b || !a.alive || !b.alive) return;
+    const d = b.root.x - a.root.x;
+    if (Math.abs(d) <= MAX_SEP) return;
+    const over = Math.abs(d) - MAX_SEP, sg = Math.sign(d);
+    const free = f => f.mode !== 'tumble' && !(f.action && f.action.ghost) && f.stopT <= 0;
+    // move whoever is moving away (or both, if both are)
+    const va = a.root.vx * -sg, vb = b.root.vx * sg;
+    let ka = va > vb ? 1 : va < vb ? 0 : 0.5;
+    if (!free(a)) ka = 0; if (!free(b)) ka = 1;
+    if (!free(a) && !free(b)) return;
+    a.root.x += sg * over * ka; b.root.x -= sg * over * (1 - ka);
+    if (ka > 0 && a.root.vx * -sg > 0) a.root.vx = 0;
+    if (ka < 1 && b.root.vx * sg > 0) b.root.vx = 0;
   }
 
   function faceEachOther() {
@@ -771,6 +828,7 @@ const Game = (() => {
     for (const c of G.corpses) c.update(dt);
     G.corpses = G.corpses.filter(c => c.deadT < 3.6);
     separate();
+    leash();
     faceEachOther();
     updateProjs(dt);
     updateBeams(dt);
@@ -935,7 +993,7 @@ const Game = (() => {
     // drop in from above
     for (const q of f.pts) { q.y -= 520; q.py = q.y; }
     f.root.y = GROUND - 520; f.root.grounded = false; f.root.vy = 300;
-    if (f.cape) for (const q of f.cape) { q.y -= 520; q.py = q.y; }
+    f.shiftCloth(0, -520);
     f.invuln = 0.6;
     G.corpses.push(G.fighters[1]);
     G.fighters[1] = f;
@@ -1016,7 +1074,8 @@ const Game = (() => {
       const [a, b] = G.fighters;
       tx = (a.root.x + b.root.x) / 2;
       const d = Math.abs(a.root.x - b.root.x);
-      tz = clamp(1.2 - (d - 260) / 900 * 0.2, 1.0, 1.18);
+      // frame both fighters with room either side; a launched body can pull it wider
+      tz = clamp(W / (d + 560), 0.82, 1.12);
       top = Math.min(a.head().y, b.head().y, a.pelvis.y - 60, b.pelvis.y - 60);
       if (top < 380) tz = Math.min(tz, 1.06);
       // the intro pans across the fighters
@@ -1043,7 +1102,7 @@ const Game = (() => {
     cam.x = lerp(cam.x, tx, lerpK);
     // keep the floor near the bottom, but rise to follow a juggle into the air
     const visH = ch / (kView * cam.z);
-    const floorY = GROUND + 110 - visH * 0.5;
+    const floorY = GROUND + (G.floorPad || 110) - visH * 0.5;
     const follow = Math.max(floorY - 240, Math.min(floorY, top - 110 + visH * 0.5));
     cam.y = cam.y == null || !Number.isFinite(cam.y) ? floorY : lerp(cam.y, follow, 1 - Math.exp(-dt * 4));
     // zoom punches and tilt on big hits ease back out

@@ -62,20 +62,23 @@ Other modes:
 | Guard | hold away from the opponent | hold away | hold away |
 | Light attack | **left click** | X | LIGHT |
 | Heavy attack | **right click** | Y | HEAVY |
-| Special 1 · 2 | `Q` · `E` | B · RB | SPECIAL buttons |
+| Special 1 · 2 | `Q` · `E` | B · RB | SP 1 · SP 2 |
 | Super (full meter) | `F` or middle click | RT | SUPER |
 | Throw | left + right click together | LB | (none) |
 | Pause | `P` / `Esc` | START | ⏸ |
 
 The skill bar at the bottom of the screen always shows these: mouse icons for light and heavy, then each special and the super, each with its key. Player 2 in Versus uses the arrow keys with `,` `.` `;` `'` `/` (light, heavy, special 1, special 2, super) and `Enter` to throw, or Numpad `1` `2` `4` `5` `3` `6`.
 
-- **Combos:**
-  - Light, light, heavy always comes out as a chain, whether or not the hits land. The heavy is the fighter's own **combo ender** ability (see the table below).
-  - Chained attacks step in toward a foe who's still reeling, so strings connect.
-  - Any light or heavy that connects can be cancelled into a special, and anything into the super.
-  - **Air combos:** after the ender launches the foe, press **W** right away to jump after them. Air attacks home in on a juggled foe: light, light, then heavy spikes them into the floor, and they bounce once so you can keep going.
-  - The hit counter grades long combos (NICE, GREAT, AMAZING, SHOWDOWN). When a special starts, its name pops up over your head.
-- **No infinites:** each move can be used at most twice in one combo. A third use makes the victim **BREAK!** free: they're shoved out of reach and the combo ends. Each hit later in a combo also adds less hitstun and pushes further, so mashing light can't hold anyone in place. The way to keep a combo going is to mix moves: normals, the ender, air chains, specials and the super.
+- **Combos follow Street Fighter's frame data:**
+  - A grounded normal's hitstun is whatever is left of the attacker's swing plus a fixed **advantage**. A jab leaves you slightly ahead, so it **chains** into the next button while it's still out, but pressing it again from neutral is too slow to combo. The second light leaves you slightly behind, so mashing after a string lets the opponent jab you first. Blocked normals always leave the attacker behind, heavies most of all.
+  - Chains only go up in strength, Marvel vs. Capcom style: light, light, then heavy (the fighter's own **combo ender**). The ender can be cancelled into a special or jump-cancelled into the air, and anything into the super.
+  - Mashing light gives two hits, then the string ends. Light, light, heavy combos for every fighter.
+  - Every hit pushes the opponent back. In the corner, the push goes back onto the attacker instead.
+  - **Air combos:** after the ender launches the foe, press **W** right away to jump after them. Air attacks home in on a juggled foe: light, light, then heavy spikes them into the floor. They bounce **once per combo**, so you can keep going.
+  - **Hitstun deterioration:** the longer a combo runs, the less stun each hit adds and the less damage it does, until it drops.
+  - The hit counter grades long combos (NICE, GREAT, AMAZING, SHOWDOWN) and shows the combo's damage. When a special starts, its name pops up over your head.
+- **CPU defence:** after being hit or blocking, CPU fighters keep holding guard or answer with a quick jab, like a person would. Stronger CPUs do it more often.
+- **Safety net:** a move used a third time in one combo makes the victim **BREAK!** free, in case anything still loops.
 - **Clashes:** if two normal attacks hit each other on the same frame, they **CLASH!** and both fighters bounce apart instead of trading hits.
 - **Juggles:** a fighter knocked into the air can be hit up to nine times; supers ignore that limit. A fighter lying on the ground can't be hit, but there's no immunity once they're back on their feet, so pressure them as they get up. A hard enough hit into a wall makes a **wall splat**.
 - **Guard:** normal attacks do no chip damage when guarded, but specials and supers do. Each block drains the guard gauge under your health bar. When it empties, your guard breaks and you're stunned. Throws can't be guarded.
@@ -83,6 +86,10 @@ The skill bar at the bottom of the screen always shows these: mouse icons for li
 - **Impact frames** can be turned off in Settings to reduce flashing.
 
 ## Fighters
+
+**Bodies and looks.** Every fighter is still Element Rag's cream, faceless mannequin, but each is dressed so no two read alike: their own hair (tuft, ponytail, buns, topknot, mohawk, long hair), clothes (gi pants and belt, robe, hakama, jacket, vest, hoodie, boxing trunks) and details (masks, a visor, goggles, horns, prayer beads, gloves, wraps, boots). Scarves, capes, hair and coat tails are small physics chains that swing with every move. Everything is generic martial-arts and street wear built from simple shapes. No anime character's design is copied.
+
+**Stances and motion.** Each fighter has a stance that suits them: karate, ninja, boxer, kung fu, swordsman, brawler, monk, soldier and more. Stances breathe, shift weight, and bounce on the balls of the feet (boxers). Walking is a fighting-game shuffle with planted feet that don't slide, a forward lean going in, and a tight guard going back. A hit reacts to where it lands: a head hit snaps the head back, a body hit doubles them over, a low hit buckles the knees. Knees and elbows only bend one way, even when limp. A knocked-down fighter pushes up off one knee to stand.
 
 Every fighter is an Element Rag stickman: a cream mannequin with wrist bands in their colour and Element Rag's own headgear (headband with tails, hood, helmet and plates, or boss crest). Some wear Element Rag's cape, and sword fighters carry plain energy blades. There are no anime character designs, and all names and move names are original. Each kit is built around a common anime archetype, not a specific character.
 
@@ -130,6 +137,9 @@ Each fighter's light-light-heavy **combo ender**:
 
 ## Stages
 
+The arena is about 2,300 units wide, half again as wide as before. The camera pans across it and zooms out a little as the fighters separate. As in Street Fighter, the screen is the leash: fighters on their feet can't walk further apart than the camera can frame.
+
+
 Eight stages, built like Element Rag's backdrops. Each has far, mid and near layers pre-rendered with haze between them, and the far layers are softer, like depth of field. Buildings, trees and rocks are shaded and catch a rim of light, and props have soft contact shadows, so nothing floats. On top of that, each frame adds:
 
 - the sky and its light;
@@ -150,6 +160,19 @@ Eight stages, built like Element Rag's backdrops. Each has far, mid and near lay
 | Void Rift | A glowing tear in the sky, shaded floating isles with crystal clusters, a lit ringed planet, and pillars with pulsing runes. |
 | Crater Plains | An erupting volcano with lava channels and smoke, rim-lit spires, ruined arches with rubble at their feet, and lava cracks. |
 | Grand Arena | A roof truss with spotlights, tiered stands packed with a crowd, camera flashes, a hanging VS screen, and banners on the ring wall. |
+
+## UI on every screen
+
+- The whole interface is laid out for 1280x720 and scaled to the window, so it looks the same on a phone, a tablet, a laptop or a 4K monitor. Phones get a little extra size so text stays readable.
+- **Touch controls** are sized in real pixels for thumbs, not scaled with the UI. The right-hand cluster is two neat rows (LIGHT, HEAVY and JUMP on the bottom; SP 2, SP 1 and SUPER above), with labels inside the buttons so nothing overlaps or runs off the screen. On touch screens the camera keeps the fighters above your thumbs.
+- On short screens the guide shrinks to a compact card, the level map shows all six levels in one row, and the fighter select shows all 16 fighters and the FIGHT button without scrolling.
+
+**Less friction:**
+- Any button during a round intro skips straight to FIGHT!.
+- After a win, NEXT LEVEL fills up and starts the next level by itself after five seconds (eight after a recruit). Touching the panel or pressing a key cancels it.
+- `R` retries from a result screen, and `Enter` takes the highlighted button.
+- Tapping a level on the map starts it straight away.
+- Tips and combo counters from the last fight are cleared before the next one.
 
 ## Testing
 
@@ -178,7 +201,7 @@ NODE_PATH=$(npm root -g) node tools/exploit.js
   - broken HP or meter values.
 
   It also prints win rates per fighter.
-- `tools/exploit.js` hunts for broken combos. For every fighter it mashes patterns (light only, heavy only, light-heavy, light-light-heavy, chains into specials, jump-ins, specials, throws) against a dummy that never fights back and reports the longest combo each pattern gets. It then fuzzes random inputs and fails on:
+- `tools/exploit.js` hunts for broken combos. For every fighter it mashes patterns (light only, heavy only, light-heavy, light-light-heavy, chains into specials, jump-ins, specials, throws) against a dummy that never fights back and reports the longest combo each pattern gets. It fails if mashing light combos more than two hits, or if light, light, heavy doesn't combo. It then mashes light against a real CPU for 20 seconds per fighter and checks the CPU blocks or jabs back between strings. Finally it fuzzes random inputs and fails on:
   - NaN positions or bodies escaping the arena;
   - fighters left invisible or at the wrong size after a move;
   - fighters stuck unable to act.
@@ -190,7 +213,7 @@ NODE_PATH=$(npm root -g) node tools/exploit.js
   5. It checks that PLAY goes straight into the fight.
   6. It plays 2-player Versus, Survival, and Training with every pause option, and buys a fighter.
 
-Latest results: mashing light now tops out at 4 hits for every fighter, and the fuzz found no issues on two full runs. The soak ran 256 matches (640 rounds) across all stages and twists with no issues, with CPU combos reaching 32 hits. Win rates fell between 0.30 and 0.73, and the outliers were tuned after that run. All flow checks passed. The game was also checked at iPhone landscape size with touch controls.
+Latest results: mashing light tops out at 2 hits for every fighter, against a dummy or a CPU. Light, light, heavy combos for all 16. The fuzz found no issues. The soak ran 256 matches (631 rounds) across all stages and twists with no issues. All flow checks passed. The UI was checked at desktop, iPhone and Android landscape, and iPad sizes.
 
 ## Project layout
 

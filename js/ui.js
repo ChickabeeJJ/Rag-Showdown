@@ -32,6 +32,7 @@ const UI = (() => {
 
   function openSheet(html, cls = '') {
     const m = $('modal'), sh = $('sheet');
+    $('coach').classList.add('hidden');
     sh.className = 'sheet ' + cls;
     sh.onclick = null;
     U.sheetDismiss = null;
@@ -42,7 +43,23 @@ const UI = (() => {
     Input.enable(false);
     return sh;
   }
+  // after a win the next level starts by itself, Element Rag style; touching
+  // the panel (or any key but Enter) keeps you on it
+  function autoNext(btn, sec) {
+    if (U.noAutoNext) return;
+    btn.classList.add('auto'); btn.style.setProperty('--auto', sec + 's');
+    clearTimeout(U.autoT);
+    U.autoT = setTimeout(() => { if (btn.isConnected && U.modalOpen()) btn.click(); }, sec * 1000);
+    const stop = e => {
+      if (e.type === 'keydown' && (e.code === 'Enter' || e.code === 'Space')) return;
+      if (e.target && e.target.closest && e.target.closest('.btn')) return;
+      clearTimeout(U.autoT); btn.classList.remove('auto');
+      window.removeEventListener('keydown', stop, true); $('sheet').removeEventListener('pointerdown', stop);
+    };
+    window.addEventListener('keydown', stop, true); $('sheet').addEventListener('pointerdown', stop);
+  }
   function closeSheet() {
+    clearTimeout(U.autoT);
     $('modal').classList.add('hidden');
     $('sheet').innerHTML = '';
     clearInterval(U.countTimer);
@@ -314,7 +331,7 @@ const UI = (() => {
     $('chapterTabs').querySelectorAll('button').forEach(b => { b.onclick = () => { Sfx.play('ui'); U.chapter = +b.dataset.c; renderLevels(); }; });
     const lv = Campaign.levels.filter(L => L.c === c);
     const got = lv.reduce((a, L) => a + Campaign.cleared(L.i), 0);
-    $('chapterHead').innerHTML = `<h3>${c + 1}. ${ch.name}</h3><span class="tag">${ic('star', 'star')} ${got}/18</span><p>${CHAPTERS[c].recruit[2] || CHAPTERS[c].recruit[5] ? 'Beat the fighters marked RECRUIT to add them to your roster.' : 'Six fights. The last one is a best-of-three boss.'}</p>`;
+    $('chapterHead').innerHTML = `<h3>${c + 1}. ${ch.name}</h3><span class="tag">${ic('star', 'star')} ${got}/18</span><p>${CHAPTERS[c].recruit[2] || CHAPTERS[c].recruit[5] ? 'Beat the fighters marked RECRUIT to add them to your roster.' : 'Six quick fights. The last one is a boss.'}</p>`;
     const me = Save.data.lastPick;
     $('levelGrid').innerHTML = lv.map(L => {
       const open = Campaign.unlocked(L.i), stars = Campaign.cleared(L.i);
@@ -399,7 +416,7 @@ const UI = (() => {
         <p class="hint">${stars < 3 ? 'Win with more health left to earn more stars.' : 'Flawless. Three stars.'}</p>
         ${rec}${statTiles(res.stats)}${payoutHtml({ total: coins, parts })}
         <div class="actions"><button class="btn" id="rMenu"><b>MENU</b></button><button class="btn" id="rRetry"><b>RETRY</b></button>${next ? `<button class="btn primary" id="rNext"><b>NEXT LEVEL</b></button>` : ''}</div>`, 'result');
-      if (next) $('rNext').onclick = () => { Sfx.play('fight'); U.fastNext = true; playLevel(next); };
+      if (next) { $('rNext').onclick = () => { Sfx.play('fight'); U.fastNext = true; playLevel(next); }; autoNext($('rNext'), rec ? 8 : 5); }
       if (stars < 3) Sfx.play('coin'); else Sfx.play('perfect');
     } else {
       const tips = [
@@ -668,6 +685,7 @@ const UI = (() => {
 
   /* --------------------------------------------------------------- HUD */
   function buildHud(cfg) {
+    for (let i = 0; i < 2; i++) $('combo' + i).classList.add('hidden');
     for (let i = 0; i < 2; i++) {
       const def = BY_ID[i ? cfg.p2 : cfg.p1];
       const el = $('hs' + i);
@@ -688,7 +706,7 @@ const UI = (() => {
     const ms = (side, lbl) => `<div class="skill mouse"><span class="sk-icon">${MOUSE(side)}</span><b>${lbl}</b></div>`;
     $('skillbar').innerHTML = ms('l', 'LIGHT') + ms('r', 'HEAVY') + sk('sp1', m.sp1) + sk('sp2', m.sp2) + sk('super', m.super);
     const orb = (cls, k, icon, lbl, c) => `<button class="orb ${cls}" data-k="${k}" style="--c:${c || def.color};--d:${shade(c || def.color)}"><span class="ring"></span><span class="orb-icon">${Icons.svg(icon)}</span><span class="lbl">${lbl}</span></button>`;
-    $('orbs').innerHTML = orb('orb-l', 'l', 'fist', 'LIGHT', '#ffc933') + orb('orb-h', 'h', 'burst', 'HEAVY', '#ff8a4a') + orb('orb-s1', 's1', m.sp1.icon, 'SPECIAL') + orb('orb-s2', 's2', m.sp2.icon, 'SPECIAL') + orb('orb-sup', 'sup', m.super.icon, 'SUPER') + orb('orb-j', 'jump', 'up', 'JUMP', '#e9ecf4');
+    $('orbs').innerHTML = orb('orb-l', 'l', 'fist', 'LIGHT', '#ffc933') + orb('orb-h', 'h', 'burst', 'HEAVY', '#ff8a4a') + orb('orb-s1', 's1', m.sp1.icon, 'SP 1') + orb('orb-s2', 's2', m.sp2.icon, 'SP 2') + orb('orb-sup', 'sup', m.super.icon, 'SUPER') + orb('orb-j', 'jump', 'up', 'JUMP', '#e9ecf4');
     $('orbs').querySelectorAll('.orb').forEach(b => {
       b.addEventListener('pointerdown', e => { e.preventDefault(); Sfx.ensure(); document.body.classList.add('touch'); b.classList.add('down'); Input.touchPress(b.dataset.k); });
       const up = () => b.classList.remove('down');
@@ -723,7 +741,7 @@ const UI = (() => {
       const cp = $('combo' + i);
       const n = c && c.n >= 2 ? c.n : 0;
       if (n) {
-        if (H['c' + i] !== n) { H['c' + i] = n; cp.querySelector('b').textContent = n; cp.querySelector('span').textContent = n >= 16 ? 'SHOWDOWN!' : n >= 12 ? 'AMAZING!' : n >= 8 ? 'GREAT!' : n >= 5 ? 'NICE!' : 'HITS'; cp.classList.remove('hidden', 'pop'); void cp.offsetWidth; cp.classList.add('pop'); }
+        if (H['c' + i] !== n) { H['c' + i] = n; cp.querySelector('b').textContent = n; cp.querySelector('span').textContent = n >= 16 ? 'SHOWDOWN!' : n >= 12 ? 'AMAZING!' : n >= 8 ? 'GREAT!' : n >= 5 ? 'NICE!' : 'HITS'; cp.querySelector('em').textContent = (c.dmg || 0) + ' DMG'; cp.classList.remove('hidden', 'pop'); void cp.offsetWidth; cp.classList.add('pop'); }
         H['ct' + i] = performance.now();
       } else if (H['c' + i] && performance.now() - (H['ct' + i] || 0) > 900) { H['c' + i] = 0; cp.classList.add('hidden'); }
     }

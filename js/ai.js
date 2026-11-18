@@ -12,7 +12,7 @@ class CpuCtrl {
     this.lv = clamp(level, 0, 9);
     this.human = false;
   }
-  reset(f) { this.t = rand(0.1, 0.4); this.hold = 0; this.holdT = 0; this.guardT = 0; this.combo = 0; this.lastThreat = 0; this.idleT = 0; }
+  reset(f) { this.stunPlan = null; this.t = rand(0.1, 0.4); this.hold = 0; this.holdT = 0; this.guardT = 0; this.combo = 0; this.lastThreat = 0; this.idleT = 0; }
 
   update(G, f, dt) {
     const o = G.opp(f);
@@ -23,6 +23,19 @@ class CpuCtrl {
     const dx = o.root.x - f.root.x, d = Math.abs(dx), toward = Math.sign(dx) || f.facing;
     const s = f.s;
     this.t -= dt; this.holdT -= dt; this.guardT -= dt;
+
+    // ----- defence out of hitstun or blockstun, the way a person plays it:
+    // keep holding back so the next button is blocked, or mash a reversal
+    // jab that beats an attacker who keeps pressing after a minus string
+    if (f.mode === 'hit' || f.mode === 'block') {
+      if (!this.stunPlan) {
+        const r = Math.random(), pRev = 0.05 + L * 0.03, pGuard = Math.min(0.9, 0.3 + L * 0.075);
+        this.stunPlan = r < pRev ? 'jab' : r < pRev + pGuard ? 'guard' : 'none';
+        this.revDone = false;
+      }
+      if (this.stunPlan === 'guard') { this.hold = -toward; this.holdT = Math.max(this.holdT, f.stunT + 0.28); this.guardT = this.holdT; }
+      if (this.stunPlan === 'jab' && !this.revDone && f.stunT < 0.12 && d < 260 * s / 2) { this.revDone = true; G.press(f.side, 'l'); }
+    } else if (f.mode === 'active') this.stunPlan = null;
 
     // ----- continue a combo that is connecting (works off real hit confirms)
     const act = f.action;
