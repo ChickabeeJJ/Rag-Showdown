@@ -667,7 +667,7 @@ body.touch .skill.mouse { display: none; }
    clip-path slants, so bands and rings are drawn as pseudo-elements whose
    polygons trace the slant. --cc is the size of the element's cut.
    ------------------------------------------------------------------------ */
-.btn::after, .ftile::after, .stage-card:not(.current)::after, .btn::before, .ftile.on::before, .sm.full::after, .sheet::before, .toast::before {
+.btn::after, .ftile::after, .stage-card:not(.current)::after, .btn::before, .ftile::before, .ftile.on::before, .sm.full::after, .sheet::before, .toast::before {
   --band-bottom: polygon(0 calc(100% - 3px), calc(100% - var(--cc) - 1.24px) calc(100% - 3px), 100% calc(100% - var(--cc) - 4.24px), 100% calc(100% - var(--cc)), calc(100% - var(--cc)) 100%, 0 100%);
   --band-top: polygon(0 var(--cc), var(--cc) 0, 100% 0, 100% var(--bt), calc(var(--cc) + var(--bt) * 0.414) var(--bt), 0 calc(var(--cc) + var(--bt) * 1.414));
   --band-left: polygon(0 100%, 0 var(--cc), var(--cc) 0, calc(var(--cc) + 4.24px) 0, 3px calc(var(--cc) + 1.24px), 3px 100%);
@@ -754,3 +754,22 @@ body.playing.touch #toasts { bottom: calc(18px + var(--safe-b)); }
 .lock-note b { color: var(--acc); }
 .how-sheet .hint { margin-top: 4px; }
 .ctrl-grid + .hint { margin-top: 10px; }
+
+/* fighter tiles: the coloured outline is a ring that follows both cut corners
+   (the portrait's own square inset border stopped at the slant) */
+.ftile .pt { box-shadow: none; }
+.ftile::before { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: color-mix(in srgb, var(--c) 55%, transparent); clip-path: var(--ring); }
+.ftile.on::before { background: var(--c); }
+
+/* live fighter preview in the select panel */
+.sd-prev { --cc: 10px; position: relative; aspect-ratio: 16 / 7; clip-path: var(--cut-m); background: #07080e; flex: none; }
+.sd-prev canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.sd-prev::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: color-mix(in srgb, var(--c) 60%, transparent);
+  clip-path: polygon(evenodd, 10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px, 10px 0, 10.83px 2px, calc(100% - 2px) 2px, calc(100% - 2px) calc(100% - 10.83px), calc(100% - 10.83px) calc(100% - 2px), 2px calc(100% - 2px), 2px 10.83px, 10.83px 2px); }
+.prev-tag { position: absolute; left: 12px; top: 8px; display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; background: rgba(8, 10, 16, 0.75); font-weight: 900; font-size: 10px; letter-spacing: 0.1em; color: #fff; }
+.prev-tag .ic { width: 10px; height: 10px; color: var(--c); }
+.prev-hint { position: absolute; right: 12px; bottom: 8px; font-weight: 800; font-size: 9px; letter-spacing: 0.1em; color: rgba(255, 255, 255, 0.65); text-shadow: 0 1px 3px #000; }
+.mv[data-k] { cursor: pointer; transition: background 0.12s; }
+.mv[data-k]:hover { background: color-mix(in srgb, var(--c) 16%, rgba(255, 255, 255, 0.04)); }
+.mv .keys2 .mouse-ic { width: 14px; height: 20px; color: #fff; }
+@media (max-height: 460px) { .sd-prev { aspect-ratio: 16 / 6; } .prev-hint { display: none; } }

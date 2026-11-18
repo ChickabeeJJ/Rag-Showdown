@@ -262,7 +262,7 @@ const Game = (() => {
     let bf = false;
     if (spec.bf && !stopped && Math.random() < BF_CHANCE + (n >= 3 ? 0.06 : 0)) { bf = true; scale *= 2.0; }
     // in levels and Survival the CPU hits a little softer than the player
-    const easy = att.side === 1 && (G.cfg.mode === 'level' || G.cfg.mode === 'survival') ? 0.88 : 1;
+    const easy = att.side === 1 && (G.cfg.mode === 'level' || G.cfg.mode === 'survival') ? 0.8 : 1;
     const dmg = Math.max(1, Math.round(spec.dmg * att.def.power * scale * (G.cfg.dmgMul || 1) * easy));
     def.hp -= dmg;
     G.combo[att.side].dmg = (cm && inCombo ? cm.dmg || 0 : 0) + dmg;

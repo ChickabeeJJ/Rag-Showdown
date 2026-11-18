@@ -115,7 +115,7 @@ const UI = (() => {
     $('btnSettings').onclick = () => { Sfx.play('ui'); openSettings(); };
     $('btnPause').onclick = () => U.openPause();
     $('btnRotateOk').onclick = () => { U.rotateOk = true; checkRotate(); };
-    document.querySelectorAll('[data-back]').forEach(b => { b.onclick = () => { Sfx.play('uiBack'); show('home'); }; });
+    document.querySelectorAll('[data-back]').forEach(b => { b.onclick = () => { Sfx.play('uiBack'); const wasPreview = Game.cfg && Game.cfg.preview; show('home'); if (wasPreview) { U.previewId = null; startDemo(); } }; });
     $('modal').addEventListener('pointerdown', e => { if (e.target === $('modal') && U.sheetDismiss) { const f = U.sheetDismiss; U.sheetDismiss = null; f(); } });
     setupTouch();
     Sfx.setSfx(Save.data.settings.sfx); Sfx.setMusic(Save.data.settings.music);
@@ -201,9 +201,11 @@ const UI = (() => {
   }
 
   function moveRows(def) {
-    const row = (k, mv, keys, sub, cls = '') => `<div class="mv ${cls}" style="--c:${def.color};--d:${shade(def.color)}"><span class="move-ic">${Icons.svg(mv.icon || 'fist')}</span><div><b>${esc(mv.name)}</b><small>${sub}</small></div><span class="keys2">${keys}</span></div>`;
+    const pk = { sp1: 's1', sp2: 's2', super: 'sup', hEnd: 'combo' };
+    const row = (k, mv, keys, sub, cls = '') => `<div class="mv ${cls}" data-k="${pk[k]}" style="--c:${def.color};--d:${shade(def.color)}"><span class="move-ic">${Icons.svg(mv.icon || 'fist')}</span><div><b>${esc(mv.name)}</b><small>${sub}</small></div><span class="keys2">${keys}</span></div>`;
     const m = def.moves;
-    return row('sp1', m.sp1, '<kbd>Q</kbd>', `SPECIAL · ${m.sp1.cd || 2}S COOLDOWN`) +
+    return row('hEnd', m.hEnd, `${MOUSE('l')}${MOUSE('l')}${MOUSE('r')}`, 'COMBO FINISHER · LIGHT, LIGHT, HEAVY') +
+      row('sp1', m.sp1, '<kbd>Q</kbd>', `SPECIAL · ${m.sp1.cd || 2}S COOLDOWN`) +
       row('sp2', m.sp2, '<kbd>E</kbd>', `SPECIAL · ${m.sp2.cd || 2}S COOLDOWN`) +
       row('super', m.super, '<kbd>F</kbd>', 'SUPER · FULL METER · FINISHER', 'super');
   }
@@ -226,7 +228,6 @@ const UI = (() => {
       if (s.mode === 'versus') {
         opts = `<div class="sd-opts">
           <div class="row"><small>PICKING</small><nav class="seg" id="optPick"><button data-v="0" class="${s.picking === 0 ? 'active' : ''}">P1 · ${BY_ID[s.p1].name}</button><button data-v="1" class="${s.picking === 1 ? 'active' : ''}">${s.p2human ? 'P2' : 'CPU'} · ${BY_ID[s.p2].name}</button></nav></div>
-          <div class="row"><small>PLAYER 2</small><nav class="seg" id="optP2"><button data-v="0" class="${!s.p2human ? 'active' : ''}">CPU</button><button data-v="1" class="${s.p2human ? 'active' : ''}">HUMAN (SAME KEYBOARD / PAD)</button></nav></div>
           ${s.p2human ? '' : `<div class="row"><small>CPU LEVEL</small><nav class="seg" id="optLv">${[1, 2, 3, 4, 5, 6, 7, 8].map(n => `<button data-v="${n}" class="${s.cpuLv === n ? 'active' : ''}">${n}</button>`).join('')}</nav></div>`}
           <div class="row"><small>STAGE</small><nav class="seg" id="optStage"><button data-v="random" class="${s.stage === 'random' ? 'active' : ''}">RANDOM</button>${STAGE_IDS.map(id => `<button data-v="${id}" class="${s.stage === id ? 'active' : ''}">${STAGES[id].name.split(' ')[0]}</button>`).join('')}</nav></div></div>`;
       } else if (s.mode === 'training') {
@@ -237,12 +238,15 @@ const UI = (() => {
     }
     $('selDetail').innerHTML = `
       <div class="sd-head" style="--c:${def.color}">${pt(def, own ? '' : 'locked')}<div><h3>${def.name}</h3><small>${def.title}</small></div></div>
+      <div class="sd-prev" style="--c:${def.color}"><canvas id="sdPrev"></canvas><span class="prev-tag">${ic('play')} PREVIEW</span><span class="prev-hint">TAP A MOVE TO SEE IT</span></div>
       <p class="sd-blurb">${esc(def.blurb)}</p>
       <div class="sd-stats" style="--c:${def.color}"><div><small>POWER</small>${meter(st[0])}</div><div><small>SPEED</small>${meter(st[1])}</div><div><small>RANGE</small>${meter(st[2])}</div></div>
       <div class="sd-moves">${moveRows(def)}</div>
       ${foot}`;
     const D = $('selDetail');
     hydrate(D);
+    startPreview(def.id);
+    D.querySelectorAll('.mv[data-k]').forEach(r => { r.onclick = () => { Sfx.play('ui'); const k = r.dataset.k; if (U.previewCtrl) U.previewCtrl.play(k === 'combo' ? ['l', 'l', 'h'] : [k]); }; });
     const on = (id, f) => { const e = $(id); if (e) e.onclick = f; };
     on('sdBuy', () => {
       if (Save.buy(def.id)) { Sfx.play('unlock'); toast(`${def.name} UNLOCKED`); if (s.mode !== 'roster') s.p1 = def.id; coinsUI(); renderSelect(); }
@@ -252,11 +256,35 @@ const UI = (() => {
     on('sdGo', () => { Sfx.play('fight'); confirmSelect(); });
     const segs = (id, f) => { const e = $(id); if (e) e.querySelectorAll('button').forEach(b => { b.onclick = () => { Sfx.play('ui'); f(b.dataset.v); renderSelect(); }; }); };
     segs('optPick', v => { s.picking = +v; s.view = +v ? s.p2 : s.p1; });
-    segs('optP2', v => { s.p2human = v === '1'; });
     segs('optLv', v => { s.cpuLv = +v; });
     segs('optStage', v => { s.stage = v; });
     segs('optDummy', v => { s.p2 = v; });
   }
+
+  // the live preview: the main canvas runs a showcase for the viewed fighter,
+  // and the panel shows a crop of it
+  function startPreview(id) {
+    if (U.previewId === id && Game.cfg && Game.cfg.preview) return;
+    U.previewId = id;
+    U.previewCtrl = new PreviewCtrl();
+    const def = BY_ID[id];
+    Game.speed = U.testSpeed || 1;
+    Game.startMatch({ p1: id, p2: id === 'kaze' ? 'ryo' : 'kaze', ctrls: [U.previewCtrl, new DummyCtrl('stand')], stage: def.stage && STAGES[def.stage] ? def.stage : 'dojo', mode: 'demo', training: true, preview: true, toWin: 99, hpMul: [1, 3] });
+  }
+  function previewTick() {
+    const pc = $('sdPrev');
+    if (U.screen !== 'select' || !pc || !Game.cfg || !Game.cfg.preview) return;
+    const src = $('stage'), w = pc.clientWidth, h = pc.clientHeight;
+    if (!w || !h) return;
+    const k = Math.min(2, window.devicePixelRatio || 1);
+    if (pc.width !== Math.round(w * k)) { pc.width = Math.round(w * k); pc.height = Math.round(h * k); }
+    // frame the two fighters: crop the middle of the full-screen render
+    const [a, b] = Game.fighters, m = Game.toScreen((a.root.x + b.root.x) / 2, GROUND - 120);
+    const sw = src.width * 0.62, sh = sw * pc.height / pc.width, sc = src.width / window.innerWidth;
+    const sx = clamp(m.x * sc - sw / 2, 0, src.width - sw), sy = clamp(m.y * sc - sh / 2, 0, src.height - sh);
+    pc.getContext('2d').drawImage(src, sx, sy, sw, sh, 0, 0, pc.width, pc.height);
+  }
+  U.previewTick = previewTick;
 
   function confirmSelect() {
     const s = U.sel;
@@ -291,8 +319,8 @@ const UI = (() => {
   }
 
   function cpu(lv) { return new CpuCtrl(lv); }
-  // campaign CPUs play about 15% softer than their listed level
-  const lvEase = (lv, minus = 0) => Math.max(1, Math.round(lv * 0.85) - minus);
+  // campaign CPUs play about 25% softer than their listed level
+  const lvEase = (lv, minus = 0) => Math.max(1, Math.round(lv * 0.75) - minus);
   function human(side) { return new HumanCtrl(side); }
 
   function stageFor(def, i) { return i === 5 ? 'crater' : def.stage || pick(STAGE_IDS); }
@@ -601,7 +629,8 @@ const UI = (() => {
   function startVersus() {
     const s = U.sel;
     const stage = s.stage === 'random' ? pick(STAGE_IDS) : s.stage;
-    U.run = { mode: 'versus', p1: s.p1, p2: s.p2, p2human: s.p2human, lv: s.cpuLv, stage };
+    s.p2human = false;
+    U.run = { mode: 'versus', p1: s.p1, p2: s.p2, p2human: false, lv: s.cpuLv, stage };
     const go = () => beginFight({ p1: s.p1, p2: s.p2, ctrls: [human(0), s.p2human ? human(1) : cpu(s.cpuLv)], stage, mode: 'versus', toWin: 2, twoP: s.p2human,
       chip: s.p2human ? 'VERSUS · PLAYER 1 vs PLAYER 2' : `VERSUS · CPU LV ${s.cpuLv}`, onEnd: res => setTimeout(() => versusEnd(res), 900) });
     versusSheet(s.p1, s.p2, s.p2human ? 'PLAYER 1 vs PLAYER 2' : `CPU LEVEL ${s.cpuLv}`, go);
@@ -731,6 +760,7 @@ const UI = (() => {
   }
 
   U.tick = function () {
+    if (!U.fightOn && Game.running && Game.fighters.length === 2) previewTick();
     if (!U.fightOn || !Game.running || Game.fighters.length < 2) return;
     const now = performance.now(), dt = Math.min(0.05, (now - (U.lastTick || now)) / 1000); U.lastTick = now;
     if (!Game.paused && !U.modalOpen()) { levelIntroTick(); tutTick(dt); tipsTick(); }
@@ -897,7 +927,7 @@ const UI = (() => {
           <span>Throw</span><span>${M('l')}+${M('r')}</span><span>LB</span>
           <span>Pause · retry</span><span>${K('P')} · ${K('R')}</span><span>START</span>
         </div>
-        <p class="hint">Player 2: arrow keys with ${K(',')} ${K('.')} ${K(';')} ${K("'")} ${K('/')}, or a second gamepad.</p>`],
+`],
       ['COMBOS', `
         ${card('swords', 'THE STRING', 'Light, light, then heavy chains into your fighter\'s own finisher. Press each button while the last one is still landing.', B.l + arrow + B.l + arrow + B.h)}
         ${card('up', 'TAKE IT TO THE AIR', 'After the finisher launches them, jump straight away and chain light, light, heavy in the air. They bounce once per combo.', B.h + arrow + B.j + arrow + B.l + arrow + B.h)}
@@ -912,7 +942,7 @@ const UI = (() => {
         ${card('map', 'LEVELS', 'Eight chapters of quick fights. Win with more health for more stars. Some fighters join you when you beat them on a RECRUIT level.')}
         ${card('coins', 'COINS', 'Earned from wins, stars, finishers, Black Sparks and the first win each day. Spend them on fighters, and some fighters can <b>only</b> be bought with coins.')}
         ${card('infinity', 'SURVIVAL', 'One fighter, endless opponents. A little health returns after each win.')}
-        ${card('target', 'TRAINING & VERSUS', 'Practise combos on a dummy, or fight the CPU or a friend.')}`],
+        ${card('target', 'TRAINING & VERSUS', 'Practise combos on a dummy, or pick any fighter and stage and take on the CPU at the level you choose.')}`],
     ];
     const sh = openSheet(`<h2>${first ? 'WELCOME TO RAG SHOWDOWN' : 'HOW TO PLAY'}</h2>
       <nav class="seg how-tabs">${tabs.map((t, k) => `<button data-k="${k}" class="${k === tab ? 'active' : ''}">${t[0]}</button>`).join('')}</nav>
@@ -963,6 +993,38 @@ const UI = (() => {
 })();
 
 /* training dummy behaviours */
+/* The fighter preview: runs the viewed fighter through their kit against a
+   training dummy, on loop. Clicking a move in the list plays that move next. */
+const PREVIEW_SEQ = [['walk', 0.7], [['l', 'l', 'h'], 1.5], [['s1'], 1.7], [['s2'], 1.9], [['sup'], 3.6]];
+class PreviewCtrl {
+  constructor() { this.human = false; this.i = 0; this.wait = 0.5; this.q = []; this.walkT = 0; }
+  reset() {}
+  play(keys) { this.q = []; this.forced = keys; this.wait = 0; }
+  update(G, f, dt) {
+    const o = G.opp(f);
+    f.input.x = 0;
+    // feed queued presses of a string, a beat apart
+    if (this.q.length) { this.q[0].t -= dt; if (this.q[0].t <= 0) G.press(f.side, this.q.shift().k); return; }
+    if (this.walkT > 0) { this.walkT -= dt; f.input.x = f.facing; if ((o.root.x - f.root.x) * f.facing < 170) this.walkT = 0; return; }
+    this.wait -= dt;
+    if (this.wait > 0 || f.action || !f.canAct || o.mode === 'tumble') return;
+    // set the pair back to a good distance before each move
+    const d = (o.root.x - f.root.x) * f.facing;
+    if (d < 120 || d > 360 || f.root.x < WALL_L + 200 || o.root.x > WALL_R - 200) {
+      G.teleport(f, 640, GROUND); G.teleport(o, 900, GROUND); f.facing = 1; o.facing = -1; this.wait = 0.25; return;
+    }
+    let step;
+    if (this.forced) { step = [this.forced, 2.6]; this.forced = null; }
+    else { step = PREVIEW_SEQ[this.i % PREVIEW_SEQ.length]; this.i++; }
+    const [keys, after] = step;
+    this.wait = after;
+    if (keys === 'walk') { this.walkT = 0.6; return; }
+    if (keys.includes('sup')) f.meter = 100;
+    f.cds.sp1 = 0; f.cds.sp2 = 0;
+    keys.forEach((k, n) => this.q.push({ k, t: n ? 0.13 : 0 }));
+  }
+}
+
 class DummyCtrl {
   constructor(mode) { this.mode = mode; this.human = false; if (mode === 'cpu') this.cpu = new CpuCtrl(4); }
   reset(f) { this.t = 0; if (this.cpu) this.cpu.reset(f); }

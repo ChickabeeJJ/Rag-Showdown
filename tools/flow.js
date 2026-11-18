@@ -106,23 +106,18 @@ const SHOTS = process.argv[3] || null;
   await p.waitForFunction(() => UI.screen === 'home' && !UI.fightOn, null, { timeout: 10000 });
   console.log('map + play ok');
 
-  // ---------------- 4. versus 2P
+  // ---------------- 4. versus against the CPU (two-player mode was removed)
   await click('#btnVersus');
-  await p.click('#optP2 button[data-v="1"]');
+  if (await ev(() => !!document.getElementById('optP2'))) fail('two-player option still shown');
   await click('#sdGo');
   await p.waitForSelector('.sheet.versus'); await p.click('.sheet.versus');
   await p.waitForFunction(() => UI.fightOn && Game.cfg.mode === 'versus' && Game.state === 'fight', null, { timeout: 15000 });
-  const x0 = await ev(() => Game.fighters.map(f => f.root.x));
-  await p.keyboard.down('ArrowRight'); await p.keyboard.down('KeyA'); await p.waitForTimeout(500); await p.keyboard.up('ArrowRight'); await p.keyboard.up('KeyA');
-  const x1 = await ev(() => Game.fighters.map(f => f.root.x));
-  if (!(x1[0] < x0[0] - 20 && x1[1] > x0[1] + 20)) fail('2P movement ' + JSON.stringify([x0, x1]));
-  await p.keyboard.press('Period'); await p.waitForTimeout(50);
-  if (!(await ev(() => Game.fighters[1].action && Game.fighters[1].action.key))) fail('P2 attack key');
+  if (await ev(() => Game.ctrls[1].human)) fail('versus P2 is not the CPU');
   await p.mouse.click(640, 400); await p.waitForTimeout(40);
   if (!(await ev(() => Game.fighters[0].action && Game.fighters[0].action.key))) fail('P1 left click attack');
   await p.keyboard.press('KeyP'); await click('#pQuit');
   await p.waitForFunction(() => UI.screen === 'home' && !UI.fightOn, null, { timeout: 10000 });
-  console.log('versus 2P ok');
+  console.log('versus ok');
 
   // ---------------- survival
   await click('#btnSurvival'); await click('#sdGo');

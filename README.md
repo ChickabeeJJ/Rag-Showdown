@@ -69,7 +69,7 @@ Other modes:
 | Throw | left + right click together | LB | (none) |
 | Pause | `P` / `Esc` | START | ⏸ |
 
-The skill bar at the bottom of the screen always shows these: mouse icons for light and heavy, then each special and the super, each with its key. Player 2 in Versus uses the arrow keys with `,` `.` `;` `'` `/` (light, heavy, special 1, special 2, super) and `Enter` to throw, or Numpad `1` `2` `4` `5` `3` `6`.
+The skill bar at the bottom of the screen always shows these: mouse icons for light and heavy, then each special and the super, each with its key. Versus is always against the CPU, at the level you choose; there is no two-player mode.
 
 - **Combos follow Street Fighter's frame data:**
   - A grounded normal's hitstun is whatever is left of the attacker's swing plus a fixed **advantage**. A jab leaves you slightly ahead, so it **chains** into the next button while it's still out, but pressing it again from neutral is too slow to combo. The second light leaves you slightly behind, so mashing after a string lets the opponent jab you first. Blocked normals always leave the attacker behind, heavies most of all.
@@ -93,7 +93,7 @@ The skill bar at the bottom of the screen always shows these: mouse icons for li
 
 **Hair and headwear** all grow out of one scalp cap that follows the head's outline, so spikes, crests, buns, horns, hoods and goggle straps stay attached to the head from every angle. Hoods are proper cowls open at the face. **Mugi** has a lighter, feminine build: a slightly narrower waist, wider hips, slimmer limbs and a soft chest line built into her outline, with buns and bangs. Sleeveless tops on everyone else run over the shoulder and end in a clean cap. Sword fighters carry proper katanas: a gently curved blade with a glowing edge, a round guard and a wrapped hilt.
 
-**Health.** Every fighter has 2.4 times the health of earlier builds, and in levels and Survival you get another 30% on top, so a fight lasts several combos instead of one. Timers were lengthened to match (wave refills to 80 s, Beat the Clock is 75 s). In levels and Survival the CPU also plays a little softer: about 15% below its listed level, and its hits do 12% less damage.
+**Health.** Every fighter has 2.4 times the health of earlier builds, and in levels and Survival you get another 30% on top, so a fight lasts several combos instead of one. Timers were lengthened to match (wave refills to 80 s, Beat the Clock is 75 s). In levels and Survival the CPU also plays softer: about 25% below its listed level, and its hits do 20% less damage.
 
 **Stances and motion.** Each fighter has a stance that suits them: karate, ninja, boxer, kung fu, swordsman, brawler, monk, soldier and more. Stances breathe, shift weight, and bounce on the balls of the feet (boxers). Walking is a fighting-game shuffle with planted feet that don't slide, a forward lean going in, and a tight guard going back. A hit reacts to where it lands: a head hit snaps the head back, a body hit doubles them over, a low hit buckles the knees. Knees and elbows only bend one way, even when limp. A knocked-down fighter pushes up off one knee to stand.
 
@@ -163,11 +163,13 @@ Eight stages, built like Element Rag's backdrops. Each has far, mid and near lay
 | Sakura Shrine | A shaded torii on stone steps, branching cherry trees with lit blossom clusters, a snow-capped volcano and stone lanterns. |
 | Bamboo Grove | Rounded, shaded stalks with leaves, curved grass, god rays, drifting mist and fireflies. |
 | Frost Peak | Aurora curtains, a snow cap on every peak, snow-laden pines, faceted ice crystals and snow banks. |
-| Void Rift | A glowing tear in the sky, shaded floating isles with crystal clusters, a lit ringed planet, and pillars with pulsing runes. |
+| Void Rift | Deep space: a dense starfield with a Milky Way band and dust lanes, twinkling bright stars and shooting stars, magenta and teal nebulae, a spiral galaxy, a cratered moon, a banded gas giant with an atmosphere glow and a layered ring, asteroid isles with lit rims and crystals, and ancient monoliths with floating, turning crystal cores. |
 | Crater Plains | An erupting volcano with lava channels and smoke, rim-lit spires, ruined arches with rubble at their feet, and lava cracks. |
 | Grand Arena | A roof truss with spotlights, tiered stands packed with a crowd, camera flashes, a hanging VS screen, and banners on the ring wall. |
 
 ## UI on every screen
+
+- **Fighter preview:** the select screen shows a live preview of the fighter you're looking at, on their home stage, running through their combo finisher, both specials and their super against a dummy. Tap any move in the list to watch it next. It works for locked fighters too, so you can see what you're buying.
 
 - The whole interface is laid out for 1280x720 and scaled to the window, so it looks the same on a phone, a tablet, a laptop or a 4K monitor. Phones get a little extra size so text stays readable.
 - **Touch controls** are sized in real pixels for thumbs, not scaled with the UI, with generous gaps between them. The right-hand cluster is two neat rows (LIGHT, HEAVY and JUMP on the bottom; SP 2, SP 1 and SUPER above), with labels inside the buttons so nothing overlaps or runs off the screen. On touch screens the camera keeps the fighters above your thumbs.
@@ -220,7 +222,7 @@ NODE_PATH=$(npm root -g) node tools/exploit.js
   3. It loses a level and retries it, and recruits a fighter.
   4. It checks the level map, including that locked levels give a message.
   5. It checks that PLAY goes straight into the fight.
-  6. It plays 2-player Versus, Survival, and Training with every pause option, and buys a fighter.
+  6. It checks Versus is against the CPU only, plays Survival and Training with every pause option, and buys a coin-exclusive fighter.
 
 Latest results: mashing light tops out at 2 hits for every fighter, against a dummy or a CPU. Light, light, heavy combos for all 16. The fuzz found no issues. The soak ran 256 matches (631 rounds) across all stages and twists with no issues. All flow checks passed. The UI was checked at desktop, iPhone and Android landscape, and iPad sizes.
 
