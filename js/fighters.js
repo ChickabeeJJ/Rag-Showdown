@@ -977,14 +977,44 @@ function fireWaveDraw(ctx, p, time) {
   Glow.draw(ctx, '#ff7a2a', p.x, p.y, p.r * 2.4, 0.8);
   ctx.globalCompositeOperation = 'source-over';
 }
+// a swirling funnel: grows in, sways, carries leaves and dust, flashes blade glints
 function tornadoDraw(ctx, p, time) {
+  const grow = clamp(p.t / 0.2, 0, 1), fade = clamp((p.life - p.t) / 0.3, 0, 1), k = easeOut(grow) * fade;
+  if (k <= 0) return;
+  const H = p.r * 3.4, base = p.y + p.r * 1.35, N = 16;
+  const widthAt = u => p.r * (0.2 + u * 1.3) * k;
+  const xAt = u => p.x + Math.sin(time * 5 + u * 3.5) * p.r * 0.22 * u;
   ctx.save();
+  // ground dust where it touches down
+  ctx.globalAlpha = 0.35 * k; ctx.fillStyle = '#d8ccb0';
+  ctx.beginPath(); ctx.ellipse(p.x, base, p.r * 0.9 * k, p.r * 0.16, 0, 0, TAU); ctx.fill();
   ctx.globalCompositeOperation = 'lighter';
-  for (let i = 0; i < 7; i++) {
-    const y = p.y + p.r * 1.2 - i * p.r * 0.38, w = p.r * (0.35 + i * 0.13);
-    ctx.globalAlpha = 0.6; ctx.strokeStyle = i % 2 ? p.color : '#ffffff'; ctx.lineWidth = 3;
-    const a = time * 16 + i;
-    ctx.beginPath(); ctx.ellipse(p.x + Math.sin(a) * 6, y, w, w * 0.25, 0, a % TAU, a % TAU + 4.2); ctx.stroke();
+  Glow.draw(ctx, p.color, p.x, base - H * 0.45, p.r * 1.8 * k, 0.3);
+  // the back of each swirl ring first (dim), then the front (bright)
+  for (const front of [false, true]) {
+    for (let i = 0; i < N; i++) {
+      const u = i / (N - 1), y = base - u * H * k, w = widthAt(u), a = time * 17 - u * 7;
+      ctx.globalAlpha = (front ? 0.8 : 0.3) * (0.6 + 0.4 * (1 - u * 0.6)) * k;
+      ctx.strokeStyle = i % 3 === 0 ? '#ffffff' : p.color; ctx.lineWidth = (front ? 3.4 : 2.4) + u * 3.4;
+      const s0 = (front ? 0 : Math.PI) + (a % 0.8);
+      ctx.beginPath(); ctx.ellipse(xAt(u), y, w, w * 0.22, 0, s0, s0 + Math.PI * 0.95); ctx.stroke();
+    }
+  }
+  // blade glints racing round inside
+  ctx.strokeStyle = '#ffffff';
+  for (let g = 0; g < 3; g++) {
+    const u = ((time * 1.7 + g * 0.33) % 1), a = time * 22 + g * 2.1, w = widthAt(u) * 0.8, y = base - u * H * k;
+    ctx.globalAlpha = 0.85 * k * Math.max(0, Math.sin(a)); ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(xAt(u) + Math.cos(a) * w, y); ctx.lineTo(xAt(u) + Math.cos(a + 0.5) * w, y - 6); ctx.stroke();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  // leaves and grit caught in the wind
+  for (let d = 0; d < 12; d++) {
+    const u = ((d * 0.173 + time * 0.55) % 1), a = time * 9 + d * 1.9, w = widthAt(u) * 1.08;
+    const x = xAt(u) + Math.cos(a) * w, y = base - u * H * k + Math.sin(a) * w * 0.22;
+    ctx.globalAlpha = 0.9 * k * (Math.sin(a) > -0.2 ? 1 : 0.35);
+    ctx.fillStyle = d % 3 ? '#9a8a64' : '#7fb06a';
+    ctx.save(); ctx.translate(x, y); ctx.rotate(a * 1.7); ctx.fillRect(-3, -1.5, 6, 3); ctx.restore();
   }
   ctx.restore();
 }
@@ -1328,13 +1358,29 @@ fighter({
 fighter({
   id: 'triblade', name: 'ZEN', title: 'THREE-SWORD STYLE', color: '#e7b84c', aura: '#fff0b0', reach: 20,
   hp: 1080, walk: 320, power: 1.2, stats: [5, 3, 5], price: 600, stage: 'forest',
-  blurb: 'A swordsman who fights with a blade in each hand and one in his teeth. Spins up tornadoes and cuts in threes.',
+  blurb: 'A swordsman who fights with a blade in each hand and a third that floats at his shoulder. Spins up tornadoes and cuts in threes.',
   look: { gear: 'band', weapon: 'tri', weaponLen: 56 },
   ai: { style: 'balanced', range: 240 },
   moves: {
+    // Tornado Slash: blades crossed low, a double spin that leaves rings of light,
+    // and a whirlwind thrown off the end of it
     sp1: { name: 'Tornado Slash', icon: 'tornado', kind: 'special', w: 0.12, a: 0.22, r: 0.22, cd: 2.6, ai: { range: [140, 1100], zone: true },
-      poseFn: withSpin(phasePose({}, { fh: [-30, 0], bh: [-36, 6], crouch: 14 }, { fh: [44, 0], bh: [-44, 0], crouch: 10 }, {}), 2, 10),
+      poseFn: withSpin(phasePose({}, { fh: [-30, 26], bh: [-36, 30], crouch: 20, lean: 10 }, { fh: [48, -6], bh: [-48, -2], crouch: 8 }, { fh: [40, 10], bh: [-30, 12] }), 2, 10),
+      draw: (G, ctx, f, act, time) => {
+        const { ph, u } = phaseOf(act);
+        if (ph !== 1) return;
+        // two bright rings sweep round him as the blades spin
+        const c = f.center(), R = 74 * f.s / 2;
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        for (let k = 0; k < 2; k++) {
+          const a = act.t * 42 * f.facing + k * Math.PI, y = c.y + (k ? 18 : -12) * f.s / 2;
+          ctx.globalAlpha = 0.7 * (1 - u * 0.5); ctx.strokeStyle = k ? '#fff0b0' : '#ffffff'; ctx.lineWidth = 4;
+          ctx.beginPath(); ctx.ellipse(c.x, y, R, R * 0.3, 0, a, a + 2.4); ctx.stroke();
+        }
+        ctx.restore();
+      },
       tick: (G, f, act) => {
+        if (phaseOf(act).ph === 1 && Math.random() < 0.5) G.fx.dust(f.root.x + rand(-40, 40), GROUND, 1);
         if (act.t >= act.w + act.a * 0.6 && once(act, 'fired')) {
           G.proj({ owner: f, x: f.root.x + f.facing * 90, y: GROUND - 100, vx: f.facing * 700, vy: 0, r: 56, life: 1.7, strength: 2, color: '#fff0b0', draw: tornadoDraw, multi: 5, every: 0.07, grind: 0.35,
             spec: { dmg: 13, kb: [40, -80], stun: 0.3, bstun: 0.12, hs: 0.02, chip: 0.25, color: '#fff0b0', kind: 'special', sfx: 'cut' },
@@ -1550,7 +1596,7 @@ const easeIn2 = t => t * t;
     aoi:      { stance: 'mystic', gear: 'hood', hoodC: '#3b2d62', top: '#3b2d62', topKind: 'robe', sleeve: 'long', wideSleeve: true, trim: 'acc', pants: '#2d2450', pantsKind: 'robe', extra: 'orbs' },
     homura:   { stance: 'sword', gear: 'none', hair: 'topknot', hairC: '#1f1b22', top: '#1e4a55', topKind: 'haori', sleeve: 'short', trim: 'acc', pants: '#23283a', pantsKind: 'hakama', belt: '#d8d0bf', beltTails: false, coat: '#1e4a55', cape: false },
     jin:      { stance: 'reaper', gear: 'hood', hoodC: '#1c1f3a', top: '#1c1f3a', topKind: 'jacket', sleeve: 'long', trim: 'acc', pants: NIGHT, boots: '#14162a', coat: '#1c1f3a', cape: false },
-    mugi:     { stance: 'loose', gear: 'none', hair: 'buns', hairC: '#4a2a2e', top: 'acc', topKind: 'tank', trim: '#ffd1e6', pants: '#35507a', pantsKind: 'shorts', boots: '#f2e6ef', build: { chest: 0.88, waist: 0.72, hip: 1.24, arm: 0.82, leg: 0.9, curvy: true, bust: true } },
+    mugi:     { stance: 'loose', gear: 'none', hair: 'buns', hairC: '#4a2a2e', top: 'acc', topKind: 'tank', trim: '#ffd1e6', pants: '#35507a', pantsKind: 'shorts', boots: '#f2e6ef', build: { chest: 0.9, waist: 0.8, hip: 1.12, arm: 0.86, leg: 0.93, curvy: true, bust: true }, bareShoulder: true },
     kohei:    { stance: 'boxer', gear: 'none', hair: 'spikes', hairC: '#1d2a24', top: '#1d3b2c', topKind: 'tank', pants: 'acc', pantsKind: 'shorts', glove: 'acc', belt: '#f2f2f2', beltTails: false },
     taro:     { stance: 'monk', gear: 'none', hair: 'buzz', hairC: '#5c5f6b', top: '#4f5f80', topKind: 'robe', sleeve: 'short', trim: 'acc', sash: true, pants: '#3a4560', pantsKind: 'hakama', extra: 'beads', cape: false },
     saibo:    { stance: 'casual', gear: 'none', hair: 'part', hairC: '#26262e', face: 'visor', top: CHAR, topKind: 'jacket', sleeve: 'long', trim: 'acc', pants: CHAR, boots: '#1d1d24', cape: true },

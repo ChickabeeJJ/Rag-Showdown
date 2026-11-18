@@ -760,6 +760,14 @@ class Rag {
       cap(sh, el, 11.5 * armW, 10 * armW, col); cap(el, hand, 10 * armW, 8.5 * armW, col);
       const sc = tone(L.top, back);
       if (sc && L.sleeve === 'short') cap(sh, el, 13.5 * armW, 12 * armW, sc);
+      // sleeveless tops still cover the shoulder, ending in a clean cap
+      if (sc && !L.sleeve && !L.bareShoulder) {
+        const A = pts[sh], E = pts[el], m = { x: lerp(A.x, E.x, 0.32), y: lerp(A.y, E.y, 0.32) };
+        const ddx = m.x - A.x, ddy = m.y - A.y, ll = Math.hypot(ddx, ddy) || 1, qx = -ddy / ll, qy = ddx / ll, r0 = 7 * armW * s, r1 = 6.6 * armW * s;
+        ctx.fillStyle = sc;
+        ctx.beginPath(); ctx.moveTo(A.x + qx * r0, A.y + qy * r0); ctx.lineTo(m.x + qx * r1, m.y + qy * r1); ctx.lineTo(m.x - qx * r1, m.y - qy * r1); ctx.lineTo(A.x - qx * r0, A.y - qy * r0); ctx.fill();
+        ctx.beginPath(); ctx.arc(A.x, A.y, r0, 0, TAU); ctx.fill();
+      }
       if (sc && L.sleeve === 'long') { cap(sh, el, 13.5 * armW, 12 * armW, sc); cap(el, hand, L.wideSleeve ? 15 : 11.5 * armW, L.wideSleeve ? 18 : 10 * armW, sc); }
       if (L.stripes) band(sh, el, 0.55, 0.7, 13.8 * armW, tone('#e9f0b0', back));
       if (L.wraps) { const wc = tone(L.wraps === true ? '#ece6d8' : L.wraps, back); band(el, hand, 0.45, 0.85, 10.6 * armW, wc); }
@@ -847,11 +855,14 @@ class Rag {
       : lerp(cw, ww, u) * (1 + 0.06 * Math.sin(Math.PI * u));
     const shape = (c0, c1, k0 = 0, k1 = 1) => {
       const N = 8, L = [], R = [];
+      const frontL = -f > 0;   // which side of the outline faces forward
       for (let i = 0; i <= N; i++) {
         const u = lerp(k0, k1, i / N), w = prof(Math.min(1, u));
+        // a soft chest line on the front of the outline, nothing stuck on
+        const fb = B.bust ? 1 + 0.16 * Math.exp(-Math.pow((u - 0.24) / 0.11, 2)) : 1;
         const x = n.x + dx * u, y = n.y + dy * u;
-        L.push([x + nx * w * (i === 0 ? c0 : 1), y + ny * w * (i === 0 ? c0 : 1)]);
-        R.push([x - nx * w * (i === 0 ? c1 : 1), y - ny * w * (i === 0 ? c1 : 1)]);
+        L.push([x + nx * w * (frontL ? fb : 1) * (i === 0 ? c0 : 1), y + ny * w * (frontL ? fb : 1) * (i === 0 ? c0 : 1)]);
+        R.push([x - nx * w * (frontL ? 1 : fb) * (i === 0 ? c1 : 1), y - ny * w * (frontL ? 1 : fb) * (i === 0 ? c1 : 1)]);
       }
       ctx.beginPath(); ctx.moveTo(L[0][0], L[0][1]);
       for (const q of L) ctx.lineTo(q[0], q[1]);
@@ -883,8 +894,8 @@ class Rag {
       ctx.closePath(); ctx.fill();
       if (trim) { ctx.strokeStyle = trim; ctx.lineWidth = 2.4 * s; ctx.beginPath(); ctx.moveTo(n.x + nx * cw * 0.15 * fx + ux * 4 * s, n.y + ny * cw * 0.15 * fx + uy * 4 * s); ctx.lineTo(pv.x + nx * ww * 0.45 * fx - ux * 4 * s, pv.y + ny * ww * 0.45 * fx - uy * 4 * s); ctx.stroke(); }
     } else {
-      shape(1, 1, kind === 'tank' ? 0.12 : 0, 1.04); ctx.fill();
-      if (kind !== 'tank') { ctx.beginPath(); ctx.arc(n.x + ux * 3 * s, n.y + uy * 3 * s, cw * 0.98, 0, TAU); ctx.fill(); }
+      shape(1, 1, kind === 'tank' && L.bareShoulder ? 0.12 : 0, 1.04); ctx.fill();
+      if (kind !== 'tank' || !L.bareShoulder) { ctx.beginPath(); ctx.arc(n.x + ux * 3 * s, n.y + uy * 3 * s, cw * 0.98, 0, TAU); ctx.fill(); }
       if (kind === 'gi' || kind === 'robe' || kind === 'haori') {
         // the crossed collar: a V of skin and a trim line
         ctx.fillStyle = body;
@@ -897,12 +908,6 @@ class Rag {
         ctx.beginPath(); ctx.ellipse(n.x - f * 6 * s, n.y - 1 * s, 10 * s, 7 * s, 0, 0, TAU); ctx.fill();
         if (trim) { ctx.strokeStyle = trim; ctx.lineWidth = 2.6 * s; ctx.beginPath(); ctx.moveTo(n.x + ux * 4 * s, n.y + uy * 4 * s); ctx.lineTo(pv.x - ux * 2 * s, pv.y - uy * 2 * s); ctx.stroke(); }
       }
-    }
-    if (B.bust) {
-      // a gentle chest curve on the side she faces
-      const fx = -f, u = 0.24, x = n.x + dx * u + nx * cw * 0.78 * fx, y = n.y + dy * u + ny * cw * 0.78 * fx;
-      ctx.fillStyle = top || body;
-      ctx.beginPath(); ctx.ellipse(x, y, 5.2 * s, 6.2 * s, Math.atan2(uy, ux), 0, TAU); ctx.fill();
     }
     if (L.stripes) {
       ctx.strokeStyle = mono || '#e9f0b0'; ctx.lineWidth = 3.4 * s; ctx.lineCap = 'butt';
@@ -939,7 +944,7 @@ class Rag {
   drawHair(ctx, hd, col, mono) {
     const L = this.def.look, kind = L.hair;
     if (!kind && !L.horns) return;
-    const s = this.s, f = this.facing, hr = HEAD_R * s, e = 1.6 * s;
+    const s = this.s, f = this.facing, hr = HEAD_R * s, e = 0.5 * s;
     const P = (a, out) => this.scalpPt(hd, a, out);
     // the cap: the head outline grown a little, kept above a hairline that runs
     // from the forehead (front) to behind the ear (back)
@@ -1136,19 +1141,46 @@ class Rag {
       }
       return;
     }
-    if (!mono) {
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.strokeStyle = acc; ctx.globalAlpha *= 0.5; ctx.lineWidth = (wide ? 16 : 10) * s;
-      ctx.beginPath(); ctx.moveTo(w.x0, w.y0); ctx.lineTo(w.x1, w.y1); ctx.stroke();
-      ctx.globalAlpha /= 0.5;
-      ctx.globalCompositeOperation = 'source-over';
+    const dx = w.x1 - w.x0, dy = w.y1 - w.y0, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L, nx = -uy * this.facing, ny = ux * this.facing;
+    const bx = w.x0 + ux * 6 * s, by = w.y0 + uy * 6 * s;            // where the blade leaves the guard
+    if (wide) {
+      // the cleaver: a broad energy slab
+      if (!mono) { ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = acc; ctx.globalAlpha *= 0.5; ctx.lineWidth = 16 * s; ctx.beginPath(); ctx.moveTo(w.x0, w.y0); ctx.lineTo(w.x1, w.y1); ctx.stroke(); ctx.globalAlpha /= 0.5; ctx.globalCompositeOperation = 'source-over'; }
+      ctx.strokeStyle = mono || acc; ctx.lineWidth = 9 * s; ctx.beginPath(); ctx.moveTo(w.x0, w.y0); ctx.lineTo(w.x1, w.y1); ctx.stroke();
+      if (!mono) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3 * s; ctx.beginPath(); ctx.moveTo(lerp(w.x0, w.x1, 0.15), lerp(w.y0, w.y1, 0.15)); ctx.lineTo(w.x1, w.y1); ctx.stroke(); }
+      return;
     }
-    ctx.strokeStyle = mono || acc; ctx.lineWidth = (wide ? 9 : 5) * s;
-    ctx.beginPath(); ctx.moveTo(w.x0, w.y0); ctx.lineTo(w.x1, w.y1); ctx.stroke();
+    // a katana: wrapped hilt, round guard, and a gently curved, pointed blade
+    // with a glowing edge in the fighter's colour
+    const hw = 3.1 * s, curve = 5 * s;
+    const mx = bx + (w.x1 - bx) * 0.55 + nx * curve, my = by + (w.y1 - by) * 0.55 + ny * curve;
     if (!mono) {
-      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = (wide ? 3 : 2) * s;
-      ctx.beginPath(); ctx.moveTo(lerp(w.x0, w.x1, 0.15), lerp(w.y0, w.y1, 0.15)); ctx.lineTo(w.x1, w.y1); ctx.stroke();
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= 0.35;
+      ctx.strokeStyle = acc; ctx.lineWidth = 11 * s;
+      ctx.beginPath(); ctx.moveTo(bx, by); ctx.quadraticCurveTo(mx, my, w.x1, w.y1); ctx.stroke();
+      ctx.globalAlpha /= 0.35; ctx.globalCompositeOperation = 'source-over';
     }
+    ctx.fillStyle = mono || '#e8edf4';
+    ctx.beginPath();
+    ctx.moveTo(bx + nx * hw, by + ny * hw);
+    ctx.quadraticCurveTo(mx + nx * hw * 0.8, my + ny * hw * 0.8, w.x1, w.y1);
+    ctx.quadraticCurveTo(mx - nx * hw * 0.9, my - ny * hw * 0.9, bx - nx * hw, by - ny * hw);
+    ctx.closePath(); ctx.fill();
+    if (!mono) {
+      ctx.strokeStyle = acc; ctx.lineWidth = 1.8 * s;   // the tempered edge
+      ctx.beginPath(); ctx.moveTo(bx - nx * hw * 0.8, by - ny * hw * 0.8); ctx.quadraticCurveTo(mx - nx * hw * 0.75, my - ny * hw * 0.75, w.x1, w.y1); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 1 * s;
+      ctx.beginPath(); ctx.moveTo(bx + nx * hw * 0.3, by + ny * hw * 0.3); ctx.quadraticCurveTo(mx + nx * hw * 0.3, my + ny * hw * 0.3, lerp(mx, w.x1, 0.7), lerp(my, w.y1, 0.7)); ctx.stroke();
+    }
+    // hilt behind the guard, wrapped in diamonds
+    const hx = bx - ux * 18 * s, hy = by - uy * 18 * s;
+    ctx.strokeStyle = mono || '#2a2230'; ctx.lineWidth = 5.2 * s; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(hx, hy); ctx.stroke();
+    if (!mono) { ctx.fillStyle = acc; for (let k = 1; k < 4; k++) { const cx = lerp(bx, hx, k / 4), cy = lerp(by, hy, k / 4); ctx.beginPath(); ctx.arc(cx, cy, 1.3 * s, 0, TAU); ctx.fill(); } }
+    // the guard
+    ctx.fillStyle = mono || '#2b2b33';
+    ctx.beginPath(); ctx.ellipse(bx, by, 2.4 * s, 6.4 * s, Math.atan2(uy, ux), 0, TAU); ctx.fill();
+    if (!mono) { ctx.strokeStyle = '#d9a441'; ctx.lineWidth = 1.2 * s; ctx.stroke(); }
   }
 
   // a tapered ribbon along a cloth chain
