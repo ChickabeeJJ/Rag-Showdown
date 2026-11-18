@@ -806,14 +806,6 @@ const Stage = (() => {
     const sp = Math.floor(low.length * (rnd() < 0.5 ? 0.25 : 0.7)), m0 = mid[sp], m1 = mid[Math.min(mid.length - 1, sp + 1)];
     const tip2 = [lerp(m0[0], m1[0], 0.5) + (rnd() - 0.5) * 20, Math.max(m0[1], m1[1]) + depth * 0.45];
     facet([m0, m1, tip2], tone(0.75)); facet([m0, [lerp(m0[0], m1[0], 0.5), lerp(m0[1], m1[1], 0.5)], tip2], tone(0.45));
-    // glowing crystal veins run through the underside
-    const vc = seed % 3 === 1 ? '#5fe0ff' : '#b48bff';
-    for (let v = 0; v < 2; v++) {
-      let vx = (rnd() - 0.5) * w * 0.8, vy = cliff + 6;
-      g.strokeStyle = rgba(vc, 0.25); g.lineWidth = 5; const path = [[vx, vy]];
-      for (let k = 0; k < 4; k++) { vx = lerp(vx, tip[0], 0.3) + (rnd() - 0.5) * 16; vy += depth * 0.16; path.push([vx, vy]); }
-      for (const [lw, a] of [[5, 0.22], [1.6, 0.85]]) { g.strokeStyle = rgba(vc, a); g.lineWidth = lw; g.beginPath(); path.forEach(([px, py], k) => (k ? g.lineTo(px, py) : g.moveTo(px, py))); g.stroke(); }
-    }
     // the cliff band
     for (let k = 0; k < front.length - 1; k++) { const u = (front[k][0] + w) / (2 * w); facet([front[k], front[k + 1], low[k + 1], low[k]], ['#4a3884', '#3f2f74', '#342664', '#2a1e54'][clamp(Math.floor(u * 4), 0, 3)]); }
     // the top face, brighter toward the light
@@ -831,28 +823,29 @@ const Stage = (() => {
       facet([[bx - r, by], [bx - r * 0.4, by - r * 0.9], [bx + r * 0.6, by - r * 0.7], [bx + r, by]], '#4e3d8c');
       facet([[bx - r * 0.4, by - r * 0.9], [bx + r * 0.6, by - r * 0.7], [bx + r, by], [bx, by]], '#352868');
     }
-    // crystal clusters: prisms with a lit facet, a shaded facet and a bright ridge
+    // one neat crystal cluster: a tall centre crystal flanked by two shorter
+    // ones fanning out, rooted in a rock socket, lit facet / shaded facet / ridge
     const teal = seed % 3 === 1;
-    const cols = teal ? ['#9ff0ff', '#3fb8d8', '#e9fdff'] : ['#cbb4ff', '#7a55e8', '#f6f0ff'];
-    const clusters = 2;
-    for (let n = 0; n < clusters; n++) {
-      const cx0 = (rnd() - 0.5) * rx * 1.1, cy0 = (rnd() - 0.3) * ry * 0.5, count = 3 + Math.floor(rnd() * 3);
-      lights.push([cx0, cy0 - 20, teal ? '#5fe0ff' : '#9b6bff']);
-      const gl = g.createRadialGradient(cx0, cy0, 0, cx0, cy0, 40); gl.addColorStop(0, rgba(cols[0], 0.45)); gl.addColorStop(1, rgba(cols[0], 0));
-      g.fillStyle = gl; g.fillRect(cx0 - 40, cy0 - 40, 80, 80);
-      const list = [];
-      for (let k = 0; k < count; k++) list.push({ x: cx0 + (rnd() - 0.5) * 34, h: (k === 0 ? 62 : 22) + rnd() * 32, cw: 6 + rnd() * 5, tilt: (rnd() - 0.5) * 0.75 });
-      list.sort((a, b) => a.h - b.h);
-      for (const k of list) {
-        const ux = Math.sin(k.tilt), uy = -Math.cos(k.tilt), nx = -uy, ny = ux, bx = k.x, by = cy0;
-        const sh = [bx + ux * k.h * 0.76, by + uy * k.h * 0.76], tp = [bx + ux * k.h, by + uy * k.h];
-        const L0 = [bx - nx * k.cw, by - ny * k.cw], R0 = [bx + nx * k.cw, by + ny * k.cw];
-        const L1 = [sh[0] - nx * k.cw, sh[1] - ny * k.cw], R1 = [sh[0] + nx * k.cw, sh[1] + ny * k.cw];
-        facet([L0, [bx, by + 2], [sh[0], sh[1]], L1, tp], cols[0]);
-        facet([[bx, by + 2], R0, R1, tp, [sh[0], sh[1]]], cols[1]);
-        g.strokeStyle = cols[2]; g.lineWidth = 1.2; g.beginPath(); g.moveTo(bx, by + 2); g.lineTo(sh[0], sh[1]); g.lineTo(tp[0], tp[1]); g.stroke();
-      }
-    }
+    const cols = teal ? ['#a8f2ff', '#45b9d6', '#effdff'] : ['#cdb8ff', '#7d5ae6', '#f7f2ff'];
+    const cx0 = (rnd() - 0.5) * rx * 0.7, cy0 = -ry * 0.15;
+    lights.push([cx0, cy0 - 18, teal ? '#5fe0ff' : '#9b6bff']);
+    const gl = g.createRadialGradient(cx0, cy0, 0, cx0, cy0, 36); gl.addColorStop(0, rgba(cols[0], 0.4)); gl.addColorStop(1, rgba(cols[0], 0));
+    g.fillStyle = gl; g.fillRect(cx0 - 36, cy0 - 36, 72, 72);
+    const crystal = (bx, h, cw, tilt) => {
+      const ux = Math.sin(tilt), uy = -Math.cos(tilt), nx = -uy, ny = ux, by = cy0;
+      const sh = [bx + ux * h * 0.78, by + uy * h * 0.78], tp = [bx + ux * h, by + uy * h];
+      const L0 = [bx - nx * cw, by - ny * cw], R0 = [bx + nx * cw, by + ny * cw];
+      const L1 = [sh[0] - nx * cw, sh[1] - ny * cw], R1 = [sh[0] + nx * cw, sh[1] + ny * cw];
+      facet([L0, [bx, by], sh, tp, L1], cols[0]);
+      facet([[bx, by], R0, R1, tp, sh], cols[1]);
+      g.strokeStyle = cols[2]; g.lineWidth = 1; g.beginPath(); g.moveTo(bx, by); g.lineTo(sh[0], sh[1]); g.lineTo(tp[0], tp[1]); g.stroke();
+    };
+    crystal(cx0 - 9, 20 + rnd() * 5, 4.5, -0.32);
+    crystal(cx0 + 9, 18 + rnd() * 5, 4.5, 0.3);
+    crystal(cx0, 34 + rnd() * 8, 6, (rnd() - 0.5) * 0.12);
+    // the rock socket they grow from
+    facet([[cx0 - 16, cy0 + 2], [cx0 - 8, cy0 - 4], [cx0 + 8, cy0 - 4], [cx0 + 16, cy0 + 2], [cx0, cy0 + 6]], '#4e3d8c');
+    facet([[cx0, cy0 + 6], [cx0 + 8, cy0 - 4], [cx0 + 16, cy0 + 2]], '#352868');
     // a couple of pebbles drifting under the isle
     for (let k = 0; k < 3; k++) {
       const px = (rnd() - 0.5) * w * 1.4, py = cliff + depth * (0.5 + rnd() * 0.5), r = 3 + rnd() * 5;

@@ -747,8 +747,9 @@ const UI = (() => {
     clearTimeout(U.chipT); U.chipT = setTimeout(() => $('hudChip').classList.add('hidden'), 4000);
     const def = BY_ID[cfg.p1], m = def.moves;
     const sk = (k, mv) => `<div class="skill" data-k="${k}" style="--c:${def.color};--d:${shade(def.color)}"><span class="sk-icon move-ic">${Icons.svg(mv.icon || 'fist')}</span><b class="sk-name">${esc(mv.name)}</b><kbd>${KEYS[k]}</kbd><span class="sk-cd"></span></div>`;
-    const ms = (side, lbl) => `<div class="skill mouse"><span class="sk-icon">${MOUSE(side)}</span><b>${lbl}</b></div>`;
-    $('skillbar').innerHTML = ms('l', 'LIGHT') + ms('r', 'HEAVY') + sk('sp1', m.sp1) + sk('sp2', m.sp2) + sk('super', m.super);
+    // the bar only shows what needs tracking: the two specials and their cooldowns
+    // (the super has its own meter in the corner)
+    $('skillbar').innerHTML = sk('sp1', m.sp1) + sk('sp2', m.sp2);
     const orb = (cls, k, icon, lbl, c) => `<button class="orb ${cls}" data-k="${k}" style="--c:${c || def.color};--d:${shade(c || def.color)}"><span class="ring"></span><span class="orb-icon">${Icons.svg(icon)}</span><span class="lbl">${lbl}</span></button>`;
     $('orbs').innerHTML = orb('orb-l', 'l', 'fist', 'LIGHT', '#ffc933') + orb('orb-h', 'h', 'burst', 'HEAVY', '#ff8a4a') + orb('orb-s1', 's1', m.sp1.icon, 'SP 1') + orb('orb-s2', 's2', m.sp2.icon, 'SP 2') + orb('orb-sup', 'sup', m.super.icon, 'SUPER') + orb('orb-j', 'jump', 'up', 'JUMP', '#e9ecf4');
     $('orbs').querySelectorAll('.orb').forEach(b => {
