@@ -689,8 +689,6 @@ const Stage = (() => {
         g.translate(px, py); g.rotate(-0.28);
         const bands = [[-140, 22, '#c7b2ff', 0.35], [-100, 14, '#5c3fa8', 0.4], [-70, 26, '#e6c8ff', 0.25], [-30, 18, '#4a2f8f', 0.45], [5, 30, '#d8b6ff', 0.3], [48, 16, '#6a46b8', 0.4], [80, 24, '#f0cdea', 0.22], [118, 20, '#4a2f8f', 0.4]];
         for (const [y, h, c, a] of bands) { g.fillStyle = rgba(c, a); g.beginPath(); g.ellipse(0, y, pr * 1.3, h / 2, 0, 0, TAU); g.fill(); }
-        g.fillStyle = 'rgba(255,190,220,0.55)'; g.beginPath(); g.ellipse(-40, 40, 30, 12, 0, 0, TAU); g.fill();
-        g.fillStyle = 'rgba(120,60,140,0.5)'; g.beginPath(); g.ellipse(-40, 40, 18, 6, 0, 0, TAU); g.fill();
         g.rotate(0.28); g.translate(-px, -py);
         // night side and the ring's shadow
         const sh = g.createRadialGradient(px - pr * 0.45, py - pr * 0.5, pr * 0.2, px - pr * 0.2, py - pr * 0.2, pr * 1.6);
