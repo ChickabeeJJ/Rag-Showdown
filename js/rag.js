@@ -15,6 +15,7 @@ const WALL_L = -360;           // a wide stage the camera pans across
 const WALL_R = 1960;
 const MAX_SEP = 1180;          // fighters can't walk further apart than one screen
 const RS = 2.0;               // fighter scale
+const HP_SCALE = 2.4;         // every fighter's health; fights last a few combos, not one
 
 const P = { HEAD: 0, NECK: 1, PELVIS: 2, FELB: 3, FHAND: 4, BELB: 5, BHAND: 6, FKNEE: 7, FFOOT: 8, BKNEE: 9, BFOOT: 10 };
 // bones: [a, b, hurt radius]
@@ -126,7 +127,7 @@ class Rag {
     this.s = RS * (def.scale || 1);
     this.baseS = this.s;
     this.facing = o.facing || 1;
-    this.maxHp = this.hp = Math.round(def.hp * (o.hpMul || 1));
+    this.maxHp = this.hp = Math.round(def.hp * (def.hp > 50 ? HP_SCALE : 1) * (o.hpMul || 1));
     this.walk = def.walk;
     this.jumpV = 1000;
     this.maxJumps = def.jumps || 1;
@@ -176,19 +177,19 @@ class Rag {
     const L = this.def.look, x = this.root.x;
     this.chains = [];
     const add = (kind, n, len, w0, w1, color, o) => this.chains.push(Object.assign({ kind, n, len, w0, w1, color, drag: 0.93, grav: 1400, pts: Array.from({ length: n }, () => ({ x, y: GROUND - 200, px: x, py: GROUND - 200 })) }, o || {}));
-    if (L.cape) add('cape', 7, 9, 8, 4.8, 'acc');
-    if (L.hair === 'ponytail') add('hair', 5, 7, 6, 2.6, L.hairC || '#2a2630', { drag: 0.9 });
-    if (L.hair === 'long') add('hair', 4, 8.5, 12, 8, L.hairC || '#3a2c24', { drag: 0.9 });
-    if (L.coat) add('coat', 4, 9, 11, 13, L.coat, { drag: 0.88, grav: 1700 });
-    if (L.belt && L.beltTails !== false) add('belt', 3, 6.5, 3.6, 2.6, L.belt, { drag: 0.9 });
+    if (L.cape) add('cape', 7, 9, 6, 3.6, 'acc', { push: 0.05 });
+    if (L.hair === 'ponytail') add('hair', 5, 7, 5.5, 2.4, L.hairC || '#2a2630', { drag: 0.9, push: 0.03, grav: 1700 });
+    if (L.hair === 'long') add('hair', 4, 7.5, 10, 7, L.hairC || '#3a2c24', { drag: 0.88, push: 0.02, grav: 2000, long: true });
+    if (L.coat) add('coat', 4, 9, 11, 13, L.coat, { drag: 0.88, grav: 1700, push: 0.03 });
+    if (L.belt && L.beltTails !== false) add('belt', 3, 5, 2.4, 1.8, L.belt, { drag: 0.9, push: 0.02 });
     this.cape = (this.chains.find(c => c.kind === 'cape') || {}).pts || null;
   }
   clothAnchor(c) {
     const s = this.s, f = this.facing, n = this.pts[P.NECK], pv = this.pts[P.PELVIS], h = this.pts[P.HEAD], hr = HEAD_R * s;
     if (c.kind === 'cape') return [n.x - f * 3 * s, n.y + 3 * s];
-    if (c.kind === 'hair') return c.n === 5 ? [h.x - f * hr * 0.75, h.y - hr * 0.55] : [h.x - f * hr * 0.55, h.y - hr * 0.2];
+    if (c.kind === 'hair') return c.long ? [h.x - f * hr * 0.78, h.y + hr * 0.45] : [h.x - f * hr * 0.8, h.y - hr * 0.5];
     if (c.kind === 'coat') return [lerp(n.x, pv.x, 0.86) - f * 6 * s, lerp(n.y, pv.y, 0.86)];
-    return [lerp(n.x, pv.x, 0.88) + f * 7 * s, lerp(n.y, pv.y, 0.88) + 2 * s];
+    return [lerp(n.x, pv.x, 0.86) + f * 5 * s, lerp(n.y, pv.y, 0.86) + 2 * s];
   }
   // hang every chain straight down from its anchor (spawns, teleports, portraits)
   settleCloth() {
@@ -628,8 +629,8 @@ class Rag {
       const [ax, ay] = this.clothAnchor(c);
       P0[0].x = ax; P0[0].y = ay;
       const g = c.grav * s * dt * dt;
-      // cloth trails behind the way the fighter faces, a little
-      const push = c.kind === 'coat' ? -f * 0.1 : -f * 0.18;
+      // cloth drifts a touch behind the way the fighter faces; movement does the rest
+      const push = -f * (c.push != null ? c.push : 0.05);
       for (let i = 1; i < P0.length; i++) {
         const p = P0[i];
         const vx = (p.x - p.px) * c.drag, vy = (p.y - p.py) * c.drag;
@@ -781,7 +782,7 @@ class Rag {
     leg(P.PELVIS, P.BKNEE, P.BFOOT, true);
     arm(P.NECK, P.BELB, P.BHAND, true);
     // torso: a tapered chest-to-waist shape
-    this.drawTorso(ctx, body, tone(L.top), tone(L.trim), acc, mono);
+    this.drawTorso(ctx, body, tone(L.top), tone(L.trim), acc, mono, tone(L.pants));
     if (L.pantsKind === 'robe' && L.pants) this.drawSkirt(ctx, tone(L.pants));
     leg(P.PELVIS, P.FKNEE, P.FFOOT, false);
     if (L.belt) {
@@ -833,37 +834,54 @@ class Rag {
   }
 
   // chest wider than the waist; tops, vests and jackets drawn over it
-  drawTorso(ctx, body, top, trim, acc, mono) {
+  drawTorso(ctx, body, top, trim, acc, mono, pants) {
     const s = this.s, f = this.facing, pts = this.pts, L = this.def.look, B = L.build || {};
     const n = pts[P.NECK], pv = pts[P.PELVIS];
     const dx = pv.x - n.x, dy = pv.y - n.y, l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l, nx = -uy, ny = ux;
     const cw = 13 * (B.chest || 1) * s, ww = 10.5 * (B.waist || 1) * s;
+    // the torso's half-width along its length: chest to waist, and for a curvy
+    // build a nipped waist and wider hips
+    const sm = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
+    const prof = u => B.curvy
+      ? (u < 0.28 ? cw : u < 0.7 ? lerp(cw, ww, sm((u - 0.28) / 0.42)) : lerp(ww, ww * (B.hip || 1), sm((u - 0.7) / 0.3)))
+      : lerp(cw, ww, u) * (1 + 0.06 * Math.sin(Math.PI * u));
     const shape = (c0, c1, k0 = 0, k1 = 1) => {
-      const ax = n.x + dx * k0, ay = n.y + dy * k0, bx = n.x + dx * k1, by = n.y + dy * k1;
-      const w0 = lerp(cw, ww, k0), w1 = lerp(cw, ww, k1);
-      ctx.beginPath();
-      ctx.moveTo(ax + nx * w0 * c0, ay + ny * w0 * c0);
-      ctx.quadraticCurveTo(ax + nx * w0 * 1.05 + ux * 8 * s, ay + ny * w0 * 1.05 + uy * 8 * s, bx + nx * w1, by + ny * w1);
-      ctx.lineTo(bx - nx * w1, by - ny * w1);
-      ctx.quadraticCurveTo(ax - nx * w0 * 1.05 + ux * 8 * s, ay - ny * w0 * 1.05 + uy * 8 * s, ax - nx * w0 * c1, ay - ny * w0 * c1);
+      const N = 8, L = [], R = [];
+      for (let i = 0; i <= N; i++) {
+        const u = lerp(k0, k1, i / N), w = prof(Math.min(1, u));
+        const x = n.x + dx * u, y = n.y + dy * u;
+        L.push([x + nx * w * (i === 0 ? c0 : 1), y + ny * w * (i === 0 ? c0 : 1)]);
+        R.push([x - nx * w * (i === 0 ? c1 : 1), y - ny * w * (i === 0 ? c1 : 1)]);
+      }
+      ctx.beginPath(); ctx.moveTo(L[0][0], L[0][1]);
+      for (const q of L) ctx.lineTo(q[0], q[1]);
+      for (let i = R.length - 1; i >= 0; i--) ctx.lineTo(R[i][0], R[i][1]);
       ctx.closePath();
     };
     ctx.fillStyle = body;
     shape(1, 1); ctx.fill();
-    ctx.beginPath(); ctx.arc(n.x + ux * 3 * s, n.y + uy * 3 * s, cw * 0.98, 0, TAU); ctx.arc(pv.x, pv.y, ww, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(n.x + ux * 3 * s, n.y + uy * 3 * s, cw * 0.98, 0, TAU); ctx.fill();
+    // the hips are part of the trousers, so the waist never shows a sliver of skin
+    ctx.fillStyle = pants && L.pantsKind !== 'robe' ? pants : body;
+    const hipW = ww * (B.curvy ? B.hip || 1 : 1);
+    ctx.beginPath(); ctx.arc(pv.x, pv.y, hipW * 1.04, 0, TAU); ctx.fill();
+    if (pants && L.pantsKind !== 'robe') { ctx.beginPath(); ctx.moveTo(pv.x + nx * hipW * 1.04, pv.y + ny * hipW * 1.04); ctx.lineTo(pv.x - ux * 6 * s + nx * prof(0.88), pv.y - uy * 6 * s + ny * prof(0.88)); ctx.lineTo(pv.x - ux * 6 * s - nx * prof(0.88), pv.y - uy * 6 * s - ny * prof(0.88)); ctx.lineTo(pv.x - nx * hipW * 1.04, pv.y - ny * hipW * 1.04); ctx.fill(); }
     if (!top) return;
     const kind = L.topKind || 'tank';
     ctx.fillStyle = top;
     if (kind === 'vest') {
-      // open down the middle: two panels, the chest shows between them
-      for (const sd of [1, -1]) {
-        ctx.beginPath();
-        ctx.moveTo(n.x + nx * cw * sd, n.y + ny * cw * sd);
-        ctx.lineTo(pv.x + nx * ww * sd, pv.y + ny * ww * sd);
-        ctx.lineTo(pv.x + nx * ww * sd * 0.25, pv.y + ny * ww * sd * 0.25);
-        ctx.lineTo(n.x + nx * cw * sd * 0.35 + ux * 10 * s, n.y + ny * cw * sd * 0.35 + uy * 10 * s);
-        ctx.closePath(); ctx.fill();
-      }
+      // an open vest: the whole back and sides, with the chest showing down the front
+      shape(1, 1, 0, 1.04); ctx.fill();
+      ctx.beginPath(); ctx.arc(n.x + ux * 3 * s, n.y + uy * 3 * s, cw * 0.98, 0, TAU); ctx.fill();
+      const fx = -f;   // the side the fighter faces, along the torso's normal
+      ctx.fillStyle = body;
+      ctx.beginPath();
+      ctx.moveTo(n.x + nx * cw * 0.15 * fx + ux * 4 * s, n.y + ny * cw * 0.15 * fx + uy * 4 * s);
+      ctx.lineTo(n.x + nx * cw * 1.02 * fx, n.y + ny * cw * 1.02 * fx);
+      ctx.lineTo(pv.x + nx * ww * 1.02 * fx - ux * 4 * s, pv.y + ny * ww * 1.02 * fx - uy * 4 * s);
+      ctx.lineTo(pv.x + nx * ww * 0.45 * fx - ux * 4 * s, pv.y + ny * ww * 0.45 * fx - uy * 4 * s);
+      ctx.closePath(); ctx.fill();
+      if (trim) { ctx.strokeStyle = trim; ctx.lineWidth = 2.4 * s; ctx.beginPath(); ctx.moveTo(n.x + nx * cw * 0.15 * fx + ux * 4 * s, n.y + ny * cw * 0.15 * fx + uy * 4 * s); ctx.lineTo(pv.x + nx * ww * 0.45 * fx - ux * 4 * s, pv.y + ny * ww * 0.45 * fx - uy * 4 * s); ctx.stroke(); }
     } else {
       shape(1, 1, kind === 'tank' ? 0.12 : 0, 1.04); ctx.fill();
       if (kind !== 'tank') { ctx.beginPath(); ctx.arc(n.x + ux * 3 * s, n.y + uy * 3 * s, cw * 0.98, 0, TAU); ctx.fill(); }
@@ -879,6 +897,12 @@ class Rag {
         ctx.beginPath(); ctx.ellipse(n.x - f * 6 * s, n.y - 1 * s, 10 * s, 7 * s, 0, 0, TAU); ctx.fill();
         if (trim) { ctx.strokeStyle = trim; ctx.lineWidth = 2.6 * s; ctx.beginPath(); ctx.moveTo(n.x + ux * 4 * s, n.y + uy * 4 * s); ctx.lineTo(pv.x - ux * 2 * s, pv.y - uy * 2 * s); ctx.stroke(); }
       }
+    }
+    if (B.bust) {
+      // a gentle chest curve on the side she faces
+      const fx = -f, u = 0.24, x = n.x + dx * u + nx * cw * 0.78 * fx, y = n.y + dy * u + ny * cw * 0.78 * fx;
+      ctx.fillStyle = top || body;
+      ctx.beginPath(); ctx.ellipse(x, y, 5.2 * s, 6.2 * s, Math.atan2(uy, ux), 0, TAU); ctx.fill();
     }
     if (L.stripes) {
       ctx.strokeStyle = mono || '#e9f0b0'; ctx.lineWidth = 3.4 * s; ctx.lineCap = 'butt';
@@ -903,41 +927,84 @@ class Rag {
     ctx.quadraticCurveTo(x0, lerp(pv.y, lo, 0.5), pv.x - 11 * s, pv.y - 4 * s); ctx.fill();
   }
 
-  // hair shapes on the head (long hair and ponytails are cloth chains)
+  // Hair and head pieces all grow out of one scalp cap that hugs the head's
+  // own outline, so spikes, crests, knots and horns are always rooted in it.
+  scalpPt(hd, a, out = 0) {
+    // a point on the head outline (a rounded square) in facing space:
+    // a = 0 straight ahead, -PI/2 straight up, -PI straight back
+    const hr = HEAD_R * this.s, c = Math.cos(a), sn = Math.sin(a);
+    const r = hr / Math.pow(Math.pow(Math.abs(c), 4) + Math.pow(Math.abs(sn) / 1.05, 4), 0.25) * 0.97 + out;
+    return [hd.x + this.facing * c * r, hd.y + sn * r];
+  }
   drawHair(ctx, hd, col, mono) {
     const L = this.def.look, kind = L.hair;
-    if (!kind) return;
-    const s = this.s, f = this.facing, hr = HEAD_R * s;
+    if (!kind && !L.horns) return;
+    const s = this.s, f = this.facing, hr = HEAD_R * s, e = 1.6 * s;
+    const P = (a, out) => this.scalpPt(hd, a, out);
+    // the cap: the head outline grown a little, kept above a hairline that runs
+    // from the forehead (front) to behind the ear (back)
+    const cap = (front, back) => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(hd.x + f * (hr + 12 * s), hd.y + hr * front);
+      ctx.lineTo(hd.x - f * (hr + 12 * s), hd.y + hr * back);
+      ctx.lineTo(hd.x - f * (hr + 12 * s), hd.y - hr * 3); ctx.lineTo(hd.x + f * (hr + 12 * s), hd.y - hr * 3);
+      ctx.closePath(); ctx.clip();
+      ctx.beginPath(); ctx.roundRect(hd.x - hr - e, hd.y - hr * 1.05 - e, hr * 2 + e * 2, hr * 2.1 + e * 2, hr * 0.8 + e); ctx.fill();
+      ctx.restore();
+    };
+    // a spike rooted inside the cap: base across [a - w, a + w], tip out along a (+ sweep back)
+    const spike = (a, w, len, sweep = -0.25) => {
+      const b0 = P(a - w, -2 * s), b1 = P(a + w, -2 * s), t = P(a + sweep, len);
+      ctx.beginPath(); ctx.moveTo(b0[0], b0[1]); ctx.quadraticCurveTo(lerp(b0[0], t[0], 0.6), lerp(b0[1], t[1], 0.4), t[0], t[1]);
+      ctx.quadraticCurveTo(lerp(b1[0], t[0], 0.4), lerp(b1[1], t[1], 0.6), b1[0], b1[1]); ctx.closePath(); ctx.fill();
+    };
     ctx.fillStyle = col;
-    const top = hd.y - hr * 1.02;
     if (kind === 'tuft') {
-      ctx.beginPath(); ctx.moveTo(hd.x - f * hr * 1.05, hd.y - hr * 0.2);
-      ctx.quadraticCurveTo(hd.x - f * hr * 1.1, top - 4 * s, hd.x + f * hr * 0.2, top - 3 * s);
-      ctx.quadraticCurveTo(hd.x + f * hr * 1.1, top - 6 * s, hd.x + f * hr * 1.15, top + 6 * s);
-      ctx.quadraticCurveTo(hd.x + f * hr * 0.4, top + 3 * s, hd.x - f * hr * 0.3, hd.y - hr * 0.45); ctx.closePath(); ctx.fill();
+      cap(-0.42, 0.15);
+      spike(-1.2, 0.35, 5 * s, -0.5); spike(-2.0, 0.4, 7 * s, -0.55); spike(-2.6, 0.35, 6 * s, -0.4);
     } else if (kind === 'spikes') {
-      ctx.beginPath(); ctx.moveTo(hd.x - f * hr * 1.05, hd.y - hr * 0.1);
-      const tips = [[-1.25, -0.6], [-0.75, -1.45], [-0.15, -1.62], [0.45, -1.48], [1.0, -1.05]];
-      let px = -1.0, py = -0.75;
-      for (const [tx, ty] of tips) { ctx.lineTo(hd.x + f * hr * tx, hd.y + hr * ty); px += 0.5; ctx.lineTo(hd.x + f * hr * (tx + 0.3), hd.y + hr * (ty + 0.55)); }
-      ctx.lineTo(hd.x + f * hr * 1.05, hd.y - hr * 0.4); ctx.lineTo(hd.x - f * hr * 0.5, hd.y - hr * 0.5); ctx.closePath(); ctx.fill();
-    } else if (kind === 'topknot' || kind === 'buns') {
-      ctx.beginPath(); ctx.ellipse(hd.x, hd.y - hr * 0.55, hr * 1.04, hr * 0.62, 0, Math.PI, 0); ctx.fill();
-      const knots = kind === 'buns' ? [[-0.75, -1.05], [0.65, -1.15]] : [[-0.25, -1.35]];
-      for (const [kx, ky] of knots) { ctx.beginPath(); ctx.arc(hd.x + f * hr * kx, hd.y + hr * ky, hr * (kind === 'buns' ? 0.45 : 0.42), 0, TAU); ctx.fill(); }
-      if (kind === 'topknot' && !mono) { ctx.fillStyle = this.accent(); ctx.fillRect(hd.x - f * hr * 0.25 - 2 * s, hd.y - hr * 1.02, 4 * s, 3 * s); }
+      cap(-0.5, 0.2);
+      [[-0.75, 9], [-1.2, 12], [-1.65, 13], [-2.1, 12], [-2.55, 10], [-2.95, 7]].forEach(([a, l]) => spike(a, 0.26, l * s, -0.3));
     } else if (kind === 'mohawk') {
-      ctx.beginPath(); ctx.moveTo(hd.x - f * hr * 0.9, hd.y - hr * 0.5);
-      ctx.quadraticCurveTo(hd.x - f * hr * 0.6, top - hr * 0.9, hd.x + f * hr * 0.75, top - hr * 0.35);
-      ctx.lineTo(hd.x + f * hr * 0.4, top + 4 * s); ctx.quadraticCurveTo(hd.x - f * hr * 0.2, top + 2 * s, hd.x - f * hr * 0.9, hd.y - hr * 0.5); ctx.fill();
-    } else if (kind === 'buzz' || kind === 'long' || kind === 'ponytail' || kind === 'part') {
-      ctx.beginPath(); ctx.ellipse(hd.x - f * hr * 0.08, hd.y - hr * 0.42, hr * 1.06, hr * 0.72, 0, Math.PI, 0); ctx.fill();
-      if (kind !== 'buzz') { ctx.beginPath(); ctx.ellipse(hd.x - f * hr * 0.55, hd.y - hr * 0.2, hr * 0.55, hr * 0.62, 0, 0, TAU); ctx.fill(); }
-      if (kind === 'part') { ctx.beginPath(); ctx.moveTo(hd.x - f * hr * 0.2, top); ctx.quadraticCurveTo(hd.x + f * hr * 1.0, top - 2 * s, hd.x + f * hr * 1.08, hd.y - hr * 0.05); ctx.lineTo(hd.x + f * hr * 0.55, hd.y - hr * 0.5); ctx.closePath(); ctx.fill(); }
+      // shaved sides (a short shadow), with a crest running front to back
+      ctx.globalAlpha *= 0.55; cap(-0.4, 0.25); ctx.globalAlpha /= 0.55;
+      [[-1.1, 7], [-1.45, 10], [-1.8, 12], [-2.15, 12], [-2.5, 10], [-2.85, 7]].forEach(([a, l]) => spike(a, 0.2, l * s * (L.horns ? 0.55 : 1), -0.35));
+    } else if (kind === 'topknot' || kind === 'buns') {
+      cap(-0.5, 0.25);
+      const knots = kind === 'buns' ? [[-1.05, 0.5], [-2.25, 0.5]] : [[-1.85, 0.46]];
+      for (const [a, k] of knots) { const [x, y] = P(a, hr * k * 0.55); ctx.beginPath(); ctx.arc(x, y, hr * k, 0, TAU); ctx.fill(); }
+      if (kind === 'buns') {
+        // soft bangs over the brow
+        const a0 = P(-0.15, 0), a1 = P(-1.25, 0);
+        ctx.beginPath(); ctx.moveTo(a1[0], a1[1]); ctx.quadraticCurveTo(hd.x + f * hr * 0.9, hd.y - hr * 0.95, a0[0], a0[1] - hr * 0.1);
+        ctx.quadraticCurveTo(hd.x + f * hr * 0.55, hd.y - hr * 0.45, hd.x + f * hr * 0.1, hd.y - hr * 0.55); ctx.closePath(); ctx.fill();
+      }
+      if (kind === 'topknot' && !mono) { const [x, y] = P(-1.85, 1 * s); ctx.fillStyle = this.accent(); ctx.beginPath(); ctx.arc(x, y, 2.4 * s, 0, TAU); ctx.fill(); }
+    } else if (kind === 'long') {
+      cap(-0.45, 0.65);
+      // the fall of hair behind the head, joined to the cap, down to the shoulders
+      const t0 = P(-2.4, 0), t1 = P(-3.05, 0);
+      ctx.beginPath(); ctx.moveTo(t0[0], t0[1]); ctx.lineTo(t1[0], t1[1]);
+      ctx.quadraticCurveTo(hd.x - f * (hr + 4 * s), hd.y + hr * 1.0, hd.x - f * hr * 0.75, hd.y + hr * 1.45);
+      ctx.lineTo(hd.x - f * hr * 0.05, hd.y + hr * 0.8);
+      ctx.quadraticCurveTo(hd.x - f * hr * 0.2, hd.y - hr * 0.2, t0[0], t0[1]); ctx.fill();
+      // a swept fringe
+      spike(-0.75, 0.38, 4 * s, 0.35);
+    } else if (kind === 'buzz' || kind === 'ponytail' || kind === 'part') {
+      cap(kind === 'buzz' ? -0.55 : -0.42, kind === 'buzz' ? 0.3 : 0.45);
+      if (kind === 'part') spike(-0.85, 0.42, 4 * s, 0.4);
+      if (kind === 'ponytail') { const [x, y] = P(-2.55, 0); ctx.beginPath(); ctx.arc(x, y, 3.6 * s, 0, TAU); ctx.fill(); }
     }
     if (L.horns) {
-      ctx.fillStyle = mono || '#2c2622';
-      for (const sd of [-0.55, 0.55]) { ctx.beginPath(); ctx.moveTo(hd.x + hr * sd - 4 * s, top + 4 * s); ctx.quadraticCurveTo(hd.x + hr * sd * 1.6, top - 10 * s, hd.x + hr * sd * 1.25 + f * 4 * s, top - 18 * s); ctx.lineTo(hd.x + hr * sd + 4 * s, top + 3 * s); ctx.fill(); }
+      // two curved horns, each rooted in the scalp
+      ctx.fillStyle = mono || '#d9cbb2';
+      for (const a of [-1.05, -2.15]) {
+        const b0 = P(a - 0.3, -4 * s), b1 = P(a + 0.3, -4 * s), t = P(a + (a > -1.6 ? 0.25 : -0.25), 18 * s);
+        const c = P(a + (a > -1.6 ? -0.2 : 0.2), 14 * s);
+        ctx.beginPath(); ctx.moveTo(b0[0], b0[1]); ctx.quadraticCurveTo(c[0], c[1], t[0], t[1]);
+        ctx.quadraticCurveTo(lerp(b1[0], c[0], 0.6), lerp(b1[1], c[1], 0.6), b1[0], b1[1]); ctx.closePath(); ctx.fill();
+      }
     }
   }
 
@@ -952,9 +1019,18 @@ class Rag {
       ctx.beginPath(); ctx.roundRect(hd.x - hr * 0.9 + f * hr * 0.15, hd.y - hr * 0.42, hr * 1.9, hr * 0.62, hr * 0.3); ctx.fill();
       if (!mono) { ctx.fillStyle = acc; ctx.fillRect(hd.x + f * hr * 0.15 - (f > 0 ? 0 : hr * 0.75), hd.y - hr * 0.18, hr * 0.75, 2.4 * s); }
     } else if (L.face === 'goggles') {
-      ctx.fillStyle = mono || '#2c2c34';
-      ctx.fillRect(hd.x - hr * 1.02, hd.y - hr * 0.78, hr * 2.04, 4 * s);
-      for (const sd of [0.1, 0.62]) { ctx.fillStyle = mono || '#2c2c34'; ctx.beginPath(); ctx.arc(hd.x + f * hr * sd, hd.y - hr * 0.72, 5.2 * s, 0, TAU); ctx.fill(); if (!mono) { ctx.fillStyle = '#ffd27a'; ctx.beginPath(); ctx.arc(hd.x + f * hr * sd, hd.y - hr * 0.72, 3 * s, 0, TAU); ctx.fill(); } }
+      // a strap that wraps the head (clipped to a band of the head outline),
+      // with the lenses pushed up on the forehead
+      const e = 1.8 * s, dark = mono || '#2c2c34';
+      ctx.save();
+      ctx.beginPath(); ctx.rect(hd.x - hr * 2, hd.y - hr * 0.86, hr * 4, hr * 0.32); ctx.clip();
+      ctx.fillStyle = dark; ctx.beginPath(); ctx.roundRect(hd.x - hr - e, hd.y - hr * 1.05 - e, hr * 2 + e * 2, hr * 2.1 + e * 2, hr * 0.8 + e); ctx.fill();
+      ctx.restore();
+      for (const a of [-0.5, -0.95]) {
+        const [x, y] = this.scalpPt(hd, a, 1.5 * s);
+        ctx.fillStyle = dark; ctx.beginPath(); ctx.arc(x, y, 5 * s, 0, TAU); ctx.fill();
+        if (!mono) { ctx.fillStyle = '#ffd27a'; ctx.beginPath(); ctx.arc(x, y, 3 * s, 0, TAU); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.arc(x - 1 * s, y - 1 * s, 1 * s, 0, TAU); ctx.fill(); }
+      }
     }
   }
 
@@ -973,15 +1049,25 @@ class Rag {
       ctx.quadraticCurveTo(hd.x - f * (hr + 10 * s), hd.y - hr * 0.5 + wave, hd.x - f * (hr + 18 * s), hd.y - hr * 0.1 + wave);
       ctx.stroke();
     } else if (gear === 'hood') {
+      // a cowl: wraps the back and top of the head and drapes onto the shoulders,
+      // open at the front so the face shows, with a trim in the fighter's colour
       const hc = this.def.look.hoodC;
-      ctx.fillStyle = mono || (this.stopT > 0 ? '#86868e' : hc ? (this.alt ? mixHex(hc, '#000000', 0.2) : hc) : '#d6cab4');
+      const col = mono || (this.stopT > 0 ? '#86868e' : hc ? (this.alt ? mixHex(hc, '#000000', 0.2) : hc) : '#d6cab4');
+      const n = this.pts[P.NECK];
+      ctx.fillStyle = col;
       ctx.beginPath();
-      ctx.moveTo(hd.x - hr - 3 * s, hd.y + hr * 0.4);
-      ctx.quadraticCurveTo(hd.x - hr * 0.4, hd.y - hr * 1.8, hd.x - f * hr * 0.9, hd.y - hr * 2.4);
-      ctx.quadraticCurveTo(hd.x + hr * 0.6, hd.y - hr * 1.2, hd.x + hr + 3 * s, hd.y + hr * 0.4);
-      ctx.closePath(); ctx.fill();
-      ctx.fillStyle = acc;
-      ctx.fillRect(hd.x - hr - 1 * s, hd.y - hr * 0.1, hr * 2 + 2 * s, 3.5 * s);
+      ctx.moveTo(hd.x + f * hr * 0.55, hd.y - hr * 1.28);
+      ctx.quadraticCurveTo(hd.x - f * hr * 0.6, hd.y - hr * 1.62, hd.x - f * hr * 1.32, hd.y - hr * 0.55);
+      ctx.quadraticCurveTo(hd.x - f * hr * 1.55, hd.y + hr * 0.5, n.x - f * 15 * s, n.y + 6 * s);
+      ctx.lineTo(n.x + f * 12 * s, n.y + 6 * s);
+      ctx.quadraticCurveTo(hd.x + f * hr * 1.0, hd.y + hr * 1.0, hd.x + f * hr * 1.22, hd.y - hr * 0.2);
+      ctx.quadraticCurveTo(hd.x + f * hr * 1.25, hd.y - hr * 0.95, hd.x + f * hr * 0.55, hd.y - hr * 1.28);
+      ctx.fill();
+      // the face opening
+      ctx.fillStyle = mono || (this.stopT > 0 ? '#a3a3ab' : this.alt ? '#e4ddcf' : '#f7f2e7');
+      ctx.beginPath(); ctx.ellipse(hd.x + f * hr * 0.42, hd.y + hr * 0.08, hr * 0.68, hr * 0.82, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = acc; ctx.lineWidth = 2.6 * s;
+      ctx.beginPath(); ctx.ellipse(hd.x + f * hr * 0.42, hd.y + hr * 0.08, hr * 0.74, hr * 0.88, 0, f > 0 ? -2.4 : -0.74, f > 0 ? 0.74 : 2.4, f < 0); ctx.stroke();
     } else if (gear === 'helmet' || gear === 'crest') {
       ctx.fillStyle = plate;
       ctx.beginPath(); ctx.roundRect(hd.x - hr - 2 * s, hd.y - hr * 1.15, hr * 2 + 4 * s, hr * 1.15, [hr * 0.9, hr * 0.9, 2 * s, 2 * s]); ctx.fill();

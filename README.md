@@ -42,7 +42,7 @@ The campaign follows Element Rag's stage map: 8 chapters of 6 levels, one per st
   - Iron Will (+50% foe health);
   - Frenzy (faster);
   - Glass Cannon (everyone hits twice as hard);
-  - Beat the Clock (win in 40 s).
+  - Beat the Clock (win in 75 s).
 - **Coins** come from:
   - first clears and new stars;
   - finishers and Black Sparks;
@@ -88,6 +88,10 @@ The skill bar at the bottom of the screen always shows these: mouse icons for li
 ## Fighters
 
 **Bodies and looks.** Every fighter is still Element Rag's cream, faceless mannequin, but each is dressed so no two read alike: their own hair (tuft, ponytail, buns, topknot, mohawk, long hair), clothes (gi pants and belt, robe, hakama, jacket, vest, hoodie, boxing trunks) and details (masks, a visor, goggles, horns, prayer beads, gloves, wraps, boots). Scarves, capes, hair and coat tails are small physics chains that swing with every move. Everything is generic martial-arts and street wear built from simple shapes. No anime character's design is copied.
+
+**Hair and headwear** all grow out of one scalp cap that follows the head's outline, so spikes, crests, buns, horns, hoods and goggle straps stay attached to the head from every angle. Hoods are proper cowls open at the face. **Mugi** has a lighter, feminine build: a narrower waist, wider hips, slimmer limbs and a soft chest line, with buns and bangs.
+
+**Health.** Every fighter has 2.4 times the health of earlier builds, and in levels and Survival you get another 30% on top, so a fight lasts several combos instead of one. Timers were lengthened to match (wave refills to 80 s, Beat the Clock is 75 s).
 
 **Stances and motion.** Each fighter has a stance that suits them: karate, ninja, boxer, kung fu, swordsman, brawler, monk, soldier and more. Stances breathe, shift weight, and bounce on the balls of the feet (boxers). Walking is a fighting-game shuffle with planted feet that don't slide, a forward lean going in, and a tight guard going back. A hit reacts to where it lands: a head hit snaps the head back, a body hit doubles them over, a low hit buckles the knees. Knees and elbows only bend one way, even when limp. A knocked-down fighter pushes up off one knee to stand.
 
@@ -166,6 +170,9 @@ Eight stages, built like Element Rag's backdrops. Each has far, mid and near lay
 - The whole interface is laid out for 1280x720 and scaled to the window, so it looks the same on a phone, a tablet, a laptop or a 4K monitor. Phones get a little extra size so text stays readable.
 - **Touch controls** are sized in real pixels for thumbs, not scaled with the UI. The right-hand cluster is two neat rows (LIGHT, HEAVY and JUMP on the bottom; SP 2, SP 1 and SUPER above), with labels inside the buttons so nothing overlaps or runs off the screen. On touch screens the camera keeps the fighters above your thumbs.
 - On short screens the guide shrinks to a compact card, the level map shows all six levels in one row, and the fighter select shows all 16 fighters and the FIGHT button without scrolling.
+
+- While a panel is open (pause, results, the versus card), the fight HUD and touch buttons step aside so nothing pokes out around it. In a fight, toasts sit low in the middle, and the level chip, guide and tips each have their own row.
+- On the home screen, the background fight is framed in the part of the screen the menu doesn't cover.
 
 **Less friction:**
 - Any button during a round intro skips straight to FIGHT!.

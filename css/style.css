@@ -389,13 +389,13 @@ kbd { display: inline-block; font-family: var(--font); font-weight: 800; font-si
 .timer b { font-weight: 900; font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; }
 .timer small { font-weight: 800; font-size: 10px; letter-spacing: 0.12em; color: var(--muted); }
 .timer.hurry b { color: #ff8a94; }
-.hud-chip { position: absolute; top: calc(92px + var(--safe-t)); left: 50%; transform: translateX(-50%); padding: 4px 12px; clip-path: var(--cut-s); background: var(--panel); font-weight: 800; font-size: 11px; letter-spacing: 0.1em; color: var(--muted); white-space: nowrap; }
+.hud-chip { position: absolute; top: calc(80px + var(--safe-t)); left: 50%; transform: translateX(-50%); padding: 4px 12px; clip-path: var(--cut-s); background: var(--panel); font-weight: 800; font-size: 11px; letter-spacing: 0.1em; color: var(--muted); white-space: nowrap; }
 .hud-right { position: absolute; top: calc(10px + var(--safe-t)); right: calc(12px + var(--safe-r)); display: flex; gap: 8px; }
 .hud-right .round { background: var(--panel); }
 
-.sm { --c: var(--acc); position: absolute; bottom: calc(14px + var(--safe-b)); display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; clip-path: var(--cut-m); background: var(--panel); min-width: 220px; }
+.sm { --c: var(--acc); position: absolute; bottom: calc(14px + var(--safe-b)); display: flex; align-items: center; gap: 10px; padding: 8px 16px 8px 16px; clip-path: var(--cut-m); background: var(--panel); min-width: 230px; }
 .sm.p1 { left: calc(14px + var(--safe-l)); }
-.sm.p2 { right: calc(14px + var(--safe-r)); flex-direction: row-reverse; padding: 6px 8px 6px 12px; }
+.sm.p2 { right: calc(14px + var(--safe-r)); flex-direction: row-reverse; padding: 8px 16px 8px 16px; }
 .sm > b { font-weight: 900; font-size: 12px; letter-spacing: 0.1em; width: 52px; }
 .sm.p2 > b { text-align: right; }
 .sm .trk { flex: 1; height: 12px; border-radius: 3px; background: var(--ink-4); overflow: hidden; }
@@ -432,7 +432,7 @@ body.vs2 .skillbar { display: none; }
 body.touch .tpad { display: block; }
 body.touch .skillbar { display: none; }
 body.touch kbd { display: none; }
-body.touch .sm { bottom: auto; top: calc(86px + var(--safe-t)); min-width: 0; width: min(30vw, 220px); padding: 4px 8px; }
+body.touch .sm { bottom: auto; top: calc(86px + var(--safe-t)); min-width: 0; width: min(32vw, 240px); padding: 7px 14px; }
 body.touch .sm > b { width: auto; font-size: 10px; }
 body.touch .combo-pop { top: calc(124px + var(--safe-t)); }
 .joy { position: absolute; left: 0; bottom: 0; width: 46%; height: 70%; pointer-events: auto; touch-action: none; }
@@ -580,9 +580,9 @@ body.touch { --ob: clamp(54px, 15vh, 76px); --om: clamp(74px, 21vh, 104px); --og
 .stage-card.zero { background: color-mix(in srgb, var(--c) 16%, var(--ink-2)); }
 .stage-card.zero .zero-ic { width: 18px; height: 18px; color: var(--c); }
 .stage-card .reward { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 5px; }
-.coach { position: absolute; left: 50%; top: 20%; transform: translateX(-50%); max-width: 92vw; }
+.coach { position: absolute; left: 50%; top: calc(132px + var(--safe-t)); transform: translateX(-50%); max-width: 92vw; }
 .coach p { padding: 10px 20px; clip-path: var(--cut-s); background: var(--panel); font-weight: 700; font-size: 13px; text-align: center; line-height: 1.5; }
-.tut { position: absolute; top: calc(104px + var(--safe-t)); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 22px 14px; clip-path: var(--cut-l); background: var(--panel); min-width: min(300px, 80vw); max-width: 92vw; pointer-events: none; transition: transform 0.2s, background 0.2s; }
+.tut { position: absolute; top: calc(110px + var(--safe-t)); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 22px 14px; clip-path: var(--cut-l); background: var(--panel); min-width: min(300px, 80vw); max-width: 92vw; pointer-events: none; transition: transform 0.2s, background 0.2s; }
 .tut.ok { background: rgba(20, 60, 40, 0.9); transform: translateX(-50%) scale(1.04); }
 .tut .tut-dots { align-self: flex-start; margin-top: 4px; }
 .tut-dots { display: flex; gap: 4px; }
@@ -700,7 +700,7 @@ body.touch .skill.mouse { display: none; }
 
 /* short phone screens: the guide becomes a compact card (keys on the left,
    label and hint on the right) so it never covers the fighters */
-body.short .tut { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'dots dots' 'vis label' 'vis hint'; align-items: center; column-gap: 14px; row-gap: 2px; padding: 8px 16px 10px; min-width: 0; top: calc(96px + var(--safe-t)); }
+body.short .tut { top: calc(110px + var(--safe-t)) !important; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'dots dots' 'vis label' 'vis hint'; align-items: center; column-gap: 14px; row-gap: 2px; padding: 8px 16px 10px; min-width: 0; }
 body.short .tut.hidden { display: none; }
 body.short .tut-dots { grid-area: dots; margin: 0 0 4px; }
 body.short .tut-vis { grid-area: vis; min-height: 0; }
@@ -713,3 +713,11 @@ body.short .tut-skip { top: 6px; }
 /* NEXT LEVEL fills up while it counts down to starting by itself */
 .btn.primary.auto { background: linear-gradient(90deg, var(--acc-hi) 50%, var(--acc) 50%); background-size: 200% 100%; background-position: 100% 0; animation: autoFill var(--auto, 5s) linear forwards; }
 @keyframes autoFill { to { background-position: 0 0; } }
+
+/* while a panel is open (pause, results, versus), the fight HUD steps aside
+   so nothing peeks out around or over it */
+body.modal-open #hud { visibility: hidden; }
+/* in a fight, toasts sit low in the middle, clear of the health bars, the
+   timer, the guide and tips */
+body.playing #toasts { top: auto; bottom: calc(96px + var(--safe-b)); }
+body.playing.touch #toasts { bottom: calc(18px + var(--safe-b)); }

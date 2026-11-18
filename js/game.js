@@ -19,7 +19,7 @@ const Game = (() => {
     hitstop: 0, slowK: 1, slowT: 0, shakeA: 0,
     flashC: null, impactQ: [], impactPos: { x: 800, y: 600 }, impactT: 0,
     cut: null, tintS: null, windS: null, callouts: [], focusS: null,
-    cam: { x: 800, y: 450, z: 1 },
+    cam: { x: 800, y: 450, z: 1 }, viewShift: 0, viewFrac: 1,
     round: 1, wins: [0, 0], timer: 99, stateT: 0, winner: -1, combo: [null, null],
     stats: null, stage: STAGES.dojo, stageId: 'dojo',
   };
@@ -59,8 +59,10 @@ const Game = (() => {
     G.fx.clear();
     G.hitstop = 0; G.slowK = 1; G.slowT = 0; G.cut = null; G.tintS = null; G.windS = null; G.impactQ.length = 0; G.focusS = null; G.flashC = null;
     const hp0 = c.hpStart || [1, 1];
+    // in levels and Survival the player gets a sturdier body than the CPU
+    const pBonus = c.mode === 'level' || c.mode === 'survival' ? 1.3 : 1;
     G.fighters = [
-      new Rag(BY_ID[c.p1], { side: 0, x: 560, facing: 1, hpMul: (c.hpMul || [1, 1])[0] }),
+      new Rag(BY_ID[c.p1], { side: 0, x: 560, facing: 1, hpMul: (c.hpMul || [1, 1])[0] * pBonus }),
       new Rag(BY_ID[c.p2], { side: 1, x: 1040, facing: -1, hpMul: (c.hpMul || [1, 1])[1] }),
     ];
     if (c.scale) G.fighters.forEach((f, i) => { f.s *= c.scale[i] || 1; });
@@ -1003,7 +1005,7 @@ const Game = (() => {
     G.projs.length = 0; G.beams.length = 0; G.fields.length = 0;
     G.combo = [null, null];
     G.hpShown[1] = f.hp;
-    G.timer = c.timeLimit ? G.timer : Math.max(G.timer, 60);
+    G.timer = c.timeLimit ? G.timer : Math.max(G.timer, 80);
     G.state = 'fight'; G.stateT = 0;
     G.callout('NEXT!', f.def.name, 'round', 0.9);
     G.focus(f.root.x, GROUND - 220, 1.22, 0.9);
@@ -1076,6 +1078,8 @@ const Game = (() => {
       const d = Math.abs(a.root.x - b.root.x);
       // frame both fighters with room either side; a launched body can pull it wider
       tz = clamp(W / (d + 560), 0.82, 1.12);
+      // behind the menu only part of the screen shows, so frame them in that part
+      if (G.mode === 'demo' && G.viewFrac < 1) tz = clamp(W * G.viewFrac / (d + 520), 0.6, 1.05);
       top = Math.min(a.head().y, b.head().y, a.pelvis.y - 60, b.pelvis.y - 60);
       if (top < 380) tz = Math.min(tz, 1.06);
       // the intro pans across the fighters
@@ -1099,6 +1103,7 @@ const Game = (() => {
     const half = Math.min(halfW, visW / 2);
     tx = clamp(tx, WALL_L - 40 + half, WALL_R + 40 - half);
     if (WALL_R + 40 - half < WALL_L - 40 + half) tx = 800;
+    if (G.mode === 'demo' && G.viewShift) tx -= G.viewShift * dpr / (kView * cam.z);
     cam.x = lerp(cam.x, tx, lerpK);
     // keep the floor near the bottom, but rise to follow a juggle into the air
     const visH = ch / (kView * cam.z);
@@ -1547,9 +1552,10 @@ const Game = (() => {
       const pop = c.t < 0.18 ? easeOutBack(c.t / 0.18) : 1;
       ctx.save();
       ctx.globalAlpha = a;
-      ctx.translate(cw / 2, ch * (c.style === 'round' ? 0.36 : 0.42));
+      const shift = G.mode === 'demo' ? (G.viewShift || 0) * dpr : 0, vis = G.mode === 'demo' ? G.viewFrac || 1 : 1;
+      ctx.translate(cw / 2 + shift, ch * (c.style === 'round' ? 0.36 : 0.42));
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      const base = Math.min(cw, ch * 1.7);
+      const base = Math.min(cw * vis, ch * 1.7);
       if (c.style === 'name') {
         // a name card that sweeps in, big and slanted
         const sz = base * 0.085;

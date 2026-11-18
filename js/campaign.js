@@ -28,7 +28,7 @@ const TWISTS = {
   tough: { name: 'IRON WILL', icon: 'shield', desc: 'Your opponent has 50% more health.' },
   frenzy: { name: 'FRENZY', icon: 'haste', desc: 'The whole fight runs faster.' },
   glass: { name: 'GLASS CANNON', icon: 'heart', desc: 'Everyone hits twice as hard.' },
-  clock: { name: 'BEAT THE CLOCK', icon: 'clock', desc: 'Win in 40 seconds, or you lose.' },
+  clock: { name: 'BEAT THE CLOCK', icon: 'clock', desc: 'Win in 75 seconds, or you lose.' },
 };
 const TWIST_CYCLE = ['giant', 'supers', 'lowgrav', 'tough', 'frenzy', 'glass', 'clock'];
 

@@ -27,6 +27,7 @@
     document.body.classList.toggle('short', h < 480);
     // on touch screens the fighters stand higher, clear of the thumbs
     Game.floorPad = touch ? 200 : 110;
+    if (UI.homeShift) requestAnimationFrame(UI.homeShift);
   };
   UI.fitUi = fitUi;
   fitUi();

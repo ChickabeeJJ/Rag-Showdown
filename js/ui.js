@@ -39,6 +39,7 @@ const UI = (() => {
     clearInterval(U.countTimer);
     sh.innerHTML = html;
     m.classList.remove('hidden');
+    document.body.classList.add('modal-open');
     hydrate(sh);
     Input.enable(false);
     return sh;
@@ -61,18 +62,31 @@ const UI = (() => {
   function closeSheet() {
     clearTimeout(U.autoT);
     $('modal').classList.add('hidden');
+    document.body.classList.remove('modal-open');
     $('sheet').innerHTML = '';
     clearInterval(U.countTimer);
     if (U.fightOn && !Game.paused) Input.enable(true);
   }
   U.modalOpen = () => !$('modal').classList.contains('hidden');
 
+  // the menu panel covers the left of the screen, so the background fight is
+  // framed in the part you can actually see
+  function homeShift() {
+    const panel = document.querySelector('#home .home-panel');
+    if (U.screen !== 'home' || !panel) { Game.viewShift = 0; Game.viewFrac = 1; return; }
+    const right = panel.getBoundingClientRect().right, w = window.innerWidth;
+    if (right >= w * 0.85) { Game.viewShift = 0; Game.viewFrac = 1; return; }
+    Game.viewShift = (right + w) / 2 - w / 2;
+    Game.viewFrac = (w - right) / w;
+  }
+  U.homeShift = homeShift;
   function show(name) {
     U.screen = name;
     for (const id of ['home', 'select', 'levels']) $(id).classList.toggle('hidden', id !== name);
     $('hud').classList.toggle('hidden', name !== null || !U.fightOn);
     document.body.classList.toggle('playing', name === null);
     if (name === 'home') renderHome();
+    requestAnimationFrame(homeShift);
     coinsUI();
     checkRotate();
   }
@@ -377,7 +391,7 @@ const UI = (() => {
     if (tw === 'tough') { hpMul[1] *= 1.5; cfg.waveHp *= 1.5; }
     if (tw === 'frenzy') cfg.speedMul = 1.2;
     if (tw === 'glass') cfg.dmgMul = 2;
-    if (tw === 'clock') { cfg.timeLimit = 40; cfg.loseOnTime = true; }
+    if (tw === 'clock') { cfg.timeLimit = 75; cfg.loseOnTime = true; }
     if (L.boss && !tut) { cfg.introPan = true; cfg.bossIntro = true; cfg.fastIntro = false; }
     U.run = { mode: 'level', L };
     beginFight(cfg, instant, U.fastNext);

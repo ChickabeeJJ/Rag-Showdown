@@ -157,6 +157,15 @@ function orbDraw(ctx, p, time) {
   for (let i = 0; i < 3; i++) { const a = time * 9 + i * 2.1; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 0.95, a, a + 1.2); ctx.stroke(); }
   ctx.globalCompositeOperation = 'source-over';
 }
+// a ki ball with a fading comet tail
+function kiDraw(ctx, p, time) {
+  if (p.trail) { p.trail.push([p.x, p.y]); if (p.trail.length > 9) p.trail.shift(); }
+  ctx.globalCompositeOperation = 'lighter';
+  if (p.trail) p.trail.forEach(([x, y], i) => { const k = (i + 1) / p.trail.length; ctx.globalAlpha = 0.35 * k; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(x, y, p.r * (0.3 + k * 0.55), 0, TAU); ctx.fill(); });
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+  orbDraw(ctx, p, time);
+}
 function crescentDraw(ctx, p, time) {
   const dir = Math.sign(p.vx) || 1, R = p.r * 1.7;
   ctx.save(); ctx.translate(p.x, p.y); ctx.scale(dir, 1);
@@ -204,19 +213,35 @@ function drawSphereAt(ctx, x, y, r, col, time) {
   for (let i = 0; i < 4; i++) { const a = time * 14 + i * 1.6; ctx.beginPath(); ctx.ellipse(x, y, r * 1.15, r * 0.5, a, 0, Math.PI * 1.3); ctx.stroke(); }
   ctx.globalCompositeOperation = 'source-over';
 }
-// a stretched rubber arm from shoulder to a fist far away
-function drawRubberArm(ctx, f, fx, fy) {
+// a stretched rubber arm from shoulder to a fist far away. `wob` makes the
+// arm ripple like a plucked rubber band (it settles as the arm goes taut)
+function drawRubberArm(ctx, f, fx, fy, wob = 0, time = 0, fist = 1) {
   const n = f.pts[P.NECK], s = f.s, body = f.alt ? '#e4ddcf' : '#f7f2e7';
-  ctx.lineCap = 'round';
-  ctx.strokeStyle = body; ctx.lineWidth = 9.5 * s;
-  ctx.beginPath(); ctx.moveTo(n.x, n.y + 4 * s); ctx.quadraticCurveTo((n.x + fx) / 2, (n.y + fy) / 2 - 10 * s, fx, fy); ctx.stroke();
-  ctx.fillStyle = body;
-  ctx.beginPath(); ctx.arc(fx, fy, 10 * s, 0, TAU); ctx.fill();
-  ctx.strokeStyle = f.accent(); ctx.lineWidth = 11.5 * s;
-  const dx = fx - n.x, dy = fy - n.y, l = Math.hypot(dx, dy) || 1;
-  ctx.beginPath(); ctx.moveTo(fx - dx / l * 26 * s, fy - dy / l * 26 * s); ctx.lineTo(fx - dx / l * 12 * s, fy - dy / l * 12 * s); ctx.stroke();
-  ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 2;
+  const sx = n.x, sy = n.y + 4 * s;
+  const dx = fx - sx, dy = fy - sy, l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l, nx = -uy, ny = ux;
+  const N = 18, pts = [];
+  for (let i = 0; i <= N; i++) {
+    const u = i / N, env = Math.sin(u * Math.PI);
+    const w = wob * env * Math.sin(u * 9 - time * 38);
+    const sag = -10 * s * env;   // a slight arc, like an arm thrown forward
+    pts.push([sx + dx * u + nx * w, sy + dy * u + ny * w + sag]);
   }
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  // taper: thick at the shoulder, thinner toward the wrist
+  for (let i = 0; i < N; i++) {
+    ctx.strokeStyle = body; ctx.lineWidth = lerp(10.5, 7.5, i / N) * s;
+    ctx.beginPath(); ctx.moveTo(pts[i][0], pts[i][1]); ctx.lineTo(pts[i + 1][0], pts[i + 1][1]); ctx.stroke();
+  }
+  // the wrist band, then a big rubbery fist with a knuckle line
+  const [wx, wy] = pts[N - 2];
+  ctx.strokeStyle = f.accent(); ctx.lineWidth = 11 * s; ctx.lineCap = 'butt';
+  ctx.beginPath(); ctx.moveTo(wx, wy); ctx.lineTo(lerp(wx, fx, 0.6), lerp(wy, fy, 0.6)); ctx.stroke(); ctx.lineCap = 'round';
+  const r = 10.5 * s * fist;
+  ctx.fillStyle = body;
+  ctx.beginPath(); ctx.ellipse(fx, fy, r * 1.12, r, Math.atan2(uy, ux), 0, TAU); ctx.fill();
+  ctx.strokeStyle = 'rgba(120,96,70,0.45)'; ctx.lineWidth = 2 * s;
+  ctx.beginPath(); ctx.arc(fx, fy, r * 0.7, Math.atan2(uy, ux) - 1, Math.atan2(uy, ux) + 1); ctx.stroke();
+}
 
 /* =================================================================== ROSTER */
 const ROSTER = [];
@@ -237,14 +262,35 @@ fighter({
   look: { gear: 'headband', cape: true, surge: { accent: '#ffd84d' } },
   ai: { style: 'balanced', range: 260 },
   moves: {
-    sp1: { name: 'Ki Blast', icon: 'orb', kind: 'special', w: 0.15, a: 0.05, r: 0.28, pose: 'cast', cd: 1.4, air: true, ai: { range: [220, 1400], zone: true },
+    // Ki Blast: cup both hands at the hip and gather a ball of ki, then thrust
+    // both palms out. The shot kicks him back a step, and it flies with a trail.
+    sp1: { name: 'Ki Blast', icon: 'orb', kind: 'special', w: 0.17, a: 0.05, r: 0.27, cd: 1.4, air: true, ai: { range: [220, 1400], zone: true },
+      poseFn: phasePose({}, { fh: [-20, 42], bh: [-24, 46], crouch: 18, lean: -9, ff: [32, 0], bf: [-40, 0] },
+        { fh: [54, 0], bh: [50, 8], lean: 15, crouch: 12, ff: [38, 0], bf: [-42, 0] }, { fh: [42, 6], bh: [36, 12], lean: 5, crouch: 10 }),
       tick: (G, f, act) => {
+        const { ph } = phaseOf(act);
+        const h = hand(f), b = hand(f, true), cx = (h.x + b.x) / 2, cy = (h.y + b.y) / 2;
+        if (ph === 0 && Math.random() < 0.7) {
+          // motes of ki rush in toward the cupped hands
+          const a = rand(0, TAU), d = rand(50, 110) * f.s / 2;
+          G.fx.add({ x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d, vx: -Math.cos(a) * d * 5, vy: -Math.sin(a) * d * 5, life: 0.2, size: 4, color: '#bfefff' });
+        }
         if (act.t >= act.w && once(act, 'fired')) {
-          const h = hand(f);
-          G.proj({ owner: f, x: h.x + f.facing * 18, y: h.y, vx: f.facing * 980, vy: 0, r: 24, color: '#7fd4ff', life: 1.6, strength: 1, draw: orbDraw,
+          const m = f.local(68, -104);   // in front of the thrust palms, chest high
+          G.proj({ owner: f, x: m.x, y: m.y, vx: f.facing * 1000, vy: 0, r: 24, color: '#7fd4ff', life: 1.6, strength: 1, draw: kiDraw, trail: [],
             spec: { dmg: 62, kb: [320, -40], stun: 0.4, bstun: 0.22, hs: 0.07, chip: 0.2, sfx: 'blast', color: '#7fd4ff', kind: 'special', name: 'Ki Blast' } });
+          // muzzle flash and recoil
+          G.fx.ring(m.x, m.y, '#bfefff', 70, 0.22, 6);
+          G.fx.burst(m.x, m.y, '#7fd4ff', 10, 380);
+          if (f.root.grounded) f.root.vx = -f.facing * 320;
+          G.shake(3);
           Sfx.play('ki');
         }
+      },
+      draw: (G, ctx, f, act, time) => {
+        if (phaseOf(act).ph !== 0) return;
+        const h = hand(f), b = hand(f, true), u = act.t / act.w;
+        drawSphereAt(ctx, (h.x + b.x) / 2, (h.y + b.y) / 2, (5 + u * 13) * f.s / 2 * (1 + Math.sin(time * 60) * 0.06), '#7fd4ff', time);
       } },
     sp2: { name: 'Afterimage Rush', icon: 'blink', kind: 'special', w: 0.16, a: 0.12, r: 0.34, pose: 'slam', cd: 5, ai: { range: [0, 700] },
       start: (G, f, act) => { f.invuln = Math.max(f.invuln, 0.24); G.fx.add({ kind: 'smoke', x: f.root.x, y: f.root.y - 110 * f.s, size: 50, life: 0.4, color: '#ffffff', add: false }); Sfx.play('vanish'); f.alpha = 0.25; },
@@ -537,52 +583,95 @@ fighter({
 fighter({
   id: 'mugi', name: 'MUGI', title: 'RUBBER BRAWLER', color: '#ff4fa3', aura: '#ffffff',
   hp: 990, walk: 305, power: 1.02, stats: [4, 4, 5], price: 0, stage: 'dojo',
-  blurb: 'A rubber-bodied brawler who laughs through every fight. His fists stretch across the arena, and his awakening goes giant.',
+  blurb: 'A rubber-bodied brawler who laughs through every fight. Her fists stretch across the arena, and her awakening goes giant.',
   look: { gear: 'band', surge: { accent: '#ffffff' } },
   ai: { style: 'balanced', range: 300 },
   moves: {
     l1: { id: 'l1', name: 'Stretch Jab', kind: 'light', w: 0.06, a: 0.08, r: 0.14, pose: 'jab', box: [96, -112, 24], chain: 'l2', rubber: 90,
       hit: { dmg: 30, kb: [170, 0], stun: 0.3, bstun: 0.17, hs: 0.05, sfx: 'hitL', color: '#e8323f' } },
-    sp1: { name: 'Stretch Punch', icon: 'stretch', kind: 'special', w: 0.15, a: 0.16, r: 0.26, pose: 'punchH', cd: 2.2, air: true, ai: { range: [150, 640] },
+    // Stretch Punch: the arm winds back behind him like a slingshot, fires
+    // across the screen rippling like a rubber band, then snaps back home
+    sp1: { name: 'Stretch Punch', icon: 'stretch', kind: 'special', w: 0.2, a: 0.16, r: 0.26, cd: 2.2, air: true, ai: { range: [150, 640] },
+      poseFn: phasePose({}, { bh: [24, 10], lean: -16, crouch: 16, ff: [30, 0], bf: [-40, 0] },
+        { bh: [-18, 18], lean: 18, crouch: 12, ff: [40, 0], bf: [-42, 0] }, { lean: 4 }),
       start: (G, f) => Sfx.play('stretch'),
       tick: (G, f, act) => {
         const { ph, u } = phaseOf(act);
-        const reach = ph === 1 ? easeOut(Math.min(1, u * 2.2)) : ph === 2 ? 1 - easeInOut(u) : 0;
+        // forward reach of the fist (negative = wound back behind him)
+        let reach;
+        if (ph === 0) reach = -0.16 - 0.12 * easeOut(u);
+        else if (ph === 1) reach = lerp(-0.28, 1, easeOut(Math.min(1, u * 2.2)));
+        else reach = (1 - easeInOut(u)) + Math.sin(u * Math.PI * 3) * 0.08 * (1 - u);   // snaps back with a wobble
         act.ext = reach * 600 * f.s / 2;
-        f.hideArm = ph > 0 && act.ext > 10;
+        act.wob = ph === 0 ? 4 * f.s : ph === 1 ? (1 - Math.min(1, u * 2.2)) * 16 * f.s + 3 * f.s : 12 * f.s * (1 - u);
+        f.hideArm = Math.abs(act.ext) > 10;
         if (ph === 1 && !act.h1) {
           const n = f.pts[P.NECK];
           const fx = n.x + f.facing * act.ext, fy = n.y + 8;
+          if (Math.random() < 0.6) G.fx.add({ x: fx - f.facing * rand(20, 60), y: fy + rand(-14, 14), vx: -f.facing * 600, vy: 0, life: 0.12, size: 3, color: '#ffffff' });
           const o = G.opp(f);
           const res = o.hitTest(fx, fy, 22 * f.s);
-          if (res) { act.h1 = true; G.hit(f, o, { dmg: 66, kb: [560, -100], stun: 0.5, bstun: 0.24, hs: 0.09, chip: 0.2, color: '#ffcc66', kind: 'special', sfx: 'hitH', name: 'Stretch Punch', bf: true }, res.x, res.y, act); }
-        }
-      },
-      end: (G, f) => { f.hideArm = false; },
-      draw: (G, ctx, f, act) => { if (act.ext > 10) { const n = f.pts[P.NECK]; drawRubberArm(ctx, f, n.x + f.facing * act.ext, n.y + 8); } } },
-    sp2: { name: 'Rapid Barrage', icon: 'fist', kind: 'special', w: 0.12, a: 0.66, r: 0.3, cd: 4.5, ai: { range: [0, 380] },
-      poseFn: barragePose(16),
-      start: (G, f) => Sfx.play('stretch'),
-      tick: (G, f, act) => {
-        const { ph } = phaseOf(act);
-        if (ph === 1) {
-          act.tk = (act.tk || 0) + STEP;
-          if (act.tk >= 0.055) {
-            act.tk = 0; act.n = (act.n || 0) + 1;
-            const last = act.n >= 11;
-            const r = boxHit(G, f, act, [150, -104, 90], last
-              ? { dmg: 40, kb: [620, -520], stun: 0.9, launch: true, hs: 0.1, chip: 0.2, color: '#ffcc66', kind: 'special', sfx: 'hitH', name: 'Rapid Barrage' }
-              : { dmg: 8, kb: [60, 0], stun: 0.25, bstun: 0.12, hs: 0.012, chip: 0.2, color: '#ffcc66', kind: 'special', sfx: 'tap' });
-            if (last) act.n = -99;
+          if (res) {
+            act.h1 = true;
+            G.hit(f, o, { dmg: 66, kb: [560, -100], stun: 0.5, bstun: 0.24, hs: 0.09, chip: 0.2, color: '#ffcc66', kind: 'special', sfx: 'hitH', name: 'Stretch Punch', bf: true }, res.x, res.y, act);
+            G.fx.ring(res.x, res.y, '#ffd1e6', 90, 0.25, 8);
           }
         }
       },
+      end: (G, f) => { f.hideArm = false; },
       draw: (G, ctx, f, act, time) => {
-        if (phaseOf(act).ph !== 1) return;
+        if (Math.abs(act.ext || 0) <= 10) return;
         const n = f.pts[P.NECK];
-        for (let i = 0; i < 7; i++) {
-          const d = 60 + ((time * 13 + i * 0.37) % 1) * 180 * f.s / 2, y = n.y + Math.sin(i * 2.3 + time * 30) * 34;
-          ctx.globalAlpha = 0.55; drawRubberArm(ctx, f, n.x + f.facing * d, y); ctx.globalAlpha = 1;
+        drawRubberArm(ctx, f, n.x + f.facing * act.ext, n.y + 8 - (act.ext < 0 ? 6 : 0), act.wob || 0, time, act.ext > 0 ? 1.25 : 1);
+      } },
+    // Rapid Barrage: a blur of stretching fists, then one huge last punch
+    sp2: { name: 'Rapid Barrage', icon: 'fist', kind: 'special', w: 0.14, a: 0.72, r: 0.32, cd: 4.5, ai: { range: [0, 380] },
+      poseFn: (f, act, base) => {
+        const { ph, u } = phaseOf(act);
+        if (ph === 0) return Object.assign({}, base, { fh: [-6, 20], bh: [-14, 24], lean: -8, crouch: 16, ff: [32, 0], bf: [-40, 0] });
+        if (act.fin) return Object.assign({}, base, { fh: [56, 0], bh: [-20, 18], lean: 20, crouch: 14, ff: [42, 0], bf: [-44, 0] });
+        if (ph === 1) return Object.assign({}, base, { fh: [24, 8], bh: [20, 14], lean: 12 + Math.sin(act.t * 50) * 3, crouch: 14, ff: [36, 0], bf: [-40, 0] });
+        return Object.assign({}, base, { lean: 6 * (1 - u) });
+      },
+      start: (G, f) => Sfx.play('stretch'),
+      tick: (G, f, act) => {
+        const { ph } = phaseOf(act);
+        f.hideArm = ph === 1 && !act.fin;
+        if (ph === 1) {
+          f.shake = 1.5;
+          act.tk = (act.tk || 0) + STEP;
+          if (act.tk >= 0.055 && !act.fin) {
+            act.tk = 0; act.n = (act.n || 0) + 1;
+            const last = act.n >= 11;
+            const r = boxHit(G, f, act, [150, -104, 90], last
+              ? { dmg: 40, kb: [620, -520], stun: 0.9, launch: true, hs: 0.12, chip: 0.2, color: '#ffcc66', kind: 'special', sfx: 'hitH', name: 'Rapid Barrage' }
+              : { dmg: 8, kb: [60, 0], stun: 0.25, bstun: 0.12, hs: 0.012, chip: 0.2, color: '#ffcc66', kind: 'special', sfx: 'tap' });
+            if (r && !last) { const o = G.opp(f), c = o.chest(); G.fx.add({ kind: 'impact', x: c.x + rand(-20, 20), y: c.y + rand(-30, 30), size: 30, life: 0.08, color: '#ffffff', rot: rand(0, TAU) }); }
+            if (last) { act.fin = act.t; G.shake(8); }
+          }
+        }
+      },
+      end: (G, f) => { f.hideArm = false; },
+      draw: (G, ctx, f, act, time) => {
+        const { ph } = phaseOf(act);
+        const n = f.pts[P.NECK];
+        if (act.fin && act.t - act.fin < 0.2) {
+          // the finishing punch: one big fist fully stretched
+          const k = easeOut(clamp((act.t - act.fin) / 0.06, 0, 1)) * (1 - clamp((act.t - act.fin - 0.12) / 0.08, 0, 1));
+          drawRubberArm(ctx, f, n.x + f.facing * (40 + 170 * k) * f.s / 2, n.y + 6, 3 * f.s, time, 1.6);
+          return;
+        }
+        if (ph !== 1 || act.fin) return;
+        // a fan of fists going in and out: blurred arms, bright fists, speed streaks
+        for (let i = 0; i < 9; i++) {
+          const k = (time * 7 + i * 0.137) % 1, out = Math.sin(k * Math.PI);
+          const d = (40 + out * 150) * f.s / 2, y = n.y + 6 + (i - 4) * 9 * f.s / 2 + Math.sin(time * 31 + i) * 5;
+          const fx = n.x + f.facing * d;
+          ctx.globalAlpha = 0.35 + 0.5 * out;
+          drawRubberArm(ctx, f, fx, y, 0, time, 0.95);
+          ctx.globalAlpha = 0.6 * out; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(fx - f.facing * 14 * f.s, y); ctx.lineTo(fx - f.facing * 46 * f.s, y); ctx.stroke();
+          ctx.globalAlpha = 1;
         }
       } },
     super: { name: 'Titan Fist', icon: 'goldfist', kind: 'super', w: 0.95, a: 0.25, r: 0.55, ai: { range: [0, 900] },
@@ -1461,7 +1550,7 @@ const easeIn2 = t => t * t;
     aoi:      { stance: 'mystic', gear: 'hood', hoodC: '#3b2d62', top: '#3b2d62', topKind: 'robe', sleeve: 'long', wideSleeve: true, trim: 'acc', pants: '#2d2450', pantsKind: 'robe', extra: 'orbs' },
     homura:   { stance: 'sword', gear: 'none', hair: 'topknot', hairC: '#1f1b22', top: '#1e4a55', topKind: 'haori', sleeve: 'short', trim: 'acc', pants: '#23283a', pantsKind: 'hakama', belt: '#d8d0bf', beltTails: false, coat: '#1e4a55', cape: false },
     jin:      { stance: 'reaper', gear: 'hood', hoodC: '#1c1f3a', top: '#1c1f3a', topKind: 'jacket', sleeve: 'long', trim: 'acc', pants: NIGHT, boots: '#14162a', coat: '#1c1f3a', cape: false },
-    mugi:     { stance: 'loose', gear: 'none', hair: 'buns', hairC: '#3a2626', top: 'acc', topKind: 'tank', pants: '#35507a', pantsKind: 'shorts', boots: null },
+    mugi:     { stance: 'loose', gear: 'none', hair: 'buns', hairC: '#4a2a2e', top: 'acc', topKind: 'tank', trim: '#ffd1e6', pants: '#35507a', pantsKind: 'shorts', boots: '#f2e6ef', build: { chest: 0.88, waist: 0.72, hip: 1.24, arm: 0.82, leg: 0.9, curvy: true, bust: true } },
     kohei:    { stance: 'boxer', gear: 'none', hair: 'spikes', hairC: '#1d2a24', top: '#1d3b2c', topKind: 'tank', pants: 'acc', pantsKind: 'shorts', glove: 'acc', belt: '#f2f2f2', beltTails: false },
     taro:     { stance: 'monk', gear: 'none', hair: 'buzz', hairC: '#5c5f6b', top: '#4f5f80', topKind: 'robe', sleeve: 'short', trim: 'acc', sash: true, pants: '#3a4560', pantsKind: 'hakama', extra: 'beads', cape: false },
     saibo:    { stance: 'casual', gear: 'none', hair: 'part', hairC: '#26262e', face: 'visor', top: CHAR, topKind: 'jacket', sleeve: 'long', trim: 'acc', pants: CHAR, boots: '#1d1d24', cape: true },
