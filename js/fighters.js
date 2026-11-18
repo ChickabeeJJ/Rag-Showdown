@@ -1554,7 +1554,7 @@ const easeIn2 = t => t * t;
     kohei:    { stance: 'boxer', gear: 'none', hair: 'spikes', hairC: '#1d2a24', top: '#1d3b2c', topKind: 'tank', pants: 'acc', pantsKind: 'shorts', glove: 'acc', belt: '#f2f2f2', beltTails: false },
     taro:     { stance: 'monk', gear: 'none', hair: 'buzz', hairC: '#5c5f6b', top: '#4f5f80', topKind: 'robe', sleeve: 'short', trim: 'acc', sash: true, pants: '#3a4560', pantsKind: 'hakama', extra: 'beads', cape: false },
     saibo:    { stance: 'casual', gear: 'none', hair: 'part', hairC: '#26262e', face: 'visor', top: CHAR, topKind: 'jacket', sleeve: 'long', trim: 'acc', pants: CHAR, boots: '#1d1d24', cape: true },
-    ripper:   { stance: 'feral', gear: 'none', hair: 'mohawk', hairC: '#3a2c22', horns: true, top: '#2d2a28', topKind: 'vest', pants: '#2b2a30', boots: '#1d1c22', wraps: '#cfc6b4' },
+    ripper:   { stance: 'feral', gear: 'none', hair: 'spikes', hairC: '#3a2c22', horns: true, top: '#2d2a28', topKind: 'vest', pants: '#2b2a30', boots: '#1d1c22', wraps: '#cfc6b4' },
     monarch:  { stance: 'regal', gear: 'none', hair: 'long', hairC: '#c9cde0', top: '#241d40', topKind: 'jacket', sleeve: 'long', trim: 'acc', pants: '#1a1630', boots: '#120f22', extra: 'pauldron', coat: '#241d40', cape: true },
     titan:    { stance: 'giant', gear: 'none', hair: 'long', hairC: '#3e2d22', pants: EARTH, belt: '#6b4a2e', beltTails: false, wraps: '#d9cbb0', extra: 'pauldron', trim: '#7a6a58', cape: false, build: { chest: 1.3, waist: 1.15, arm: 1.2, leg: 1.15 } },
     kensei:   { stance: 'kungfu', gear: 'band', hair: 'part', hairC: '#262028', top: '#24302a', topKind: 'vest', pants: '#202428', belt: 'acc', wraps: true, cape: false },

@@ -291,6 +291,8 @@ const UI = (() => {
   }
 
   function cpu(lv) { return new CpuCtrl(lv); }
+  // campaign CPUs play about 15% softer than their listed level
+  const lvEase = (lv, minus = 0) => Math.max(1, Math.round(lv * 0.85) - minus);
   function human(side) { return new HumanCtrl(side); }
 
   function stageFor(def, i) { return i === 5 ? 'crater' : def.stage || pick(STAGE_IDS); }
@@ -382,7 +384,7 @@ const UI = (() => {
     const tut = L.tutorial && !Save.data.tutorialDone;
     const waves = L.waves.map((id, k) => (k === L.waves.length - 1 ? foe : id === me && !L.recruit ? Campaign.foeFor({ ...L, foe: id }, me) : id));
     const hpMul = [1, tut ? 1 : L.waveHp];
-    const cfg = { p1: me, p2: waves[0], waves, waveHp: L.waveHp, fastIntro: true, waveCtrl: k => cpu(Math.max(1, L.lv - (k < waves.length - 1 ? 1 : 0))), onWave: k => onWave(k), ctrls: [human(0), tut ? new DummyCtrl('stand') : cpu(Math.max(1, L.lv - (waves.length > 1 ? 1 : 0)))], stage: L.stage, mode: 'level', toWin: L.toWin,
+    const cfg = { p1: me, p2: waves[0], waves, waveHp: L.waveHp, fastIntro: true, waveCtrl: k => cpu(lvEase(L.lv - (k < waves.length - 1 ? 1 : 0))), onWave: k => onWave(k), ctrls: [human(0), tut ? new DummyCtrl('stand') : cpu(lvEase(L.lv - (waves.length > 1 ? 1 : 0)))], stage: L.stage, mode: 'level', toWin: L.toWin,
       chip: `LEVEL ${L.label} · ${CHAPTERS[L.c].name}${tw !== 'classic' ? ' · ' + TWISTS[tw].name : ''}`, roundSub: `LEVEL ${L.label}${tw !== 'classic' ? ' · ' + TWISTS[tw].name : ''}`,
       tutorial: tut, hpMul, onEnd: res => setTimeout(() => levelEnd(L, res), 900) };
     if (tw === 'giant') { cfg.scale = [1, 1.25]; hpMul[1] *= 1.25; cfg.waveHp *= 1.25; }
@@ -628,7 +630,7 @@ const UI = (() => {
     const r = U.run;
     const pool = ROSTER.filter(f => f.id !== r.p1).map(f => f.id);
     const oid = r.streak > 0 && r.streak % 5 === 4 ? (r.p1 === 'saibo' ? pick(pool) : 'saibo') : pick(pool.filter(x => x !== 'saibo'));
-    const lv = Math.min(9, 2 + Math.floor(r.streak / 2));
+    const lv = Math.min(8, 1 + Math.floor(r.streak / 2));
     r.cur = { id: oid, lv };
     versusSheet(r.p1, oid, `STREAK ${r.streak} · CPU LV ${lv}`, () => beginFight({ p1: r.p1, p2: oid, ctrls: [human(0), cpu(lv)], stage: pick(STAGE_IDS), mode: 'survival', toWin: 1,
       hpStart: [r.hp, 1], meter0: r.meter, introPan: r.streak === 0, fastIntro: r.streak > 0, chip: `SURVIVAL · STREAK ${r.streak} · CPU LV ${lv}`, onEnd: res => setTimeout(() => survivalEnd(res), 700) }), null, 1.6);

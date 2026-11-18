@@ -83,26 +83,55 @@ const Stage = (() => {
     }
     g.fillRect(x - 2, base - h - th * 0.9, 4, th);
   }
-  // cherry tree: a dark forked trunk and layered blossom clusters lit from one side
+  // a five-petal blossom
+  function blossom(g, x, y, r, col, eye, rot) {
+    g.fillStyle = col;
+    for (let k = 0; k < 5; k++) {
+      const a = rot + k * TAU / 5;
+      g.beginPath(); g.ellipse(x + Math.cos(a) * r * 0.55, y + Math.sin(a) * r * 0.55, r * 0.55, r * 0.38, a, 0, TAU); g.fill();
+    }
+    g.fillStyle = eye; g.beginPath(); g.arc(x, y, r * 0.22, 0, TAU); g.fill();
+  }
+  // cherry tree: a dark forked trunk that splits into twigs, and a canopy of
+  // soft lobed blossom clusters: shadowed underneath, lit from the upper left,
+  // with single flowers dotted round the edges and twigs showing through
   function cherry(g, x, base, s, rnd, tones) {
-    g.strokeStyle = '#3e2626'; g.lineCap = 'round';
-    const branches = [];
+    const [deep, mid, light] = tones, bark = '#3e2626';
+    g.strokeStyle = bark; g.lineCap = 'round';
+    const tips = [], twigs = [];
     const limb = (x0, y0, ang, len, w, depth) => {
       const x1 = x0 + Math.cos(ang) * len, y1 = y0 + Math.sin(ang) * len;
       g.lineWidth = w; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo((x0 + x1) / 2 + rnd() * 10 - 5, (y0 + y1) / 2, x1, y1); g.stroke();
-      if (depth <= 0) { branches.push([x1, y1]); return; }
+      if (depth <= 1) twigs.push([x0, y0, x1, y1, w]);
+      if (depth <= 0) { tips.push([x1, y1]); return; }
       limb(x1, y1, ang - 0.45 - rnd() * 0.3, len * 0.72, w * 0.62, depth - 1);
       limb(x1, y1, ang + 0.35 + rnd() * 0.3, len * 0.7, w * 0.6, depth - 1);
     };
     limb(x, base, -Math.PI / 2 + (rnd() - 0.5) * 0.3, 90 * s, 16 * s, 3);
-    for (const [bx, by] of branches) {
-      for (let k = 0; k < 4; k++) {
-        const cx = bx + (rnd() - 0.5) * 50 * s, cy = by + (rnd() - 0.6) * 34 * s, r = (16 + rnd() * 18) * s;
-        g.fillStyle = tones[0]; g.beginPath(); g.arc(cx + 3 * s, cy + 4 * s, r, 0, TAU); g.fill();
-        g.fillStyle = tones[1]; g.beginPath(); g.arc(cx, cy, r * 0.92, 0, TAU); g.fill();
-        g.fillStyle = tones[2]; g.beginPath(); g.arc(cx - r * 0.3, cy - r * 0.35, r * 0.5, 0, TAU); g.fill();
-      }
-    }
+    // cluster centres around the branch tips
+    const cl = [];
+    for (const [bx, by] of tips) for (let k = 0; k < 2; k++) cl.push([bx + (rnd() - 0.5) * 36 * s, by + (rnd() - 0.65) * 26 * s, (26 + rnd() * 14) * s]);
+    // each cluster is many small puffs inside an ellipse
+    const puffs = cl.map(([cx, cy, R]) => {
+      const out = [];
+      for (let k = 0; k < 16; k++) { const a = rnd() * TAU, d = Math.sqrt(rnd()) * R; out.push([cx + Math.cos(a) * d * 1.15, cy + Math.sin(a) * d * 0.8, (7 + rnd() * 7) * s, d / R, Math.cos(a), Math.sin(a)]); }
+      return out;
+    });
+    // shadow pass, offset down and right
+    g.fillStyle = deep;
+    for (const P of puffs) for (const [px, py, r] of P) { g.beginPath(); g.arc(px + 3 * s, py + 4 * s, r, 0, TAU); g.fill(); }
+    // body pass
+    g.fillStyle = mid;
+    for (const P of puffs) for (const [px, py, r] of P) { g.beginPath(); g.arc(px, py, r * 0.94, 0, TAU); g.fill(); }
+    // twigs poking through the lower canopy
+    g.strokeStyle = bark;
+    for (const [x0, y0, x1, y1, w] of twigs) if (rnd() < 0.5) { g.lineWidth = w * 0.7; g.beginPath(); g.moveTo(lerp(x0, x1, 0.5), lerp(y0, y1, 0.5)); g.lineTo(x1, y1); g.stroke(); }
+    // light on the upper-left puffs
+    g.fillStyle = light;
+    for (const P of puffs) for (const [px, py, r, dd, ca, sa] of P) if (ca * 0.6 + sa < -0.25 && dd > 0.3) { g.beginPath(); g.arc(px - r * 0.25, py - r * 0.3, r * 0.6, 0, TAU); g.fill(); }
+    // single flowers round the edges, and a few fallen in the grass
+    for (const P of puffs) for (const [px, py, r, dd] of P) if (dd > 0.7 && rnd() < 0.55) blossom(g, px + (rnd() - 0.5) * r, py + (rnd() - 0.5) * r, (3 + rnd() * 2.5) * s, rnd() < 0.5 ? light : '#fff0f5', deep, rnd() * TAU);
+    for (let k = 0; k < 6; k++) blossom(g, x + (rnd() - 0.5) * 120 * s, base + (rnd() - 0.3) * 8, 2.6 * s, light, deep, rnd() * TAU);
   }
   function glowDisc(ctx, x, y, r, col, a) { ctx.globalCompositeOperation = 'lighter'; Glow.draw(ctx, col, x, y, r, a); ctx.globalCompositeOperation = 'source-over'; }
   function drawLayer(ctx, L, cam, par) { ctx.drawImage(L.c, X0 + (cam.x - 800) * par, 0, SPAN, L.h); }
@@ -427,17 +456,29 @@ const Stage = (() => {
         // stone steps and the great torii, standing on the paving
         g.fillStyle = vgrad(g, 760, 800, '#a29890', '#7e756c'); g.fillRect(560, 770, 480, 30);
         g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(560, 770, 480, 2);
-        for (const x of [492, 1108]) {
+        // the torii, low enough to sit fully below the HUD; every beam meets the pillars
+        const T = 470;                                   // top of the upper beam
+        for (const x of [500, 1100]) {
           contact(g, x, 800, 50, 0.4);
-          g.fillStyle = vgrad(g, 420, 800, '#e23a48', '#a8202c'); g.fillRect(x - 22, 420, 44, 380);
-          g.fillStyle = 'rgba(255,255,255,0.15)'; g.fillRect(x - 22, 420, 6, 380);
-          g.fillStyle = '#1e1414'; g.fillRect(x - 26, 772, 52, 28);
+          // pillars taper slightly and run up into the top beam
+          g.fillStyle = vgrad(g, T, 800, '#e23a48', '#a8202c');
+          g.beginPath(); g.moveTo(x - 19, T + 30); g.lineTo(x + 19, T + 30); g.lineTo(x + 23, 772); g.lineTo(x - 23, 772); g.closePath(); g.fill();
+          g.fillStyle = 'rgba(255,255,255,0.15)'; g.beginPath(); g.moveTo(x - 19, T + 30); g.lineTo(x - 13, T + 30); g.lineTo(x - 17, 772); g.lineTo(x - 23, 772); g.closePath(); g.fill();
+          g.fillStyle = '#1e1414'; g.fillRect(x - 27, 768, 54, 32);                // black footings
+          g.fillStyle = '#2a1a1a'; g.fillRect(x - 25, T + 92, 50, 8);             // collar where the tie beam passes
         }
-        g.fillStyle = vgrad(g, 476, 508, '#e23a48', '#a8202c'); g.fillRect(430, 478, 740, 28);
-        g.fillStyle = '#c42b38';
-        g.beginPath(); g.moveTo(360, 420); g.quadraticCurveTo(800, 396, 1240, 420); g.lineTo(1226, 388); g.quadraticCurveTo(800, 364, 374, 388); g.closePath(); g.fill();
-        g.fillStyle = '#231616'; g.beginPath(); g.moveTo(364, 387); g.quadraticCurveTo(800, 360, 1236, 387); g.lineTo(1244, 372); g.quadraticCurveTo(800, 344, 356, 372); g.closePath(); g.fill();
-        g.fillStyle = '#231616'; g.fillRect(782, 420, 36, 60); g.fillStyle = '#d9a441'; g.fillRect(786, 426, 28, 46);
+        // the tie beam (passes through both pillars, ends sticking out)
+        g.fillStyle = vgrad(g, T + 96, T + 124, '#e23a48', '#a8202c'); g.fillRect(434, T + 96, 732, 26);
+        g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(434, T + 118, 732, 4);
+        // the centre plaque post joining the tie beam to the top beam
+        g.fillStyle = '#231616'; g.fillRect(780, T + 34, 40, 64); g.fillStyle = '#d9a441'; g.fillRect(785, T + 40, 30, 50);
+        g.fillStyle = '#231616'; g.fillRect(797, T + 46, 6, 38);
+        // the top beam: red under-beam and black curved cap with upswept ends
+        g.fillStyle = vgrad(g, T + 14, T + 40, '#e23a48', '#b4252f');
+        g.beginPath(); g.moveTo(400, T + 30); g.quadraticCurveTo(800, T + 12, 1200, T + 30); g.lineTo(1192, T + 42); g.quadraticCurveTo(800, T + 26, 408, T + 42); g.closePath(); g.fill();
+        g.fillStyle = '#231616';
+        g.beginPath(); g.moveTo(372, T + 12); g.quadraticCurveTo(800, T - 12, 1228, T + 12); g.lineTo(1246, T - 6); g.lineTo(1236, T + 24); g.quadraticCurveTo(800, T + 2, 364, T + 24); g.lineTo(354, T - 6); g.closePath(); g.fill();
+        g.fillStyle = 'rgba(255,255,255,0.12)'; g.beginPath(); g.moveTo(372, T + 12); g.quadraticCurveTo(800, T - 12, 1228, T + 12); g.lineTo(1226, T + 15); g.quadraticCurveTo(800, T - 8, 374, T + 15); g.closePath(); g.fill();
         for (const x of [210, 1390]) {
           contact(g, x, 800, 70, 0.4);
           g.fillStyle = vgrad(g, 580, 800, '#a9a49c', '#7e7870');

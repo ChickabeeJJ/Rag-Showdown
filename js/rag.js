@@ -965,10 +965,10 @@ class Rag {
       spike(-1.2, 0.35, 5 * s, -0.5); spike(-2.0, 0.4, 7 * s, -0.55); spike(-2.6, 0.35, 6 * s, -0.4);
     } else if (kind === 'spikes') {
       cap(-0.5, 0.2);
-      [[-0.75, 9], [-1.2, 12], [-1.65, 13], [-2.1, 12], [-2.55, 10], [-2.95, 7]].forEach(([a, l]) => spike(a, 0.26, l * s, -0.3));
+      [[-0.75, 9], [-1.2, 12], [-1.65, 13], [-2.1, 12], [-2.55, 10], [-2.95, 7]].forEach(([a, l]) => spike(a, 0.26, l * s * (L.horns ? 0.55 : 1), -0.3));
     } else if (kind === 'mohawk') {
       // shaved sides (a short shadow), with a crest running front to back
-      ctx.globalAlpha *= 0.55; cap(-0.4, 0.25); ctx.globalAlpha /= 0.55;
+      ctx.fillStyle = mono || mixHex(col, '#cfc3ad', 0.5); cap(-0.4, 0.25); ctx.fillStyle = col;
       [[-1.1, 7], [-1.45, 10], [-1.8, 12], [-2.15, 12], [-2.5, 10], [-2.85, 7]].forEach(([a, l]) => spike(a, 0.2, l * s * (L.horns ? 0.55 : 1), -0.35));
     } else if (kind === 'topknot' || kind === 'buns') {
       cap(-0.5, 0.25);
