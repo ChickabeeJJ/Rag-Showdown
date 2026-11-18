@@ -105,7 +105,7 @@ const UI = (() => {
   /* --------------------------------------------------------------- init */
   U.init = function () {
     hydrate();
-    $('btnPlay').onclick = () => { Sfx.play('fight'); playLevel(Campaign.next()); };
+    $('btnPlay').onclick = () => { Sfx.play('fight'); playLevel(Campaign.next(), true); };   // PLAY cuts straight in, no bars
     $('btnLevels').onclick = () => { Sfx.play('ui'); openLevels(); };
     $('btnVersus').onclick = () => { Sfx.play('ui'); openSelect('versus'); };
     $('btnSurvival').onclick = () => { Sfx.play('ui'); openSelect('survival'); };

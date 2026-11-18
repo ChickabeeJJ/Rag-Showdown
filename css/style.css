@@ -773,3 +773,8 @@ body.playing.touch #toasts { bottom: calc(18px + var(--safe-b)); }
 .mv[data-k]:hover { background: color-mix(in srgb, var(--c) 16%, rgba(255, 255, 255, 0.04)); }
 .mv .keys2 .mouse-ic { width: 14px; height: 20px; color: #fff; }
 @media (max-height: 460px) { .sd-prev { aspect-ratio: 16 / 6; } .prev-hint { display: none; } }
+
+/* phones: tips, twist notes and the guide sit higher, just under the timer */
+body.touch .coach { top: calc(102px + var(--safe-t)); }
+body.touch .hud-chip { top: calc(74px + var(--safe-t)); }
+body.short.touch .tut, body.touch .tut { top: calc(98px + var(--safe-t)) !important; }
