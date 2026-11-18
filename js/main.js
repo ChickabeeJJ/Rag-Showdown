@@ -21,7 +21,7 @@
   const fitUi = () => {
     const w = window.innerWidth, h = window.innerHeight, touch = document.body.classList.contains('touch');
     let k = Math.min(w / 1280, h / 720);
-    if (touch && Math.min(w, h) < 600) k *= 1.32;
+    if (touch && Math.min(w, h) < 600) k *= 1.19;   // a touch larger on phones (was 1.32; text read too big)
     k = clamp(k, 0.6, 1.6);
     document.documentElement.style.setProperty('--ui', k.toFixed(3));
     document.body.classList.toggle('short', h < 480);

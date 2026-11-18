@@ -331,6 +331,40 @@ class Rag {
     return bl({ fh: [22, -50], bh: [-8, 40] }, { fh: [34, -6], bh: [-8, 40], lean: 4 }, (t - 2.0) / 0.3);
   }
 
+  /* Render interpolation. The simulation ticks at a fixed 120 Hz, but the
+     screen refreshes at its own rate (60, 90, 120, 144 Hz) and slow motion
+     stretches the gap between ticks. Before each tick the body's positions are
+     remembered; when drawing, every point is blended between the last tick and
+     this one by how far the clock has run into the next tick, so motion is
+     smooth at any refresh rate and in slow-mo. Gameplay never sees the blend. */
+  snap() {
+    const S = this._s || (this._s = { p: [], c: [] });
+    S.p.length = 0; for (const q of this.pts) S.p.push(q.x, q.y);
+    S.c.length = 0; for (const ch of this.chains) for (const q of ch.pts) S.c.push(q.x, q.y);
+  }
+  lerpIn(a) {
+    const S = this._s;
+    if (!S || S.p.length !== this.pts.length * 2) return;
+    const C = this._cur || (this._cur = { p: [], c: [] });
+    C.p.length = 0; C.c.length = 0;
+    this.pts.forEach((q, i) => { C.p.push(q.x, q.y); q.x = S.p[i * 2] + (q.x - S.p[i * 2]) * a; q.y = S.p[i * 2 + 1] + (q.y - S.p[i * 2 + 1]) * a; });
+    let k = 0;
+    for (const ch of this.chains) for (const q of ch.pts) {
+      C.c.push(q.x, q.y);
+      if (k * 2 + 1 < S.c.length) { q.x = S.c[k * 2] + (q.x - S.c[k * 2]) * a; q.y = S.c[k * 2 + 1] + (q.y - S.c[k * 2 + 1]) * a; }
+      k++;
+    }
+    this._lerped = true;
+  }
+  lerpOut() {
+    if (!this._lerped) return;
+    const C = this._cur;
+    this.pts.forEach((q, i) => { q.x = C.p[i * 2]; q.y = C.p[i * 2 + 1]; });
+    let k = 0;
+    for (const ch of this.chains) for (const q of ch.pts) { q.x = C.c[k * 2]; q.y = C.c[k * 2 + 1]; k++; }
+    this._lerped = false;
+  }
+
   // the body point nearest a world position (where a hit lands)
   nearestIdx(x, y) {
     let bi = P.NECK, bd = Infinity;

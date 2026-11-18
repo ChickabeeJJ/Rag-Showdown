@@ -138,6 +138,7 @@ const Game = (() => {
     f.root.grounded = y >= GROUND - 1;
     for (const p of f.pts) { p.x += dx; p.y += dy; p.px += dx; p.py += dy; }
     f.shiftCloth(dx, dy);
+    f.snap();   // no blend across a teleport
     G.fx.add({ kind: 'smoke', x: x, y: y - 100 * f.s, size: 40, life: 0.3, color: '#ffffff', add: false });
   };
   G.ghost = function (f, color, life = 0.35) {
@@ -938,7 +939,7 @@ const Game = (() => {
         if (!w.cele) {
           w.celebrate();
           const perfect = w.hp >= w.maxHp && G.koKind !== 'time';
-          G.callout(w.def.name, perfect ? 'PERFECT WIN' : 'WINS', 'name', 1.8);
+          G.callout(w.def.name, perfect ? 'PERFECT WIN' : 'WINS', 'win', 2.2);
           if (perfect) { G.perfectSaid = true; Sfx.play('perfect'); if (G.winner === 0 && G.stats && G.mode !== 'demo') G.stats.perfects++; }
         }
         if (!G.winFocus) { G.winFocus = true; const c = w.center(); G.focus(c.x, c.y - 40, 1.3, 2.4); }
@@ -1065,10 +1066,12 @@ const Game = (() => {
     while (G.acc >= STEP && n < 12 * G.speed) {
       G.acc -= STEP; n++;
       if (G.hitstop > 0) {
+        snapAll();
         G.hitstop -= STEP;
         for (const f of G.fighters) if (f.shake > 0) f.shake = Math.max(2, f.shake);
         continue;
       }
+      snapAll();
       step(STEP);
     }
     if (n >= 12 * G.speed) G.acc = 0;
@@ -1173,7 +1176,31 @@ const Game = (() => {
     }
   }
 
+  // every body that's drawn: fighters, KO'd foes from earlier waves, summons
+  function rags() {
+    const out = G.fighters.concat(G.corpses);
+    for (const s of G.summons) if (s.rag) out.push(s.rag);
+    return out;
+  }
+  function snapAll() {
+    for (const r of rags()) r.snap();
+    for (const p of G.projs) { p.lx = p.x; p.ly = p.y; }
+  }
+  G.snapAll = snapAll;
+  // draw the world blended between the last two simulation ticks (see Rag.snap)
   G.render = function () {
+    const a = G.running && !G.paused && G.hitstop <= 0 ? clamp(G.acc / STEP, 0, 1) : 1;
+    const R = rags(), P = [];
+    if (a < 1) {
+      for (const r of R) r.lerpIn(a);
+      for (const p of G.projs) if (p.lx != null) { P.push([p, p.x, p.y]); p.x = p.lx + (p.x - p.lx) * a; p.y = p.ly + (p.y - p.ly) * a; }
+    }
+    try { renderFrame(); } finally {
+      for (const r of R) r.lerpOut();
+      for (const [p, x, y] of P) { p.x = x; p.y = y; }
+    }
+  };
+  function renderFrame() {
     const time = G.realT;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     const fr = G.impactQ.length ? G.impactQ[0] : null;
@@ -1563,7 +1590,20 @@ const Game = (() => {
       ctx.translate(cw / 2 + shift, ch * (c.style === 'round' ? 0.36 : 0.42));
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       const base = Math.min(cw * vis, ch * 1.7);
-      if (c.style === 'name') {
+      if (c.style === 'win') {
+        // the winner's name, big and dead centre, with a gold WINS plate under it
+        const sz = base * 0.15;
+        ctx.translate(0, -ch * 0.08);
+        ctx.scale(pop * (1 + u * 0.04), pop * (1 + u * 0.04));
+        ctx.font = `italic 900 ${Math.round(sz)}px Rubik, sans-serif`;
+        ctx.lineJoin = 'round'; ctx.lineWidth = sz * 0.2; ctx.strokeStyle = '#000'; ctx.strokeText(c.text, 0, 0);
+        ctx.fillStyle = '#ffffff'; ctx.fillText(c.text, 0, 0);
+        ctx.font = `900 ${Math.round(sz * 0.3)}px Rubik, sans-serif`;
+        const sw = ctx.measureText(c.sub).width + sz * 0.8, sh = sz * 0.46, y0 = sz * 0.62;
+        ctx.fillStyle = '#000'; ctx.fillRect(-sw / 2 - sz * 0.05, y0 - sz * 0.05, sw + sz * 0.1, sh + sz * 0.1);
+        ctx.fillStyle = '#ffc933'; ctx.fillRect(-sw / 2, y0, sw, sh);
+        ctx.fillStyle = '#1a1404'; ctx.fillText(c.sub, 0, y0 + sh / 2 + sz * 0.01);
+      } else if (c.style === 'name') {
         // a name card that sweeps in, big and slanted
         const sz = base * 0.085;
         ctx.translate((1 - pop) * -120 * dpr + u * 40 * dpr, ch * 0.18);

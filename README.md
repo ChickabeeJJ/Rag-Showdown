@@ -24,7 +24,7 @@ python3 -m http.server 8000
   - throwing a guarding opponent;
   - Black Spark.
 - **Cinematic camera:** rounds start straight away (no character introductions). The camera follows a juggle up into the air, and jolts and tilts on big hits. Black bars slide in during supers.
-- **Victory celebrations:** the winner performs a short routine that suits their style: a fist-pump leap (karate, boxers, brawlers), a backflip into a low pose (ninjas, sword fighters, kung fu), floating up in a flare of aura (mystics, monks), a roar, flex and chest beat (Goro, Ripper), or a stretch and a wave (Saibo). Confetti in their colours, a landing shockwave, a slow camera push-in, and a "WINS" callout ("PERFECT WIN" at full health).
+- **Victory celebrations:** the winner performs a short routine that suits their style: a fist-pump leap (karate, boxers, brawlers), a backflip into a low pose (ninjas, sword fighters, kung fu), floating up in a flare of aura (mystics, monks), a roar, flex and chest beat (Goro, Ripper), or a stretch and a wave (Saibo). Confetti in their colours, a landing shockwave, a slow camera push-in, and the winner's name big and dead centre over a gold "WINS" plate ("PERFECT WIN" at full health).
 - **PLAY** on the home screen drops you straight into your next level, with no select screen or VS screen.
 - **The guide is forgiving:** any press of A or D counts as moving, and an attack counts whether or not it lands. Each control only has to be used once.
 
@@ -167,11 +167,15 @@ Eight stages, built like Element Rag's backdrops. Each has far, mid and near lay
 | Crater Plains | An erupting volcano with lava channels and smoke, rim-lit spires, ruined arches with rubble at their feet, and lava cracks. |
 | Grand Arena | A roof truss with spotlights, tiered stands packed with a crowd, camera flashes, a hanging VS screen, and banners on the ring wall. |
 
+## Smooth at any refresh rate
+
+The simulation runs at a fixed 120 ticks a second. Rendering is interpolated: every body point, cloth chain and projectile is drawn blended between the last two ticks by how far the clock has run into the next one. Motion is smooth on 60, 90, 120 and 144 Hz screens, and slow motion is smooth too, instead of stepping. The blend is visual only, so gameplay, hitboxes and timing are unchanged. Measured in slow motion at 144 Hz, the old renderer showed no movement on 114 of 143 frames; with interpolation every frame moves, with even steps.
+
 ## UI on every screen
 
 - **Fighter preview:** the select screen shows a live preview of the fighter you're looking at, on their home stage, running through their combo finisher, both specials and their super against a dummy. Tap any move in the list to watch it next. It works for locked fighters too, so you can see what you're buying.
 
-- The whole interface is laid out for 1280x720 and scaled to the window, so it looks the same on a phone, a tablet, a laptop or a 4K monitor. Phones get a little extra size so text stays readable.
+- The whole interface is laid out for 1280x720 and scaled to the window, so it looks the same on a phone, a tablet, a laptop or a 4K monitor. Phones get a little extra size (19%) so text stays readable.
 - **Touch controls** are sized in real pixels for thumbs, not scaled with the UI, with generous gaps between them. The right-hand cluster is two neat rows (LIGHT, HEAVY and JUMP on the bottom; SP 2, SP 1 and SUPER above), with labels inside the buttons so nothing overlaps or runs off the screen. On touch screens the camera keeps the fighters above your thumbs.
 - On short screens the guide shrinks to a compact card, the level map shows all six levels in one row, and the fighter select shows all 16 fighters and the FIGHT button without scrolling.
 
