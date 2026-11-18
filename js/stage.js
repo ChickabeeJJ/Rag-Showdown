@@ -702,40 +702,18 @@ const Stage = (() => {
         g.strokeStyle = 'rgba(230,215,255,0.7)'; g.lineWidth = 3; g.beginPath(); g.arc(px, py, pr - 1, Math.PI * 0.95, Math.PI * 1.65); g.stroke();
         ring(0, Math.PI);
       }, 820);
+      // asteroid isles are drawn one by one as sprites, so each can drift on its own
+      d.isleSprites = [];
+      for (let i = 0; i < 9; i++) {
+        const w = 70 + rnd() * 90;
+        d.isleSprites.push(Object.assign(makeIsle(rnd, w, i), { x: X0 + 240 + i * 420 + rnd() * 100, y: 270 + rnd() * 150, ph: rnd() * 6 }));
+      }
       d.far = layer(0.5, g => {
-        // asteroid isles: lit rims, craters, jagged undersides and crystals
-        for (let i = 0; i < 9; i++) {
-          const x = X0 + 240 + i * 420 + rnd() * 100, y = 330 + rnd() * 200, w = 80 + rnd() * 110;
-          const top = []; for (let k = 0; k <= 8; k++) { const u = k / 8; top.push([x - w + u * w * 2, y - Math.sin(u * Math.PI) * (10 + rnd() * 16) + (rnd() - 0.5) * 6]); }
-          const bot = []; for (let k = 0; k <= 7; k++) { const u = k / 7; bot.push([x + w - u * w * 2, y + 20 + Math.sin(u * Math.PI) * (70 + rnd() * 70) * (k % 2 ? 0.75 : 1)]); }
-          g.fillStyle = vgrad(g, y - 30, y + 150, '#3b2c6e', '#0c0820');
-          g.beginPath(); top.forEach(([a, b], k) => (k ? g.lineTo(a, b) : g.moveTo(a, b))); bot.forEach(([a, b]) => g.lineTo(a, b)); g.closePath(); g.fill();
-          // the lit rim along the top
-          g.strokeStyle = 'rgba(200,180,255,0.75)'; g.lineWidth = 3; g.beginPath(); top.forEach(([a, b], k) => (k ? g.lineTo(a, b) : g.moveTo(a, b))); g.stroke();
-          g.fillStyle = 'rgba(5,3,16,0.4)'; for (let k = 0; k < 3; k++) { g.beginPath(); g.ellipse(x - w * 0.5 + rnd() * w, y + 18 + rnd() * 30, 8 + rnd() * 10, 4 + rnd() * 4, 0, 0, TAU); g.fill(); }
-          for (let k = 0; k < 3; k++) {
-            const cx = x - w * 0.5 + rnd() * w, h = 20 + rnd() * 36, lean = (rnd() - 0.5) * 10, by = y - 10;
-            g.fillStyle = '#8f6bff'; g.beginPath(); g.moveTo(cx - 7, by); g.lineTo(cx + lean, by - h); g.lineTo(cx + 7, by); g.closePath(); g.fill();
-            g.fillStyle = '#e6dcff'; g.beginPath(); g.moveTo(cx - 7, by); g.lineTo(cx + lean, by - h); g.lineTo(cx - 1, by); g.closePath(); g.fill();
-          }
-          d.isles.push({ x, y: y - 24, ph: rnd() * 6 });
-        }
         ridge(g, 705, 40, vgrad(g, 640, 800, '#1a1236', '#0c0820'), rnd, { rim: 'rgba(170,140,255,0.45)' });
         haze(g, 560, 800, '#4a2a8a', 0.35);
       });
       d.near = layer(0.9, g => {
-        // ancient monoliths: carved, cracked, with a socket for a floating crystal
-        for (const x of [220, 1380]) {
-          contact(g, x, 800, 90, 0.55);
-          g.fillStyle = vgrad(g, 430, 800, '#2c2050', '#0c0820');
-          g.beginPath(); g.moveTo(x - 50, 800); g.lineTo(x - 42, 470); g.lineTo(x - 20, 440); g.lineTo(x + 22, 440); g.lineTo(x + 44, 470); g.lineTo(x + 52, 800); g.closePath(); g.fill();
-          g.fillStyle = 'rgba(180,150,255,0.18)'; g.beginPath(); g.moveTo(x - 42, 470); g.lineTo(x - 20, 440); g.lineTo(x - 12, 440); g.lineTo(x - 30, 470); g.lineTo(x - 36, 800); g.lineTo(x - 50, 800); g.closePath(); g.fill();
-          g.strokeStyle = 'rgba(160,130,255,0.35)'; g.lineWidth = 2;
-          for (const y of [520, 600, 680]) { g.beginPath(); g.moveTo(x - 40, y); g.lineTo(x + 42, y); g.stroke(); }
-          g.strokeStyle = 'rgba(0,0,0,0.5)'; g.beginPath(); g.moveTo(x + 10, 440); g.lineTo(x + 4, 500); g.lineTo(x + 16, 560); g.stroke();
-          g.fillStyle = '#120a26'; g.beginPath(); g.moveTo(x - 22, 440); g.lineTo(x, 422); g.lineTo(x + 22, 440); g.closePath(); g.fill();
-          d.runes.push([x, 620]); d.cores = d.cores || []; d.cores.push([x, 392]);
-        }
+        for (const x of [220, 1380]) { drawMonolith(g, x, rnd); d.runes.push([x, 0]); d.cores = d.cores || []; d.cores.push([x, 388]); }
       });
       d.floor = 'glass';
     },
@@ -765,25 +743,215 @@ const Stage = (() => {
     },
     afterFar(ctx, d, time, vr, cam) {
       const off = (cam.x - 800) * 0.85;
-      for (const s of d.isles) glowDisc(ctx, s.x + off, s.y, 110, '#9b6bff', 0.2 + Math.sin(time * 1.5 + s.ph) * 0.07);
+      for (const s of d.isleSprites) {
+        const x = s.x + off, y = s.y + Math.sin(time * 0.55 + s.ph) * 7;
+        // the crystals light the space around them, breathing slowly
+        for (const [cx, cy, col] of s.lights) glowDisc(ctx, x + cx, y + cy, 70, col, 0.22 + Math.sin(time * 1.4 + s.ph + cx) * 0.06);
+        ctx.drawImage(s.c, x - s.ox, y - s.oy, s.c.width / s.q, s.c.height / s.q);
+      }
     },
     front(ctx, d, time, vr, cam) {
       const off = (cam.x - 800) * 0.3;
-      for (const [x, y] of d.runes) {
-        const a = 0.5 + Math.sin(time * 2 + x) * 0.25;
-        glowDisc(ctx, x + off, y, 70, '#9b6bff', a * 0.5);
-        ctx.strokeStyle = rgba('#d9c4ff', a); ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(x + off - 10, y - 20); ctx.lineTo(x + off + 6, y - 6); ctx.lineTo(x + off - 6, y + 8); ctx.lineTo(x + off + 10, y + 22); ctx.stroke();
+      for (const [x] of d.runes) {
+        // light runs up the rune channel, glyph by glyph
+        const cx = x + off;
+        for (let k = 0; k < 6; k++) {
+          const y = 708 - k * 40, a = 0.35 + 0.65 * Math.max(0, Math.sin(time * 2.4 - k * 0.7));
+          ctx.globalCompositeOperation = 'lighter';
+          Glow.draw(ctx, '#9b6bff', cx, y, 26, 0.35 * a);
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.strokeStyle = rgba('#e2d4ff', 0.25 + 0.75 * a); ctx.lineWidth = 2; ctx.lineCap = 'round';
+          ctx.beginPath();
+          if (k % 3 === 0) { ctx.moveTo(cx - 6, y - 8); ctx.lineTo(cx + 6, y); ctx.lineTo(cx - 6, y + 8); }
+          else if (k % 3 === 1) { ctx.moveTo(cx, y - 9); ctx.lineTo(cx, y + 9); ctx.moveTo(cx - 6, y - 3); ctx.lineTo(cx + 6, y - 3); }
+          else { ctx.arc(cx, y, 6, 0.3, TAU - 0.3); }
+          ctx.stroke();
+        }
       }
-      // a crystal floats and turns above each monolith
-      for (const [x, y] of d.cores || []) {
-        const cx = x + off, cy = y + Math.sin(time * 1.6 + x) * 8, w = 14 * Math.abs(Math.cos(time * 0.9 + x)) + 4;
-        glowDisc(ctx, cx, cy, 90, '#a07bff', 0.55);
-        ctx.fillStyle = '#b89bff'; ctx.beginPath(); ctx.moveTo(cx, cy - 26); ctx.lineTo(cx + w, cy); ctx.lineTo(cx, cy + 26); ctx.lineTo(cx - w, cy); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = '#f2ecff'; ctx.beginPath(); ctx.moveTo(cx, cy - 26); ctx.lineTo(cx + w * 0.35, cy); ctx.lineTo(cx, cy + 26); ctx.lineTo(cx - w * 0.3, cy); ctx.closePath(); ctx.fill();
-      }
+      for (const [x, y] of d.cores || []) drawCoreCrystal(ctx, x + off, y + Math.sin(time * 1.4 + x) * 6, time + x * 0.01);
     },
   };
+
+  /* faceted asteroid isle sprite: lit from the upper left. Top face, a cliff
+     band, a cone of facets underneath, boulders, and crystal clusters. */
+  function makeIsle(rnd, w, seed) {
+    const q = 1.5, W = w * 2.7, H = w * 2.2 + 110, ox = W / 2, oy = 110;
+    const c = document.createElement('canvas'); c.width = Math.ceil(W * q); c.height = Math.ceil(H * q);
+    const g = c.getContext('2d'); g.setTransform(q, 0, 0, q, ox * q, oy * q);
+    const lights = [];
+    // the top face: a jittered ellipse
+    const N = 14, rx = w, ry = w * 0.2, top = [];
+    for (let k = 0; k < N; k++) { const a = k / N * TAU, j = 0.86 + rnd() * 0.2; top.push([Math.cos(a) * rx * j, Math.sin(a) * ry * j]); }
+    const cliff = w * (0.14 + rnd() * 0.08);
+    const front = top.filter(([, y]) => y >= -ry * 0.15).sort((a, b) => a[0] - b[0]);
+    // underside: the cliff's lower edge narrows to a mid ring, then to the tip
+    const low = front.map(([x, y]) => [x, y + cliff]);
+    const depth = w * (0.95 + rnd() * 0.45), tipX = (rnd() - 0.5) * w * 0.3;
+    const mid = low.map(([x, y], k) => [x * 0.58 + tipX * 0.2, y + depth * (0.42 + rnd() * 0.12) * (1 - Math.abs(x / w) * 0.35)]);
+    const tip = [tipX, cliff + depth];
+    const shade = (x0, x1) => { const nx = x1 - x0; return nx; };
+    const facet = (pts, col) => { g.fillStyle = col; g.beginPath(); pts.forEach(([x, y], k) => (k ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); g.fill(); };
+    const tone = u => { const L = ['#3a2a6a', '#2f2258', '#251a48', '#1c1338', '#140d2a']; return L[clamp(Math.floor(u * L.length), 0, L.length - 1)]; };
+    for (let k = 0; k < low.length - 1; k++) {
+      const u = (low[k][0] + w) / (2 * w);
+      facet([low[k], low[k + 1], mid[k + 1], mid[k]], tone(u * 0.9 + 0.1));
+      facet([mid[k], mid[k + 1], tip], tone(u * 0.8 + 0.25));
+      // a few stalactites hanging from the mid ring
+      if (rnd() < 0.45) { const m = mid[k], L = 14 + rnd() * 26; facet([[m[0] - 5, m[1] - 2], [m[0] + 5, m[1] - 2], [m[0] + rnd() * 4, m[1] + L]], tone(u * 0.6 + 0.4)); }
+    }
+    // facet seams catch a little light
+    g.strokeStyle = 'rgba(190,170,255,0.12)'; g.lineWidth = 1;
+    for (let k = 0; k < mid.length; k++) { g.beginPath(); g.moveTo(low[k][0], low[k][1]); g.lineTo(mid[k][0], mid[k][1]); g.lineTo(tip[0], tip[1]); g.stroke(); }
+    // a smaller second spur off to one side breaks the symmetry
+    const sp = Math.floor(low.length * (rnd() < 0.5 ? 0.25 : 0.7)), m0 = mid[sp], m1 = mid[Math.min(mid.length - 1, sp + 1)];
+    const tip2 = [lerp(m0[0], m1[0], 0.5) + (rnd() - 0.5) * 20, Math.max(m0[1], m1[1]) + depth * 0.45];
+    facet([m0, m1, tip2], tone(0.75)); facet([m0, [lerp(m0[0], m1[0], 0.5), lerp(m0[1], m1[1], 0.5)], tip2], tone(0.45));
+    // glowing crystal veins run through the underside
+    const vc = seed % 3 === 1 ? '#5fe0ff' : '#b48bff';
+    for (let v = 0; v < 2; v++) {
+      let vx = (rnd() - 0.5) * w * 0.8, vy = cliff + 6;
+      g.strokeStyle = rgba(vc, 0.25); g.lineWidth = 5; const path = [[vx, vy]];
+      for (let k = 0; k < 4; k++) { vx = lerp(vx, tip[0], 0.3) + (rnd() - 0.5) * 16; vy += depth * 0.16; path.push([vx, vy]); }
+      for (const [lw, a] of [[5, 0.22], [1.6, 0.85]]) { g.strokeStyle = rgba(vc, a); g.lineWidth = lw; g.beginPath(); path.forEach(([px, py], k) => (k ? g.lineTo(px, py) : g.moveTo(px, py))); g.stroke(); }
+    }
+    // the cliff band
+    for (let k = 0; k < front.length - 1; k++) { const u = (front[k][0] + w) / (2 * w); facet([front[k], front[k + 1], low[k + 1], low[k]], ['#4a3884', '#3f2f74', '#342664', '#2a1e54'][clamp(Math.floor(u * 4), 0, 3)]); }
+    // the top face, brighter toward the light
+    const tg = g.createLinearGradient(-rx, -ry, rx, ry); tg.addColorStop(0, '#6b58b0'); tg.addColorStop(1, '#3d2e78');
+    facet(top, tg);
+    g.save(); g.beginPath(); top.forEach(([x, y], k) => (k ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); g.clip();
+    for (let k = 0; k < 5; k++) { g.fillStyle = 'rgba(20,10,40,0.18)'; g.beginPath(); g.ellipse((rnd() - 0.5) * rx * 1.4, (rnd() - 0.5) * ry, 6 + rnd() * 12, 2 + rnd() * 3, 0, 0, TAU); g.fill(); }
+    g.restore();
+    // rim light on the sunward lip
+    g.strokeStyle = 'rgba(214,200,255,0.85)'; g.lineWidth = 2; g.lineJoin = 'round';
+    g.beginPath(); top.forEach(([x, y], k) => { if (x < rx * 0.25 && y < ry * 0.4) g.lineTo(x, y); }); g.stroke();
+    // boulders
+    for (let k = 0; k < 3; k++) {
+      const bx = (rnd() - 0.5) * rx * 1.3, by = (rnd() - 0.5) * ry * 0.6, r = 5 + rnd() * 7;
+      facet([[bx - r, by], [bx - r * 0.4, by - r * 0.9], [bx + r * 0.6, by - r * 0.7], [bx + r, by]], '#4e3d8c');
+      facet([[bx - r * 0.4, by - r * 0.9], [bx + r * 0.6, by - r * 0.7], [bx + r, by], [bx, by]], '#352868');
+    }
+    // crystal clusters: prisms with a lit facet, a shaded facet and a bright ridge
+    const teal = seed % 3 === 1;
+    const cols = teal ? ['#9ff0ff', '#3fb8d8', '#e9fdff'] : ['#cbb4ff', '#7a55e8', '#f6f0ff'];
+    const clusters = 2;
+    for (let n = 0; n < clusters; n++) {
+      const cx0 = (rnd() - 0.5) * rx * 1.1, cy0 = (rnd() - 0.3) * ry * 0.5, count = 3 + Math.floor(rnd() * 3);
+      lights.push([cx0, cy0 - 20, teal ? '#5fe0ff' : '#9b6bff']);
+      const gl = g.createRadialGradient(cx0, cy0, 0, cx0, cy0, 40); gl.addColorStop(0, rgba(cols[0], 0.45)); gl.addColorStop(1, rgba(cols[0], 0));
+      g.fillStyle = gl; g.fillRect(cx0 - 40, cy0 - 40, 80, 80);
+      const list = [];
+      for (let k = 0; k < count; k++) list.push({ x: cx0 + (rnd() - 0.5) * 34, h: (k === 0 ? 62 : 22) + rnd() * 32, cw: 6 + rnd() * 5, tilt: (rnd() - 0.5) * 0.75 });
+      list.sort((a, b) => a.h - b.h);
+      for (const k of list) {
+        const ux = Math.sin(k.tilt), uy = -Math.cos(k.tilt), nx = -uy, ny = ux, bx = k.x, by = cy0;
+        const sh = [bx + ux * k.h * 0.76, by + uy * k.h * 0.76], tp = [bx + ux * k.h, by + uy * k.h];
+        const L0 = [bx - nx * k.cw, by - ny * k.cw], R0 = [bx + nx * k.cw, by + ny * k.cw];
+        const L1 = [sh[0] - nx * k.cw, sh[1] - ny * k.cw], R1 = [sh[0] + nx * k.cw, sh[1] + ny * k.cw];
+        facet([L0, [bx, by + 2], [sh[0], sh[1]], L1, tp], cols[0]);
+        facet([[bx, by + 2], R0, R1, tp, [sh[0], sh[1]]], cols[1]);
+        g.strokeStyle = cols[2]; g.lineWidth = 1.2; g.beginPath(); g.moveTo(bx, by + 2); g.lineTo(sh[0], sh[1]); g.lineTo(tp[0], tp[1]); g.stroke();
+      }
+    }
+    // a couple of pebbles drifting under the isle
+    for (let k = 0; k < 3; k++) {
+      const px = (rnd() - 0.5) * w * 1.4, py = cliff + depth * (0.5 + rnd() * 0.5), r = 3 + rnd() * 5;
+      facet([[px - r, py], [px, py - r], [px + r, py], [px, py + r * 0.8]], '#2a1f52');
+      facet([[px - r, py], [px, py - r], [px, py]], '#4a3a86');
+    }
+    // depth haze so the isles sit back behind the arena
+    g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(60,36,120,0.16)'; g.fillRect(-ox, -oy, W, H);
+    return { c, q, ox, oy, lights };
+  }
+
+  /* an ancient obelisk on a stepped plinth, with a rune channel and a cradle
+     that holds the floating crystal. Light from the upper left. */
+  function drawMonolith(g, x, rnd) {
+    // a soft dark halo behind it, so it reads against busy sky and drifting isles
+    const halo = g.createRadialGradient(x, 560, 20, x, 560, 260); halo.addColorStop(0, 'rgba(4,2,14,0.5)'); halo.addColorStop(1, 'rgba(4,2,14,0)');
+    g.fillStyle = halo; g.fillRect(x - 260, 300, 520, 520);
+    contact(g, x, 800, 110, 0.55);
+    // stepped plinth: lit top, mid front, dark right side
+    let y = 800;
+    for (const [w, h] of [[150, 18], [126, 16], [104, 14]]) {
+      g.fillStyle = vgrad(g, y - h, y, '#2c2252', '#1a1334'); g.fillRect(x - w / 2, y - h, w, h);
+      g.fillStyle = '#120c26'; g.fillRect(x + w / 2 - 12, y - h, 12, h);
+      g.fillStyle = 'rgba(200,180,255,0.35)'; g.fillRect(x - w / 2, y - h, w, 2);
+      y -= h;
+    }
+    // the shaft: a tapered bevelled obelisk
+    const b = y, t = 470, wb = 46, wt = 32;
+    g.fillStyle = vgrad(g, t, b, '#33275e', '#1a1336');
+    g.beginPath(); g.moveTo(x - wb, b); g.lineTo(x - wt, t); g.lineTo(x + wt, t); g.lineTo(x + wb, b); g.closePath(); g.fill();
+    g.fillStyle = 'rgba(200,180,255,0.16)';   // lit bevel
+    g.beginPath(); g.moveTo(x - wb, b); g.lineTo(x - wt, t); g.lineTo(x - wt + 9, t); g.lineTo(x - wb + 11, b); g.closePath(); g.fill();
+    g.fillStyle = 'rgba(4,2,12,0.45)';         // shaded side
+    g.beginPath(); g.moveTo(x + wb, b); g.lineTo(x + wt, t); g.lineTo(x + wt - 10, t); g.lineTo(x + wb - 12, b); g.closePath(); g.fill();
+    // carved bands
+    for (const yy of [520, 610, 735]) {
+      const k = (yy - t) / (b - t), hw = lerp(wt, wb, k);
+      g.fillStyle = 'rgba(4,2,12,0.55)'; g.fillRect(x - hw, yy, hw * 2, 4);
+      g.fillStyle = 'rgba(200,180,255,0.22)'; g.fillRect(x - hw, yy + 4, hw * 2, 1.5);
+    }
+    // recessed relief panels either side of the channel
+    for (const sd of [-1, 1]) for (const [y0, y1] of [[532, 600], [618, 728]]) {
+      const k0 = (y0 - t) / (b - t), k1 = (y1 - t) / (b - t), o0 = lerp(wt, wb, k0) - 8, o1 = lerp(wt, wb, k1) - 8;
+      g.fillStyle = 'rgba(4,2,12,0.35)';
+      g.beginPath(); g.moveTo(x + sd * 14, y0); g.lineTo(x + sd * o0, y0); g.lineTo(x + sd * o1, y1); g.lineTo(x + sd * 14, y1); g.closePath(); g.fill();
+      g.fillStyle = sd < 0 ? 'rgba(200,180,255,0.18)' : 'rgba(0,0,0,0.25)'; g.fillRect(x + (sd < 0 ? -o0 : 14), y0, sd < 0 ? o0 - 14 : o0 - 14, 1.5);
+    }
+    // the rune channel: an inset slot down the face
+    g.fillStyle = '#0a0618'; g.fillRect(x - 9, 530, 18, 200);
+    g.fillStyle = 'rgba(155,107,255,0.25)'; g.fillRect(x - 9, 530, 2, 200);
+    // pyramidion cap
+    g.fillStyle = '#3a2d6c'; g.beginPath(); g.moveTo(x - wt, t); g.lineTo(x, t - 26); g.lineTo(x, t); g.closePath(); g.fill();
+    g.fillStyle = '#1c1438'; g.beginPath(); g.moveTo(x + wt, t); g.lineTo(x, t - 26); g.lineTo(x, t); g.closePath(); g.fill();
+    // the cradle: two curved prongs that hold the crystal
+    for (const sd of [-1, 1]) {
+      g.fillStyle = sd < 0 ? '#3a2d6c' : '#221944';
+      g.beginPath(); g.moveTo(x + sd * 6, t - 20); g.quadraticCurveTo(x + sd * 34, t - 30, x + sd * 30, t - 70);
+      g.lineTo(x + sd * 24, t - 66); g.quadraticCurveTo(x + sd * 24, t - 36, x + sd * 2, t - 26); g.closePath(); g.fill();
+      if (sd < 0) { g.strokeStyle = 'rgba(210,195,255,0.55)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x - 6, t - 20); g.quadraticCurveTo(x - 34, t - 30, x - 30, t - 70); g.stroke(); }
+    }
+    // rim light: cool on the lit edge, violet back-light from the crystal on the other
+    g.lineWidth = 2;
+    g.strokeStyle = 'rgba(220,208,255,0.6)'; g.beginPath(); g.moveTo(x - wb, b); g.lineTo(x - wt, t); g.lineTo(x, t - 26); g.stroke();
+    g.strokeStyle = 'rgba(160,110,255,0.45)'; g.beginPath(); g.moveTo(x + wb, b); g.lineTo(x + wt, t); g.lineTo(x, t - 26); g.stroke();
+    // a crack and a few fallen fragments
+    g.strokeStyle = 'rgba(0,0,0,0.5)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x + 14, t + 20); g.lineTo(x + 8, t + 70); g.lineTo(x + 18, t + 120); g.stroke();
+    for (let k = 0; k < 4; k++) { const fx = x + (rnd() - 0.5) * 190, r = 4 + rnd() * 6; g.fillStyle = '#231a44'; g.beginPath(); g.moveTo(fx - r, 800); g.lineTo(fx - r * 0.3, 800 - r); g.lineTo(fx + r, 800); g.closePath(); g.fill(); }
+  }
+
+  /* the floating crystal: a turning octahedron with shading per facet, orbiting
+     shards, a halo, and a thin beam of light down into the cradle */
+  function drawCoreCrystal(ctx, x, y, time) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    Glow.draw(ctx, '#a07bff', x, y, 120, 0.5);
+    const beam = ctx.createLinearGradient(x, y, x, y + 70); beam.addColorStop(0, 'rgba(200,170,255,0.55)'); beam.addColorStop(1, 'rgba(200,170,255,0)');
+    ctx.fillStyle = beam; ctx.fillRect(x - 3, y, 6, 70);
+    ctx.globalCompositeOperation = 'source-over';
+    const R = 18, Hh = 30, a0 = time * 0.9, V = [];
+    for (let k = 0; k < 4; k++) { const a = a0 + k * Math.PI / 2; V.push({ x: x + Math.cos(a) * R, z: Math.sin(a), a }); }
+    // shards behind the crystal
+    const shards = [0, 1, 2].map(k => { const a = time * 1.6 + k * TAU / 3; return { x: x + Math.cos(a) * 40, y: y + Math.sin(a * 2) * 6, z: Math.sin(a) }; });
+    const shard = s => { const r = 4 + s.z * 1.5; ctx.globalAlpha = 0.6 + s.z * 0.3; ctx.fillStyle = '#e2d6ff'; ctx.beginPath(); ctx.moveTo(s.x, s.y - r * 1.6); ctx.lineTo(s.x + r, s.y); ctx.lineTo(s.x, s.y + r * 1.6); ctx.lineTo(s.x - r, s.y); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; };
+    shards.filter(s => s.z < 0).forEach(shard);
+    // facets facing us (between consecutive vertices with positive depth)
+    const faces = [];
+    for (let k = 0; k < 4; k++) { const A = V[k], B = V[(k + 1) % 4], mz = (A.z + B.z) / 2; if (mz > -0.2) faces.push({ A, B, mz, mid: (A.a + Math.PI / 4) }); }
+    faces.sort((p, q) => p.mz - q.mz);
+    for (const f of faces) {
+      const lit = 0.5 + 0.5 * Math.cos(f.mid - Math.PI * 1.25);   // light from the upper left
+      const top = mixHex('#6b45e0', '#f4eeff', lit), bot = mixHex('#3a20a0', '#b89bff', lit);
+      ctx.fillStyle = top; ctx.beginPath(); ctx.moveTo(f.A.x, y); ctx.lineTo(x, y - Hh); ctx.lineTo(f.B.x, y); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = bot; ctx.beginPath(); ctx.moveTo(f.A.x, y); ctx.lineTo(x, y + Hh); ctx.lineTo(f.B.x, y); ctx.closePath(); ctx.fill();
+    }
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 1.2;
+    for (const v of V) if (v.z > 0) { ctx.beginPath(); ctx.moveTo(x, y - Hh); ctx.lineTo(v.x, y); ctx.lineTo(x, y + Hh); ctx.stroke(); }
+    shards.filter(s => s.z >= 0).forEach(shard);
+    ctx.restore();
+  }
 
   /* Crater Plains -------------------------------------------------- */
   ART.crater = {

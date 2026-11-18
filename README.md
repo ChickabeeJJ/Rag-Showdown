@@ -163,7 +163,7 @@ Eight stages, built like Element Rag's backdrops. Each has far, mid and near lay
 | Sakura Shrine | A shaded torii on stone steps, branching cherry trees with lit blossom clusters, a snow-capped volcano and stone lanterns. |
 | Bamboo Grove | Rounded, shaded stalks with leaves, curved grass, god rays, drifting mist and fireflies. |
 | Frost Peak | Aurora curtains, a snow cap on every peak, snow-laden pines, faceted ice crystals and snow banks. |
-| Void Rift | Deep space: a dense starfield with a Milky Way band and dust lanes, twinkling bright stars and shooting stars, magenta and teal nebulae, a spiral galaxy, a cratered moon, a banded gas giant with an atmosphere glow and a layered ring, asteroid isles with lit rims and crystals, and ancient monoliths with floating, turning crystal cores. |
+| Void Rift | Deep space: a dense starfield with a Milky Way band and dust lanes, twinkling bright stars and shooting stars, magenta and teal nebulae, a spiral galaxy, a cratered moon, a banded gas giant with an atmosphere glow and a layered ring, faceted asteroid isles that drift on their own (lit top faces, cliff bands, cones of shaded facets with a second spur, glowing crystal veins, and crystal clusters with lit and shaded facets), and carved obelisks on stepped plinths with rune channels that light up glyph by glyph, rim lighting, and a cradle holding a turning, faceted crystal with orbiting shards and a beam of light. |
 | Crater Plains | An erupting volcano with lava channels and smoke, rim-lit spires, ruined arches with rubble at their feet, and lava cracks. |
 | Grand Arena | A roof truss with spotlights, tiered stands packed with a crowd, camera flashes, a hanging VS screen, and banners on the ring wall. |
 
