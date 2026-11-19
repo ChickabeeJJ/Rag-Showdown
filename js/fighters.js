@@ -567,7 +567,7 @@ fighter({
       end: (G, f) => { f.alpha = 1; } },
     super: { name: 'Eclipse Crescent', icon: 'moon', kind: 'super', w: 0.75, a: 0.1, r: 0.55, ai: { range: [0, 1400] },
       poseFn: arcPose(-2.2, 1.4, ph => (ph === 0 ? { crouch: 18 } : { crouch: 6, ff: [40, 0], bf: [-36, 0] })),
-      start: (G, f) => { G.cutin(f, 'ECLIPSE CRESCENT', 'RELEASE'); f.invuln = 0.8; f.surge = 9; f.auraT = 2; G.tint('blood', 1.2); Sfx.play('domain'); },
+      start: (G, f) => { G.cutin(f, 'ECLIPSE CRESCENT', 'RELEASE'); f.invuln = 0.8; f.surge = 9; f.auraT = 2; f.formS = null; G.tint('blood', 1.2); Sfx.play('domain'); },
       tick: (G, f, act) => {
         if (act.t >= act.w && once(act, 'fire')) {
           G.proj({ owner: f, x: f.root.x + f.facing * 90, y: f.root.y - 120 * f.s, vx: f.facing * 1350, vy: 0, r: 120, life: 1.4, strength: 9, pierce: true, draw: crescentDraw, dark: true, edge: '#ff2c4a', every: 0.07, multi: 6, grind: 0.1,
@@ -1583,6 +1583,93 @@ const easeIn2 = t => t * t;
 })();
 
 /* ------------------------------------------------------------- stages */
+/* --------------------------------------------------------- Jin: red form
+   After Eclipse Crescent, Jin burns in a red form for a while. Everything
+   here is presentation: black flames with red edges licking off the whole
+   body, embers and ash, red lightning crackling between limbs, afterimages
+   when he moves or swings, a burning eye that streaks as he moves, mist at
+   his feet, and a red-and-black slash arc on every swing. */
+(function jinForm() {
+  const J = BY_ID.jin; if (!J) return;
+  const RED = '#ff2c4a', INK = '#0a0508';
+  const bodyPts = [P.HEAD, P.NECK, P.PELVIS, P.FELB, P.FHAND, P.BELB, P.BHAND, P.FKNEE, P.FFOOT, P.BKNEE, P.BFOOT];
+  J.form = {
+    tick(G, f, dt) {
+      const F = f.formS || (f.formS = { t: 0, ghostT: 0, trail: [], last: null, began: false });
+      F.t += dt;
+      if (!F.began) {
+        // the moment of transformation: a pillar of dark light and a shockwave
+        F.began = true;
+        G.fx.ring(f.root.x, GROUND - 6, RED, 320, 0.7, 14);
+        for (let i = 0; i < 28; i++) G.fx.add({ x: f.root.x + rand(-40, 40), y: GROUND - rand(0, 40), vx: rand(-60, 60), vy: rand(-1300, -500), g: 200, life: 0.7, size: rand(4, 9), color: i % 3 ? INK : RED, add: i % 3 === 0 });
+        G.shake(12);
+      }
+      // afterimages whenever he moves fast or swings
+      F.ghostT -= dt;
+      const moving = Math.abs(f.root.vx) > 140 || f.action || !f.root.grounded;
+      if (moving && F.ghostT <= 0) { F.ghostT = 0.045; G.ghost(f, RED, 0.28); }
+      // embers (red, additive) and ash (black) peel off the body
+      if (Math.random() < 0.7) {
+        const q = f.pts[pick(bodyPts)], ash = Math.random() < 0.45;
+        G.fx.add({ x: q.x + rand(-6, 6), y: q.y + rand(-6, 6), vx: rand(-40, 40) - f.root.vx * 0.15, vy: rand(-220, -80), g: -60, life: rand(0.4, 0.8), size: ash ? rand(3, 6) : rand(2, 4), color: ash ? INK : RED, add: !ash });
+      }
+      // red lightning between two limbs, now and then
+      if (Math.random() < 0.06) { const a = f.pts[pick(bodyPts)], b = f.pts[pick(bodyPts)]; G.fx.arc(a.x, a.y, b.x, b.y, RED, 0.09); }
+      // dark mist pools at his feet
+      if (f.root.grounded && Math.random() < 0.25) G.fx.add({ kind: 'smoke', x: f.root.x + rand(-50, 50), y: GROUND - 6, size: rand(26, 44), life: 0.7, color: '#2a0a12', add: false });
+      // every swing leaves a red-and-black crescent
+      const act = f.action;
+      if (act && act !== F.last && (act.move.kind === 'light' || act.move.kind === 'heavy') && act.t >= act.w) {
+        F.last = act;
+        const n = f.pts[P.NECK], heavy = act.move.kind === 'heavy';
+        G.fx.slash(n.x + f.facing * 30, n.y + 26, heavy ? 130 : 96, f.facing > 0 ? -1.4 : -1.75, f.facing > 0 ? 1.4 : -4.88, INK, heavy ? 30 : 20, 0.2);
+        G.fx.slash(n.x + f.facing * 30, n.y + 26, heavy ? 130 : 96, f.facing > 0 ? -1.4 : -1.75, f.facing > 0 ? 1.4 : -4.88, RED, heavy ? 8 : 6, 0.24);
+      }
+      // the burning eye leaves a streak
+      const hd = f.pts[P.HEAD];
+      F.trail.push([hd.x + f.facing * 9 * f.s / 2, hd.y - 2]); if (F.trail.length > 9) F.trail.shift();
+      f.eyeGlint = Math.max(f.eyeGlint || 0, 0.5);
+    },
+    drawBack(G, ctx, f, time) {
+      const c = f.center(), s = f.s;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      Glow.draw(ctx, RED, c.x, c.y, 150 * s / 2, 0.3 + Math.sin(time * 9) * 0.06);
+      ctx.globalCompositeOperation = 'source-over';
+      // black flame tongues from points along the body, with red edges
+      const segs = [[P.NECK, P.PELVIS], [P.NECK, P.FELB], [P.NECK, P.BELB], [P.PELVIS, P.FKNEE], [P.PELVIS, P.BKNEE], [P.FELB, P.FHAND], [P.BELB, P.BHAND], [P.HEAD, P.NECK]];
+      let i = 0;
+      for (const [a, b] of segs) for (const u of [0.2, 0.6, 1]) {
+        const A = f.pts[a], B = f.pts[b], x = lerp(A.x, B.x, u), y = lerp(A.y, B.y, u);
+        const fl = Math.sin(time * 13 + i * 1.7) * 0.5 + Math.sin(time * 21 + i * 2.9) * 0.5;
+        const h = (22 + fl * 12 + (i % 3) * 6) * s / 2, w = (9 + (i % 2) * 4) * s / 2, lean = -f.root.vx * 0.02 - f.facing * 4;
+        const tongue = (k, col, a, add) => {
+          const H = h * k, Wd = w * k;
+          ctx.globalCompositeOperation = add ? 'lighter' : 'source-over'; ctx.globalAlpha = a; ctx.fillStyle = col;
+          ctx.beginPath(); ctx.moveTo(x - Wd, y); ctx.quadraticCurveTo(x - Wd * 0.8 + lean * 0.5, y - H * 0.6, x + lean * k, y - H); ctx.quadraticCurveTo(x + Wd * 0.8 + lean * 0.5, y - H * 0.6, x + Wd, y); ctx.closePath(); ctx.fill();
+        };
+        // a red outer flame, a hot inner edge, and a black core: dark fire that still reads
+        tongue(1.35, RED, 0.55, true);
+        tongue(1.0, '#ff7a8a', 0.35, true);
+        tongue(0.72, INK, 0.9, false);
+        i++;
+      }
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      ctx.restore();
+    },
+    drawFront(G, ctx, f) {
+      const T = f.formS && f.formS.trail;
+      if (!T || T.length < 2) return;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+      for (let k = 1; k < T.length; k++) {
+        ctx.globalAlpha = (k / T.length) * 0.8; ctx.strokeStyle = RED; ctx.lineWidth = 1.5 + k * 0.5;
+        ctx.beginPath(); ctx.moveTo(T[k - 1][0], T[k - 1][1]); ctx.lineTo(T[k][0], T[k][1]); ctx.stroke();
+      }
+      ctx.restore();
+    },
+  };
+})();
+
 /* -------------------------------------------------------------- wardrobe
    Every fighter is still Element Rag's faceless cream mannequin, dressed so
    no two read alike at a glance: their own stance, hair, clothes, cloth that

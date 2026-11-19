@@ -78,11 +78,34 @@
     else Sfx.suspend(false);
   });
 
+  /* Frame pacing. Like console games, keep the frame rate and trade
+     resolution for it: watch real frame times against the display's own
+     refresh interval (the best recent frame), and if frames keep running
+     late, render at a slightly lower resolution; when there's plenty of
+     headroom again, step back up. The canvas is always drawn at full size. */
+  const pace = { ema: 0, best: 1, lateT: 0, fastT: 0 };
+  // start from the resolution that ran smoothly last time on this device
+  try { Game.resScale = clamp(+localStorage.getItem('ragshowdown.res') || 1, 0.55, 1); } catch (e) { Game.resScale = 1; }
+  const saveRes = () => { try { localStorage.setItem('ragshowdown.res', String(Game.resScale)); } catch (e) { /* private mode */ } };
+  Game.resize();
+  function paceTick(dt) {
+    if (!(dt > 0) || dt > 0.1) return;
+    pace.ema = pace.ema ? pace.ema * 0.9 + dt * 0.1 : dt;
+    // the display's refresh interval: the shortest recent frame, slowly forgotten
+    pace.best = Math.max(1 / 240, Math.min(dt, pace.best * (1 + dt * 0.05)));
+    const late = pace.ema > pace.best * 1.35 + 0.0015;
+    pace.lateT = late ? pace.lateT + dt : 0;
+    pace.fastT = !late && pace.ema < pace.best * 1.12 ? pace.fastT + dt : 0;
+    if (pace.lateT > 1.2 && Game.resScale > 0.55) { Game.resScale = Math.max(0.55, Game.resScale - 0.12); pace.lateT = 0; Game.resize(); saveRes(); }
+    else if (pace.fastT > 6 && Game.resScale < 1) { Game.resScale = Math.min(1, Game.resScale + 0.08); pace.fastT = 0; Game.resize(); saveRes(); }
+  }
+
   let last = performance.now();
   window.__errors = window.__errors || [];
   function frame(now) {
-    const dt = Math.min(0.05, (now - last) / 1000);
+    const raw = (now - last) / 1000, dt = Math.min(0.05, raw);
     last = now;
+    if (UI.fightOn || Game.running) paceTick(raw);
     try {
       Input.pollPads();
       Game.update(dt);

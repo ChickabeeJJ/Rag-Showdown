@@ -528,6 +528,7 @@ class Rag {
 
   basePose() {
     const r = this.root, st = this.st, G0 = st.pose;
+    this.gaitOn = false;   // set again below only while walking (feet may lock then)
     if (this.cele && this.mode === 'active') return this.celePose(G0);
     if (this.pose) return mergePose(G0, POSES[this.pose] || this.pose);
     if (this.mode === 'rising') {
@@ -569,6 +570,7 @@ class Rag {
       const h = 52 - p.crouch, reach = 57 * 0.985;
       if (h < reach) p.bf[0] = Math.min(p.bf[0], -Math.sqrt(reach * reach - h * h) + p.lean * 0.35);
     }
+    if (!moving && this.footLock) this.footLock.ff = this.footLock.bf = null;
     if (moving) {
       // a fighting-game shuffle: the feet keep their order, each one is planted
       // for half the cycle (sliding back exactly as fast as the body moves) and
@@ -584,6 +586,16 @@ class Rag {
       const a = gait(this.walkPh), b = gait(this.walkPh + 0.5);
       p.ff = [G0.ff[0] * 0.75 + a[0], a[1]];
       p.bf = [G0.bf[0] * 0.75 + b[0], b[1]];
+      // foot lock: a foot plants where it actually touched down and holds that
+      // exact spot in the world until it lifts, so it never slides on the floor
+      this.gaitOn = true;
+      const lk = this.footLock || (this.footLock = {});
+      for (const [key, idx, g] of [['ff', P.FFOOT, a], ['bf', P.BFOOT, b]]) {
+        if (g[1] !== 0) { lk[key] = null; continue; }
+        if (lk[key] == null) lk[key] = this.pts[idx].x;
+        const rel = (lk[key] - r.x) * this.facing / this.s;
+        if (Math.abs(rel - p[key][0]) < 10) p[key][0] = rel; else lk[key] = null;
+      }
       p.crouch = G0.crouch + 2 + Math.cos(this.walkPh * TAU * 2) * 1.6;
       p.lean = G0.lean + (fwd ? st.walkLean : st.backLean);
       // walking back keeps the guard tight; walking in, the arms swing a touch
@@ -677,6 +689,8 @@ class Rag {
       B.x -= dx * k * wb; B.y -= dy * k * wb;
     };
     const limp = this.mode === 'tumble' || this.mode === 'dead';
+    const lockOn = this.gaitOn && this.mode === 'active' && this.root.grounded && !this.action && this.dashT <= 0 && this.footLock;
+    const pinFF = lockOn && this.footLock.ff != null, pinBF = lockOn && this.footLock.bf != null;
     for (let it = 0; it < 6; it++) {
       for (let b = 0; b < SEGS.length; b++) {
         const ia = SEGS[b][0], ib = SEGS[b][1], L = BONE_LEN[b] * s;
@@ -684,6 +698,19 @@ class Rag {
       }
       for (const [ia, ib, lo, hi] of JOINT_LIMITS) solve(pts[ia], pts[ib], INV_MASS[ia], INV_MASS[ib], lo * s, hi * s, 0.6);
       for (const p of pts) this.contain(p, limp);
+      // a locked (planted) foot is pinned inside the solver, so the knee bends
+      // around it rather than dragging it along the floor
+      if (pinFF) { pts[P.FFOOT].x = pts[P.FFOOT].px = this.footLock.ff; pts[P.FFOOT].y = pts[P.FFOOT].py = GROUND; }
+      if (pinBF) { pts[P.BFOOT].x = pts[P.BFOOT].px = this.footLock.bf; pts[P.BFOOT].y = pts[P.BFOOT].py = GROUND; }
+    }
+    // planted feet grip the floor: a foot whose target sits on the ground, while
+    // the fighter is on their feet, loses most of its sideways slip each tick, so
+    // the stance foot stays put instead of skating back and forth
+    if (this.mode === 'active' && this.root.grounded) {
+      for (const fi of [P.FFOOT, P.BFOOT]) {
+        const p = pts[fi];
+        if (T[fi].y >= GROUND - 1.5 * s && p.y >= GROUND - 2.5 * s && Math.abs(T[fi].x - Tp[fi].x) < 4 * s) p.px = lerp(p.px, p.x, 0.88);
+      }
     }
     // hinge joints: knees and elbows only bend one way, even when limp. The
     // bend direction comes from the animated pose (a 2D cross product keeps its
@@ -904,7 +931,7 @@ class Rag {
 
     // cloth behind the body: cape / scarf, hair, coat tails
     for (const c of this.chains) if (c.kind !== 'belt') this.drawChain(ctx, c, c.color === 'acc' ? acc : tone(c.color));
-    if (!mono && (this.surge > 0 || this.auraT > 0)) this.drawAura(ctx, time);
+    if (!mono && (this.surge > 0 || this.auraT > 0) && !(this.def.form && this.surge > 0)) this.drawAura(ctx, time);
     // back limbs in the shade tone
     leg(P.PELVIS, P.BKNEE, P.BFOOT, true);
     arm(P.NECK, P.BELB, P.BHAND, true);
@@ -1216,7 +1243,7 @@ class Rag {
     }
     if (!mono && this.eyeGlint > 0) {
       ctx.globalAlpha *= Math.min(1, this.eyeGlint * 3);
-      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3 * s;
+      ctx.strokeStyle = this.surge > 0 && this.def.look.surge && this.def.look.surge.dark ? '#ff2c4a' : '#ffffff'; ctx.lineWidth = 3 * s;
       ctx.beginPath(); ctx.moveTo(hd.x + f * hr * 0.2, hd.y - hr * 0.1); ctx.lineTo(hd.x + f * hr * 0.95, hd.y - hr * 0.3); ctx.stroke();
     }
   }
@@ -1262,6 +1289,15 @@ class Rag {
     }
     const dx = w.x1 - w.x0, dy = w.y1 - w.y0, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L, nx = -uy * this.facing, ny = ux * this.facing;
     const bx = w.x0 + ux * 6 * s, by = w.y0 + uy * 6 * s;            // where the blade leaves the guard
+    if (wide && this.surge > 0 && this.def.look.surge && this.def.look.surge.dark && !mono) {
+      // red form: the blade turns black, with a burning red edge
+      ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = '#ff2c4a'; ctx.globalAlpha *= 0.55; ctx.lineWidth = 20 * s;
+      ctx.beginPath(); ctx.moveTo(w.x0, w.y0); ctx.lineTo(w.x1, w.y1); ctx.stroke(); ctx.globalAlpha /= 0.55; ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = '#0b0507'; ctx.lineWidth = 11 * s; ctx.beginPath(); ctx.moveTo(w.x0, w.y0); ctx.lineTo(w.x1, w.y1); ctx.stroke();
+      ctx.strokeStyle = '#ff5a6a'; ctx.lineWidth = 2.2 * s; const ex = -(w.y1 - w.y0) / (Math.hypot(w.x1 - w.x0, w.y1 - w.y0) || 1) * 5 * s * this.facing, ey = (w.x1 - w.x0) / (Math.hypot(w.x1 - w.x0, w.y1 - w.y0) || 1) * 5 * s * this.facing;
+      ctx.beginPath(); ctx.moveTo(w.x0 + ex, w.y0 + ey); ctx.lineTo(w.x1, w.y1); ctx.stroke();
+      return;
+    }
     if (wide) {
       // the cleaver: a broad energy slab
       if (!mono) { ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = acc; ctx.globalAlpha *= 0.5; ctx.lineWidth = 16 * s; ctx.beginPath(); ctx.moveTo(w.x0, w.y0); ctx.lineTo(w.x1, w.y1); ctx.stroke(); ctx.globalAlpha /= 0.5; ctx.globalCompositeOperation = 'source-over'; }

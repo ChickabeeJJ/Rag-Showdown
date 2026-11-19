@@ -131,7 +131,7 @@ Each fighter's light-light-heavy **combo ender**:
 | **Kohei** | Rising hero | Air Flick | Volt Kick (flip, then axe kick) | **Max Impact** | recruit 1-3 |
 | **Blaze** | Fire soldier | Flame Kick (spinning fire wave) | Jet Boost (air dash kick) | **Inferno Meteor** | recruit 1-6 |
 | **Zen** | Three-sword style | Tornado Slash | Triple Cross | **Nine Phantom Cuts** (sheathes, then the cuts land) | coins only |
-| **Jin** | Reaper | Crescent Wave | Blink Step | **Eclipse Crescent** | recruit 2-6 |
+| **Jin** | Reaper (red form after his super: dark fire with red edges, embers and ash, red lightning, afterimages, a burning eye streak, a black blade with a red edge, red swing arcs) | Crescent Wave | Blink Step | **Eclipse Crescent** | recruit 2-6 |
 | **Kensei** | Pressure point master | Hundred Crack Fists | Pressure Point (plants timed marks that burst) | **Already Done** (walks away, then the foe bursts) | recruit 3-3 |
 | **Ripper** | Saw devil | Saw Disc (rolls along the floor) | Chain Hook (yanks the foe in) | **Revving Rampage** (carries the foe on the saws) | coins only |
 | **Aoi** | Sorcerer | Azure Pull | Crimson Burst | **Infinite Expanse** (a domain, then Violet Void) | recruit 4-3 |
@@ -169,7 +169,16 @@ Eight stages, built like Element Rag's backdrops. Each has far, mid and near lay
 
 ## Smooth at any refresh rate
 
-The simulation runs at a fixed 120 ticks a second. Rendering is interpolated: every body point, cloth chain and projectile is drawn blended between the last two ticks by how far the clock has run into the next one. Motion is smooth on 60, 90, 120 and 144 Hz screens, and slow motion is smooth too, instead of stepping. The blend is visual only, so gameplay, hitboxes and timing are unchanged. Measured in slow motion at 144 Hz, the old renderer showed no movement on 114 of 143 frames; with interpolation every frame moves, with even steps.
+- **Fixed timestep, interpolated rendering:** the simulation runs at a fixed 120 ticks a second. Every body point, cloth chain and projectile is drawn blended between the last two ticks by how far the clock has run into the next one. That keeps motion smooth on 60, 90, 120 and 144 Hz screens and in slow motion. The blend is visual only, so gameplay, hitboxes and frame data are unchanged. Measured in slow motion at 144 Hz, the old renderer showed no movement on 114 of 143 frames; now every frame moves, in even steps.
+- **Foot locking:** while walking, each foot plants exactly where it touches down and is pinned there inside the physics solver until it lifts, so the knee bends around it. Feet never skate. Measured: per-tick reversals of a planted foot fell from 35 to 1 in five seconds of walking, and body jitter in CPU fights dropped by about a third.
+- **Dynamic resolution:** the game watches real frame times against the display's refresh interval. If frames keep running late, it renders at a slightly lower resolution; with headroom it steps back up. The setting is remembered per device, so the frame rate holds.
+- **Cheaper frames:**
+  - the colour grade and vignette are baked into one cached overlay (one pass instead of a soft-light blend plus a full-screen gradient);
+  - the space stage's star, nebula and planet layers are flattened into one;
+  - glow sprites are trimmed;
+  - the canvas is opaque.
+
+  Forced-flush timings in a headless browser fell by about 15-45% per stage (the space stage from 38 ms to 17 ms). Real devices draw these cached layers on the GPU and are much faster than that headless software renderer.
 
 ## UI on every screen
 

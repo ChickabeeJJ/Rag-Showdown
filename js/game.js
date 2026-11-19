@@ -25,9 +25,13 @@ const Game = (() => {
   };
 
   /* ---------------------------------------------------------------- setup */
-  G.init = function (cv) { canvas = cv; ctx = cv.getContext('2d'); G.resize(); };
+  // an opaque canvas: every frame paints the whole screen, and the browser can
+  // composite an opaque layer more cheaply
+  G.init = function (cv) { canvas = cv; ctx = cv.getContext('2d', { alpha: false }); G.resize(); };
   G.resize = function () {
-    dpr = Math.min(2, window.devicePixelRatio || 1);
+    // dynamic resolution: resScale drops a little when frames run late and
+    // climbs back when there's headroom (see main.js)
+    dpr = Math.min(2, window.devicePixelRatio || 1) * (G.resScale || 1);
     cw = Math.max(1, Math.floor(window.innerWidth * dpr));
     ch = Math.max(1, Math.floor(window.innerHeight * dpr));
     canvas.width = cw; canvas.height = ch;
@@ -555,7 +559,8 @@ const Game = (() => {
     }
     if (mv.slash && act.t >= w && once(act, 'slfx')) {
       const n = f.pts[P.NECK];
-      G.fx.slash(n.x + f.facing * 10, n.y + 30, 80 + (f.def.reach || 0), f.facing > 0 ? -1.3 : -1.85, f.facing > 0 ? 1.3 : -4.45 + 0.01, '#e8f4ff', 14, 0.16);
+      const red = f.def.form && f.surge > 0;   // a transformed fighter's swings carry their colour
+      G.fx.slash(n.x + f.facing * 10, n.y + 30, 80 + (f.def.reach || 0), f.facing > 0 ? -1.3 : -1.85, f.facing > 0 ? 1.3 : -4.45 + 0.01, red ? '#ff5a6a' : '#e8f4ff', 14, 0.16);
     }
     if (mv.rubber) { const ph = phaseOf(act).ph; f.hideArm = ph === 1; }
     if (mv.kind === 'special' || mv.kind === 'super') {
@@ -812,6 +817,8 @@ const Game = (() => {
   function step(dt) {
     G.t += dt;
     G.stateT += dt;
+    // transformation effects (e.g. Jin's red form) run while the fighter is surging
+    for (const f of G.fighters) if (f.def.form && f.surge > 0 && f.alive && f.stopT <= 0) f.def.form.tick(G, f, dt);
     if (G.stopT > 0) { G.stopT -= dt; if (G.stopT <= 0) { G.stopOwner = null; G.impact('heavy', G.impactPos.x, G.impactPos.y); Sfx.play('resume'); } }
     const fighting = G.state === 'fight';
     for (let i = 0; i < 2; i++) {
@@ -1154,7 +1161,10 @@ const Game = (() => {
     for (const s of G.summons) if (s.kind === 'stand' && !mono) { ctx.globalAlpha = 0.55; ctx.globalCompositeOperation = 'lighter'; s.rag.draw(ctx, time, '#7d5cff'); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; }
     for (const f of order) {
       const savedHide = f.hideArm;
+      const form = !mono && f.def.form && f.surge > 0 && f.alive && !f.hidden;
+      if (form) f.def.form.drawBack(G, ctx, f, time);
       f.draw(ctx, time, mono);
+      if (form) f.def.form.drawFront(G, ctx, f, time);
       if (!mono && f.action && f.action.move.rubber && savedHide) {
         const n = f.pts[P.NECK];
         const p = f.local(f.action.move.box[0], f.action.move.box[1]);
@@ -1593,7 +1603,7 @@ const Game = (() => {
       if (c.style === 'win') {
         // the winner's name, big and dead centre, with a gold WINS plate under it
         const sz = base * 0.15;
-        ctx.translate(0, -ch * 0.08);
+        ctx.translate(0, ch * 0.04);
         ctx.scale(pop * (1 + u * 0.04), pop * (1 + u * 0.04));
         ctx.font = `italic 900 ${Math.round(sz)}px Rubik, sans-serif`;
         ctx.lineJoin = 'round'; ctx.lineWidth = sz * 0.2; ctx.strokeStyle = '#000'; ctx.strokeText(c.text, 0, 0);

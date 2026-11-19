@@ -700,6 +700,13 @@ const Stage = (() => {
         g.strokeStyle = 'rgba(230,215,255,0.7)'; g.lineWidth = 3; g.beginPath(); g.arc(px, py, pr - 1, Math.PI * 0.95, Math.PI * 1.65); g.stroke();
         ring(0, Math.PI);
       }, 820);
+      // stars, nebulae and the planet sit at almost the same depth: flatten them
+      // into one sky layer, so the frame paints one far layer instead of three
+      d.skyL = layer(1, g => {
+        g.setTransform(1, 0, 0, 1, 0, 0);
+        for (const L of [d.starsL, d.nebula, d.planetL]) g.drawImage(L.c, 0, 0, L.c.width / L.q, L.c.height / L.q);
+      }, 820);
+      d.starsL = d.nebula = d.planetL = null;
       // asteroid isles are drawn one by one as sprites, so each can drift on its own
       d.isleSprites = [];
       for (let i = 0; i < 9; i++) {
@@ -716,18 +723,17 @@ const Stage = (() => {
       d.floor = 'glass';
     },
     back(ctx, d, time, vr, cam) {
-      drawLayer(ctx, d.starsL, cam, 0.97);
+      drawLayer(ctx, d.skyL, cam, 0.95);
       // the brightest stars twinkle, with a soft four-point glint
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       for (const s of d.bright) {
-        const x = s.x + (cam.x - 800) * 0.97, a = 0.55 + Math.sin(time * 2.2 + s.ph) * 0.35;
-        Glow.draw(ctx, s.c, x, s.y, s.r * 7, 0.5 * a);
+        const x = s.x + (cam.x - 800) * 0.95, a = 0.55 + Math.sin(time * 2.2 + s.ph) * 0.35;
+        if (x < vr.x0 - 20 || x > vr.x1 + 20) continue;
+        if (s.r > 2.6) Glow.draw(ctx, s.c, x, s.y, s.r * 7, 0.5 * a);
         ctx.globalAlpha = a; ctx.strokeStyle = s.c; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(x - s.r * 6, s.y); ctx.lineTo(x + s.r * 6, s.y); ctx.moveTo(x, s.y - s.r * 6); ctx.lineTo(x, s.y + s.r * 6); ctx.stroke();
       }
       ctx.globalAlpha = 1; ctx.restore();
-      drawLayer(ctx, d.nebula, cam, 0.94);
-      drawLayer(ctx, d.planetL, cam, 0.92);
       // shooting stars, every few seconds
       const per = 4.5, k = (time % per) / 0.7;
       if (k < 1) {
@@ -753,11 +759,9 @@ const Stage = (() => {
       for (const [x] of d.runes) {
         // light runs up the rune channel, glyph by glyph
         const cx = x + off;
+        ctx.globalCompositeOperation = 'lighter'; Glow.draw(ctx, '#9b6bff', cx, 610, 90, 0.3 + Math.sin(time * 2.4) * 0.08); ctx.globalCompositeOperation = 'source-over';
         for (let k = 0; k < 6; k++) {
           const y = 708 - k * 40, a = 0.35 + 0.65 * Math.max(0, Math.sin(time * 2.4 - k * 0.7));
-          ctx.globalCompositeOperation = 'lighter';
-          Glow.draw(ctx, '#9b6bff', cx, y, 26, 0.35 * a);
-          ctx.globalCompositeOperation = 'source-over';
           ctx.strokeStyle = rgba('#e2d4ff', 0.25 + 0.75 * a); ctx.lineWidth = 2; ctx.lineCap = 'round';
           ctx.beginPath();
           if (k % 3 === 0) { ctx.moveTo(cx - 6, y - 8); ctx.lineTo(cx + 6, y); ctx.lineTo(cx - 6, y + 8); }
@@ -1379,13 +1383,26 @@ const Stage = (() => {
   }
 
   // screen space: a colour grade and vignette over everything except the HUD
+  // the colour grade and vignette, baked once per stage and screen shape into a
+  // small overlay and stretched over the frame: one cheap pass instead of a
+  // full-screen soft-light blend plus a full-screen radial gradient every frame
+  const gradeCache = {};
   function grade(ctx, id, cw, ch) {
-    const art = (ART[id] || ART.dojo);
-    if (art.grade) { ctx.globalCompositeOperation = 'soft-light'; ctx.fillStyle = rgba(art.grade[0], art.grade[1] * 4); ctx.fillRect(0, 0, cw, ch); ctx.globalCompositeOperation = 'source-over'; }
-    const v = art.vignette || 0.4;
-    const g = ctx.createRadialGradient(cw / 2, ch * 0.55, Math.min(cw, ch) * 0.35, cw / 2, ch * 0.55, Math.hypot(cw, ch) * 0.62);
-    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${v})`);
-    ctx.fillStyle = g; ctx.fillRect(0, 0, cw, ch);
+    const art = ART[id] || ART.dojo, key = id + ':' + Math.round(cw / ch * 20);
+    let c = gradeCache[key];
+    if (!c) {
+      const h = 180, w = Math.round(h * cw / ch);
+      c = document.createElement('canvas'); c.width = w; c.height = h;
+      const g = c.getContext('2d');
+      if (art.grade) { g.fillStyle = rgba(art.grade[0], art.grade[1] * 0.9); g.fillRect(0, 0, w, h); }
+      const v = art.vignette || 0.4;
+      const rg = g.createRadialGradient(w / 2, h * 0.55, Math.min(w, h) * 0.35, w / 2, h * 0.55, Math.hypot(w, h) * 0.62);
+      rg.addColorStop(0, 'rgba(0,0,0,0)'); rg.addColorStop(1, `rgba(0,0,0,${v})`);
+      g.fillStyle = rg; g.fillRect(0, 0, w, h);
+      gradeCache[key] = c;
+    }
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(c, 0, 0, cw, ch);
   }
 
   return { prepare, draw, drawFront, grade };
