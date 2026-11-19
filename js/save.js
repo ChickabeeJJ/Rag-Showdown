@@ -1,6 +1,7 @@
 'use strict';
 /* =========================================================================
-   Save data in localStorage (every access guarded): coins, unlocked
+   Save data through Platform storage (the CrazyGames data module when it is
+   there, so progress follows the account; localStorage otherwise): coins, unlocked
    fighters, level stars, Survival best, settings and lifetime stats.
    ========================================================================= */
 
@@ -23,13 +24,15 @@ const Save = (() => {
     trials: {},          // fighter id -> cleared trial ids
     ascentBest: 0,       // highest Ascent floor cleared
     ascentRuns: 0,
+    missions: null,      // { day, list: [{ id, n, goal, pay, claimed, fid? }], bonus }
+    mxp: {},             // fighter id -> mastery XP
     arcadeDiff: 1,       // 0 easy, 1 normal, 2 hard
     settings: { sfx: true, music: true, shake: true, flashes: true },
   });
   const S = { data: fresh() };
   S.load = function () {
     try {
-      const raw = localStorage.getItem(KEY);
+      const raw = Platform.getItem(KEY);
       if (raw) {
         const d = JSON.parse(raw);
         const f = fresh();
@@ -44,10 +47,12 @@ const Save = (() => {
         if (!S.data.upg || typeof S.data.upg !== 'object') S.data.upg = {};
         if (!S.data.trials || typeof S.data.trials !== 'object') S.data.trials = {};
         if (!Number.isFinite(S.data.ascentBest)) S.data.ascentBest = 0;
+        if (!S.data.mxp || typeof S.data.mxp !== 'object') S.data.mxp = {};
+        if (S.data.missions && (!Array.isArray(S.data.missions.list) || typeof S.data.missions.day !== 'string')) S.data.missions = null;
       }
     } catch (e) { S.data = fresh(); }
   };
-  S.save = function () { try { localStorage.setItem(KEY, JSON.stringify(S.data)); } catch (e) { /* private mode */ } };
+  S.save = function () { try { Platform.setItem(KEY, JSON.stringify(S.data)); } catch (e) { /* private mode */ } };
   S.owned = id => S.data.unlocked.includes(id);
   S.unlock = function (id) { if (!S.owned(id)) { S.data.unlocked.push(id); S.save(); return true; } return false; };
   S.buy = function (id) {

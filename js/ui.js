@@ -177,15 +177,51 @@ const UI = (() => {
     $('homeStars').textContent = Campaign.stars();
     $('survSub').textContent = `BEST ${d.survivalBest}`;
     $('ascSub').textContent = d.ascentBest ? `BEST FLOOR ${d.ascentBest}` : 'ROGUELITE CLIMB';
-    $('homePick').innerHTML = `${pt(def)}<div><small>YOUR FIGHTER</small><b>${def.name}</b><small style="color:${def.color}">${def.title}</small></div><button class="btn small" id="homeChange"><b>CHANGE</b></button>`;
+    const ms0 = Meta.mastery(def.id);
+    $('homePick').innerHTML = `${pt(def)}<div class="hp-mid"><small>YOUR FIGHTER</small><b>${def.name}</b><span class="hp-xp"><em style="color:${def.color}">LV ${ms0.lv}</em>${xpBar(ms0, def.color)}</span></div><button class="btn small" id="homeChange"><b>CHANGE</b></button>`;
     $('homeChange').onclick = () => { Sfx.play('ui'); openSelect('roster'); };
     const canBuy = ROSTER.some(f => !Save.owned(f.id) && d.coins >= f.price);
     $('rosterNote').classList.toggle('hidden', !canBuy);
-    const ready = Save.dailyReady();
-    $('daily').className = 'daily' + (ready ? '' : ' done');
-    $('daily').innerHTML = `${ic(ready ? 'gift' : 'check')}<span>${ready ? 'FIRST WIN OF THE DAY: +100 COINS' : 'DAILY BONUS CLAIMED · BACK TOMORROW'}</span>`;
+    // daily missions: three goals and their progress, one tap to open
+    const ms = Meta.missions(), cl = Meta.claimable(), doneN = ms.list.filter(m => m.n >= m.goal).length;
+    $('daily').className = 'daily missions-card' + (cl ? ' ready' : '');
+    $('daily').innerHTML = `${ic(cl ? 'gift' : 'scroll')}<span class="mc-t"><b>DAILY MISSIONS</b><small>${cl ? `${cl} REWARD${cl > 1 ? 'S' : ''} TO CLAIM` : `${doneN} / ${ms.list.length} DONE · ${Save.dailyReady() ? 'FIRST WIN TODAY +100' : 'NEW ONES TOMORROW'}`}</small></span><span class="mc-pips">${ms.list.map(m => `<i style="--p:${m.n / m.goal}" class="${m.claimed ? 'claimed' : m.n >= m.goal ? 'done' : ''}"></i>`).join('')}</span>${cl ? `<em>${cl}</em>` : ''}`;
+    $('daily').onclick = () => { Sfx.play('ui'); openMissions(); };
     hydrate($('home'));
     coinsUI();
+  }
+
+  // a mastery XP bar
+  function xpBar(m, col) {
+    return `<span class="xpbar" style="--c:${col || 'var(--acc)'}"><i style="width:${m.max ? 100 : Math.round(m.xp / m.need * 100)}%"></i></span>`;
+  }
+  // time until the missions refresh (midnight UTC, when the date key changes)
+  function untilTomorrow() {
+    const now = new Date(), next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+    const m = Math.max(0, Math.round((next - now) / 60000));
+    return `${Math.floor(m / 60)}H ${m % 60}M`;
+  }
+  function openMissions() {
+    const ms = Meta.missions();
+    const allClaimed = ms.list.every(m => m.claimed);
+    openSheet(`<h2>DAILY MISSIONS</h2><p class="sub">NEW MISSIONS IN ${untilTomorrow()}</p>
+      <div class="missions">${ms.list.map((m, i) => {
+        const D = Meta.missionDef(m), done = m.n >= m.goal;
+        return `<div class="mission ${m.claimed ? 'claimed' : done ? 'done' : ''}"><span class="mi-ic">${ic(D ? D.icon : 'star')}</span>
+          <div class="mi-mid"><b>${esc(Meta.missionText(m))}</b><span class="mi-bar"><i style="width:${Math.round(m.n / m.goal * 100)}%"></i></span><small>${m.n} / ${m.goal}</small></div>
+          ${m.claimed ? `<span class="mi-ok">${ic('check')}CLAIMED</span>` : `<button class="btn small ${done ? 'primary' : ''}" data-claim="${i}" ${done ? '' : 'disabled'}><b>${ic('coins', 'coin')}${m.pay}</b></button>`}</div>`;
+      }).join('')}</div>
+      <div class="mission-bonus ${ms.bonus ? 'claimed' : allClaimed ? 'done' : ''}">${ic('gift')}<span><b>DAILY CHEST</b><small>Claim all three missions to open it</small></span>${ms.bonus ? `<span class="mi-ok">${ic('check')}OPENED</span>` : `<button class="btn small ${allClaimed ? 'primary' : ''}" id="mBonus" ${allClaimed ? '' : 'disabled'}><b>${ic('coins', 'coin')}${Meta.MISSION_BONUS}</b></button>`}</div>
+      <p class="hint">Missions count in Levels, Ascent and Survival. ${Save.dailyReady() ? 'Your first win today also pays +100 coins.' : 'First-win bonus claimed today.'}</p>
+      <div class="actions"><button class="btn primary" id="mClose"><b>DONE</b></button></div>`, 'missions-sheet');
+    $('sheet').querySelectorAll('[data-claim]').forEach(b => { b.onclick = () => { const c = Meta.claimMission(+b.dataset.claim); if (c) { Sfx.play('coin'); toast(`+${c} COINS`); coinsUI(); openMissions(); } }; });
+    if ($('mBonus')) $('mBonus').onclick = () => { const c = Meta.claimBonus(); if (c) { Sfx.play('perfect'); Platform.happytime(); toast(`DAILY CHEST +${c} COINS`); coinsUI(); openMissions(); } };
+    $('mClose').onclick = () => { Sfx.play('uiBack'); closeSheet(); renderHome(); };
+  }
+  // count a mission event (not in Training) and announce anything it completes
+  function mission(ev, amt, ctx) {
+    if (!U.run || U.run.mode === 'training' || (Game.cfg && Game.cfg.tutorial)) return;
+    for (const m of Meta.track(ev, amt, ctx)) { Sfx.play('unlock'); toast(`MISSION COMPLETE · ${Meta.missionText(m).toUpperCase()}`); }
   }
 
   /* ------------------------------------------------------------ select */
@@ -198,10 +234,20 @@ const UI = (() => {
     renderSelect();
   }
 
+  // the roster in colour order, so the grid reads as a spectrum
+  const hueOf = hex => {
+    const n = parseInt(hex.slice(1), 16), r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    if (!d) return 0;
+    const h = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return h * 60;
+  };
+  let BY_COLOUR = null;
+  const byColour = () => BY_COLOUR || (BY_COLOUR = ROSTER.slice().sort((a, b) => ((hueOf(a.color) + 15) % 360) - ((hueOf(b.color) + 15) % 360)));
   function renderSelect() {
     const s = U.sel;
     const grid = $('selGrid');
-    grid.innerHTML = ROSTER.map(f => {
+    grid.innerHTML = byColour().map(f => {
       const own = Save.owned(f.id);
       const tags = [];
       if (s.p1 === f.id && s.mode !== 'roster') tags.push('<span>P1</span>');
@@ -274,7 +320,7 @@ const UI = (() => {
       const label = { ascent: 'START ASCENT', survival: 'START SURVIVAL', training: 'ENTER TRAINING' }[s.mode];
       foot = `${opts}<div class="sd-foot"><button class="btn primary big" id="sdGo"><b>${label}</b></button></div>`;
     }
-    const rk = own ? Meta.totalRank(def.id) : 0, maxRk = Meta.UPGRADES.length * Meta.MAX_RANK;
+    const rk = own ? Meta.totalRank(def.id) : 0, maxRk = Meta.UPGRADES.length * Meta.MAX_RANK, mst = Meta.mastery(def.id);
     const body = {
       moves: `<div class="sd-moves">${moveRows(def)}</div>`,
       upg: own ? upgradeRows(def) : `<div class="sd-note">${ic('lock')}<span>Unlock <b>${def.name}</b> to buy upgrades: Power, Vitality, Focus and Recovery, five ranks each.</span></div>`,
@@ -286,14 +332,15 @@ const UI = (() => {
           <div><small>HOME STAGE</small><b>${(STAGES[def.stage] || STAGES.dojo).name}</b></div>
           <div><small>HEALTH</small><b>${fmt(Math.round(def.hp * HP_SCALE))}</b></div>
           <div><small>RANK</small><b>${rk} / ${maxRk}</b></div>
-        </div>`,
+        </div>
+        <div class="sd-mastery" style="--c:${def.color}"><div><small>MASTERY</small><b>LV ${mst.lv} · ${Meta.masteryTitle(mst.lv)}</b></div>${xpBar(mst, def.color)}<small>${mst.max ? 'MAXED' : `${mst.xp} / ${mst.need} XP · NEXT LEVEL +${Meta.levelPay(mst.lv + 1)} COINS`}</small></div>`,
     }[tab];
     $('selDetail').innerHTML = `
       <div class="sd-hero" style="--c:${def.color}">
         <div class="sd-prev" style="--c:${def.color}"><canvas id="sdPrev"></canvas>
           <span class="prev-tag">${ic('play')} PREVIEW</span><span class="prev-hint">TAP A MOVE TO SEE IT</span>
           <div class="sd-id"><span class="role">${ROLE[def.ai.style] || 'ALL-ROUNDER'} · ${STYLE[def.look.stance] || ''}</span><h3>${def.name}</h3><small>${def.title}</small></div>
-          ${rk ? `<span class="sd-rank">${ic('ranks')}RANK ${rk}</span>` : own ? '' : `<span class="sd-rank lock">${ic('lock')}LOCKED</span>`}
+          ${own ? `<span class="sd-rank">${ic('ranks')}MASTERY ${mst.lv}${rk ? ` · RANK ${rk}` : ''}</span>` : `<span class="sd-rank lock">${ic('lock')}LOCKED</span>`}
         </div>
         <div class="sd-stats" style="--c:${def.color}">${bar('POWER', st[0])}${bar('SPEED', st[1])}${bar('RANGE', st[2])}</div>
       </div>
@@ -358,6 +405,8 @@ const UI = (() => {
 
   /* ------------------------------------------------------------ fights */
   function beginFight(cfg, instant, fast) {
+    // a natural break: the platform may show a midgame ad first (rate limited)
+    if (!cfg.tutorial && Platform.midgameDue()) { closeSheet(); Platform.midgame().then(() => beginFight(cfg, instant, fast)); return; }
     closeSheet();
     if (U.tut) { U.tut = null; $('tut').classList.add('hidden'); }
     $('coach').classList.add('hidden');
@@ -409,6 +458,24 @@ const UI = (() => {
     if (res.winner === 0) { d.totalWins++; d.wins[id] = (d.wins[id] || 0) + 1; }
     d.finishers += res.stats.finishers; d.blackFlashes += res.stats.bf;
     Save.save();
+    // missions: wins (and wins with a given fighter) and supers
+    if (res.winner === 0) mission('win', 1, { fid: id });
+    if (res.stats.supers) mission('super', res.stats.supers);
+    // mastery: a win is worth more, and style is rewarded
+    const xp = (res.winner === 0 ? 40 : 14) + res.stats.finishers * 10 + Math.min(20, res.stats.maxCombo * 2) + res.stats.bf * 6;
+    const x = Meta.addXp(id, xp);
+    U.lastXp = Object.assign({ id }, x);
+    if (x.to > x.from) {
+      Sfx.play('perfect'); Platform.happytime();
+      toast(`${BY_ID[id].name} · MASTERY ${x.to}${x.to % 5 === 0 ? ' · ' + Meta.masteryTitle(x.to) : ''} · +${x.coins} COINS`);
+      coinsUI();
+    }
+  }
+  // the mastery XP a fight just earned, as a line on the result sheet
+  function xpLine() {
+    const x = U.lastXp; if (!x) return '';
+    const def = BY_ID[x.id];
+    return `<div class="xp-line" style="--c:${def.color}"><small>${def.name} · MASTERY ${x.m.lv}${x.to > x.from ? ' · LEVEL UP!' : ''}</small>${xpBar(x.m, def.color)}<b>+${x.gain} XP</b></div>`;
   }
 
   function statTiles(st) {
@@ -489,6 +556,7 @@ const UI = (() => {
     U.levelIntro = { L, foe, t: 0, tut };
   }
 
+  const chDone0 = L => Campaign.chapterDone(L.c) && L.l === 5;
   function levelEnd(L, res) {
     const d = Save.data;
     const foe = BY_ID[Game.cfg.p2];
@@ -505,6 +573,8 @@ const UI = (() => {
       if (res.stats.bf) { coins += res.stats.bf * 10; parts.push(['BLACK SPARK', res.stats.bf * 10]); }
       if (Save.dailyReady()) { coins += 100; parts.push(['FIRST WIN TODAY', 100]); d.daily = Save.today(); }
       Save.addCoins(coins);
+      mission('level');
+      if (stars === 3 || chDone0(L)) Platform.happytime();
       let rec = '';
       if (L.recruit && !Save.owned(L.recruit)) {
         Save.unlock(L.recruit);
@@ -518,7 +588,7 @@ const UI = (() => {
       openSheet(`<h2 class="win">${chDone ? 'CHAPTER CLEAR!' : 'LEVEL CLEAR!'}</h2><p class="sub">LEVEL ${L.label} · ${BY_ID[Game.cfg.p1].name} DEFEATS ${foe.name}</p>
         <div class="big-stars">${[0, 1, 2].map(k => ic('star', k < stars ? 'on' : '')).join('')}</div>
         <p class="hint">${stars < 3 ? 'Win with more health left to earn more stars.' : 'Flawless. Three stars.'}</p>
-        ${rec}${statTiles(res.stats)}${payoutHtml({ total: coins, parts })}
+        ${rec}${statTiles(res.stats)}${xpLine()}${payoutHtml({ total: coins, parts })}
         <div class="actions"><button class="btn" id="rMenu"><b>MENU</b></button><button class="btn" id="rRetry"><b>RETRY</b></button>${next ? `<button class="btn primary" id="rNext"><b>NEXT LEVEL</b></button>` : ''}</div>`, 'result');
       if (next) { $('rNext').onclick = () => { Sfx.play('fight'); U.fastNext = true; playLevel(next); }; autoNext($('rNext'), rec ? 8 : 5); }
       if (stars < 3) Sfx.play('coin'); else Sfx.play('perfect');
@@ -532,7 +602,7 @@ const UI = (() => {
         'Tap A or D twice to dash in or out.',
       ];
       openSheet(`<h2 class="lose">DEFEATED</h2><p class="sub">LEVEL ${L.label} · ${foe.name} WINS</p>
-        <p class="tip">${esc(pick(tips))}</p>${statTiles(res.stats)}
+        <p class="tip">${esc(pick(tips))}</p>${statTiles(res.stats)}${xpLine()}
         <div class="actions"><button class="btn" id="rMenu"><b>MENU</b></button><button class="btn" id="rLevels"><b>LEVELS</b></button><button class="btn primary" id="rRetry"><b>RETRY</b></button></div>`, 'result');
       $('rLevels').onclick = () => { Sfx.play('ui'); closeSheet(); endFight(); openLevels(L.c); startDemo(); };
     }
@@ -628,6 +698,15 @@ const UI = (() => {
   }
   function onFightHit(att, def, spec, r, act) {
     if (!U.fightOn) return;
+    // mission events from the player's own hits and blocks
+    if (att.side === 0 && r === 'hit') {
+      const fin = act ? act.key === 'hEnd' && !act.mFin && (act.mFin = true) : spec.name && spec.name === att.def.moves.hEnd.name;
+      if (fin) mission('finisher');
+      if (def.lastHit && def.lastHit.bf) mission('bf');
+      const c = Game.combo[0];
+      if (c && c.n === 6) mission('combo6');
+    }
+    if (def.side === 0 && r === 'block') mission('block');
     if (U.run && U.run.mode === 'training' && att.side === 0 && r === 'hit') trialHit(att, def, spec, act);
     const t = U.tut;
     if (t && def.side === 0 && r === 'block') t.blocked++;
@@ -712,7 +791,7 @@ const UI = (() => {
     r.cur = { id: oid, lv, boss };
     const mods = Meta.modsFor(r.p1, { upgrades: true, cards: liveCards(r) });
     versusSheet(r.p1, oid, `${boss ? 'BOSS · ' : ''}FLOOR ${fl}`, () => beginFight({ p1: r.p1, p2: oid, ctrls: [human(0), cpu(lv)], stage: pick(STAGE_IDS), mode: 'ascent', toWin: 1,
-      hpStart: [r.hp, 1], meter0: r.meter, mods: [mods, foe], scale: boss ? [1, 1.1] : null, fastIntro: fl > 1, roundSub: boss ? 'BOSS FLOOR' : 'FLOOR ' + fl,
+      hpStart: [r.hp, 1], healFrom: r.healFrom != null ? [r.healFrom, null] : null, meter0: r.meter, mods: [mods, foe], scale: boss ? [1, 1.1] : null, fastIntro: fl > 1, roundSub: boss ? 'BOSS FLOOR' : 'FLOOR ' + fl,
       chip: `ASCENT · FLOOR ${fl}${boss ? ' · BOSS' : ''} · ${cardCount(r)} ${cardCount(r) === 1 ? 'CARD' : 'CARDS'}`, onEnd: res => setTimeout(() => ascentEnd(res), 700) }), null, 1.4);
   }
   // the run's deck as small chips, edged in each card's rarity colour
@@ -721,17 +800,33 @@ const UI = (() => {
     return list.length ? `<div class="card-chips">${list.map(([id, n]) => { const C = Meta.CARD[id], R = Meta.RARITY[C.rar]; return `<span class="r-${C.rar}${id === 'phoenix' && r.phoenixSpent ? ' spent' : ''}" style="--c:${C.col};--rc:${R.col}">${ic(C.icon)}${C.name}${n > 1 ? ' ×' + n : ''}</span>`; }).join('')}</div>` : '';
   }
   // one card: rarity banner with pips, art, name, rules text, stack note, key
+  // health after the fight, and the heal on top of it, as one bar
+  function healBar(from, to) {
+    return `<div class="heal-bar"><span>${ic('heal')}HEALTH</span><div class="hb"><i class="was" style="width:${Math.round(from * 100)}%"></i><i class="gain" style="left:${Math.round(from * 100)}%;width:${Math.max(0, Math.round((to - from) * 100))}%"></i></div><b>${Math.round(to * 100)}%</b></div>`;
+  }
   function cardHtml(C, r, k) {
     const R = Meta.RARITY[C.rar], have = r.cards[C.id] || 0;
     const note = C.now && !C.apply ? 'INSTANT' : have ? `STACK ${have + 1} / ${C.max}` : C.max > 1 ? `STACKS ×${C.max}` : 'UNIQUE';
     return `<button class="rcard r-${C.rar}" data-b="${C.id}" style="--c:${C.col};--rc:${R.col};--i:${k}">
-      <span class="rc-edge"></span>
-      <span class="rc-rar">${'<i></i>'.repeat(R.pips)}<b>${R.name}</b></span>
-      <span class="rc-art"><span class="rc-rays"></span><span class="rc-ic">${ic(C.icon)}</span></span>
-      <b class="rc-name">${C.name}</b><small class="rc-desc">${C.desc}</small>
+      <span class="rc-edge"></span><span class="rc-frame"></span>
+      <span class="rc-rar">${'<i></i>'.repeat(R.pips)}<b>${R.name}</b>${'<i></i>'.repeat(R.pips)}</span>
+      <span class="rc-art"><span class="rc-pattern"></span><span class="rc-rays"></span><span class="rc-ic">${ic(C.icon)}</span><span class="rc-tag">${C.tag || ''}</span></span>
+      <span class="rc-plate"><b class="rc-name">${C.name}</b></span>
+      <small class="rc-desc">${C.desc}</small>
       <em class="rc-note">${note}</em><kbd>${k + 1}</kbd>
-      <span class="rc-foil"></span><span class="rc-shine"></span><span class="rc-spark"></span>
+      <span class="rc-foil"></span><span class="rc-shine"></span><span class="rc-spark"></span><span class="rc-glare"></span>
     </button>`;
+  }
+  // cards tilt toward the pointer and a glare follows it, like a real foil card
+  function cardTilt(root) {
+    root.querySelectorAll('.rcard').forEach(el => {
+      el.addEventListener('pointermove', e => {
+        const b = el.getBoundingClientRect(), x = (e.clientX - b.left) / b.width, y = (e.clientY - b.top) / b.height;
+        el.style.setProperty('--mx', (x * 100).toFixed(1) + '%'); el.style.setProperty('--my', (y * 100).toFixed(1) + '%');
+        el.style.setProperty('--ry', ((x - 0.5) * 14).toFixed(2) + 'deg'); el.style.setProperty('--rx', ((0.5 - y) * 10).toFixed(2) + 'deg');
+      });
+      el.addEventListener('pointerleave', () => { el.style.setProperty('--rx', '0deg'); el.style.setProperty('--ry', '0deg'); });
+    });
   }
   function ascentEnd(res) {
     const r = U.run;
@@ -744,10 +839,13 @@ const UI = (() => {
       const fl = r.floor, boss = isBossFloor(fl);
       const c = Math.round((15 + fl * 4 + (boss ? 60 : 0) + res.stats.finishers * 15) * (r.coinMul || 1));
       Save.addCoins(c); r.coins += c;
-      if (fl > Save.data.ascentBest) { Save.data.ascentBest = fl; Save.save(); }
+      if (fl > Save.data.ascentBest) { Save.data.ascentBest = fl; Save.save(); if (fl > 1) Platform.happytime(); }
+      mission('floor');
       if (Save.dailyReady()) { Save.data.daily = Save.today(); Save.addCoins(100); r.coins += 100; toast('FIRST WIN TODAY +100 COINS'); }
       recordMatch(res, r.p1);
       const heal = boss ? 0.5 : 0.25;
+      r.healFrom = res.hp[0];
+      mission('streak', r.streak);
       r.hp = Math.min(1, res.hp[0] + heal);
       r.meter = me ? me.meter : 0;
       r.floor++;
@@ -757,6 +855,7 @@ const UI = (() => {
       if (!offer.length) { ascentFloor(); return; }
       const legend = offer.some(C => C.rar === 'legendary');
       openSheet(`<h2 class="win">FLOOR ${fl} CLEARED</h2><p class="sub">+${c + midas} COINS${boss ? ' · BOSS BONUS' : ''} · ${ic('heal')} HEALTH +${Math.round(heal * 100)}%</p>
+        ${healBar(r.healFrom, r.hp)}
         <p class="tip">${boss ? 'Boss reward: rarer cards. ' : ''}Pick a card for the rest of the run</p>
         <div class="rcards">${offer.map((C, k) => cardHtml(C, r, k)).join('')}</div>
         ${cardChips(r)}`, 'result wide cards' + (legend ? ' legend' : ''));
@@ -767,7 +866,9 @@ const UI = (() => {
         const C = Meta.CARD[id];
         Sfx.play(C.rar === 'legendary' || C.rar === 'epic' ? 'unlock' : 'ui');
         r.cards[id] = (r.cards[id] || 0) + 1;
-        if (C.now) C.now(r);
+        if (C.rar !== 'common') mission('card');
+        if (C.rar === 'legendary') Platform.happytime();
+        if (C.now) { C.now(r); const hb = $('sheet').querySelector('.heal-bar'); if (hb) hb.outerHTML = healBar(r.healFrom, r.hp); hydrate($('sheet')); }
         window.removeEventListener('keydown', keys, true);
         const el = $('sheet').querySelector(`.rcard[data-b="${id}"]`);
         if (el) { el.classList.add('chosen'); $('sheet').classList.add('picking'); }
@@ -776,14 +877,25 @@ const UI = (() => {
       const keys = e => { const k = +e.key; if (k >= 1 && k <= offer.length) { e.preventDefault(); choose(offer[k - 1].id); } };
       window.addEventListener('keydown', keys, true);
       $('sheet').querySelectorAll('.rcard').forEach(b => { b.onclick = () => choose(b.dataset.b); });
+      cardTilt($('sheet'));
     } else {
+      recordMatch(res, r.p1);
       const cleared = r.floor - 1, best = cleared >= Save.data.ascentBest && cleared > 0;
+      // one revive per run, for watching an ad (only where ads exist)
+      const canRevive = !r.revived && Platform.adsReady();
       openSheet(`<h2 class="lose">RUN OVER</h2><p class="sub">${BY_ID[r.p1].name} · ASCENT</p>
         <div class="big-count">${cleared}</div><p class="sub">${cleared === 1 ? 'FLOOR' : 'FLOORS'} CLEARED · ${best ? 'NEW BEST!' : 'BEST ' + Save.data.ascentBest}</p>
         ${cardChips(r)}
+        ${xpLine()}
         <div class="payout">${ic('coins', 'coin')}${fmt(r.coins)}<small>COINS THIS RUN</small></div>
-        <p class="hint">Spend coins on upgrades in FIGHTERS to climb higher.</p>
+        ${canRevive ? `<button class="btn reward" id="rRevive"><b>${ic('video')}REVIVE AT 50% HEALTH</b><small>WATCH AN AD · ONCE PER RUN</small></button>` : '<p class="hint">Spend coins on upgrades in FIGHTERS to climb higher.</p>'}
         <div class="actions"><button class="btn" id="rMenu"><b>MENU</b></button><button class="btn" id="rUpg"><b>UPGRADES</b></button><button class="btn primary" id="rRetry"><b>CLIMB AGAIN</b></button></div>`, 'result');
+      if (canRevive) $('rRevive').onclick = async () => {
+        $('rRevive').disabled = true;
+        const ok = await Platform.rewarded();
+        if (ok) { r.revived = true; r.hp = 0.5; r.healFrom = null; Sfx.play('rise'); ascentFloor(); }
+        else { toast('NO AD AVAILABLE RIGHT NOW'); $('rRevive').disabled = false; }
+      };
       $('rRetry').onclick = () => { Sfx.play('fight'); startAscent(r.p1); };
       $('rUpg').onclick = () => { Sfx.play('ui'); closeSheet(); endFight(); openSelect('roster'); U.sel.view = r.p1; renderSelect(); };
       $('rMenu').onclick = () => { Sfx.play('uiBack'); quitToMenu(); };
@@ -801,7 +913,7 @@ const UI = (() => {
     const lv = Math.min(8, 1 + Math.floor(r.streak / 2));
     r.cur = { id: oid, lv };
     versusSheet(r.p1, oid, `STREAK ${r.streak} · CPU LV ${lv}`, () => beginFight({ p1: r.p1, p2: oid, ctrls: [human(0), cpu(lv)], stage: pick(STAGE_IDS), mode: 'survival', toWin: 1, mods: [Meta.modsFor(r.p1, { upgrades: true }), null],
-      hpStart: [r.hp, 1], meter0: r.meter, fastIntro: r.streak > 0, chip: `SURVIVAL · STREAK ${r.streak} · CPU LV ${lv}`, onEnd: res => setTimeout(() => survivalEnd(res), 700) }), null, 1.6);
+      hpStart: [r.hp, 1], healFrom: r.healFrom != null ? [r.healFrom, null] : null, meter0: r.meter, fastIntro: r.streak > 0, chip: `SURVIVAL · STREAK ${r.streak} · CPU LV ${lv}`, onEnd: res => setTimeout(() => survivalEnd(res), 700) }), null, 1.6);
   }
   function survivalEnd(res) {
     const r = U.run;
@@ -810,6 +922,7 @@ const UI = (() => {
       // healing between fights: 35%, +10% for a super finish, and a full
       // breather every fifth win
       const breather = r.streak % 5 === 0;
+      r.healFrom = res.hp[0];
       r.hp = breather ? 1 : Math.min(1, res.hp[0] + 0.35 + (res.stats.finishers ? 0.1 : 0));
       r.meter = Game.fighters[0] ? Game.fighters[0].meter : 0;
       const c = 20 + Math.min(40, r.streak * 4) + res.stats.finishers * 15;
@@ -820,12 +933,22 @@ const UI = (() => {
       Sfx.play('coin');
       survivalFight();
     } else {
+      recordMatch(res, r.p1);
       const best = r.streak > Save.data.survivalBest;
-      if (best) { Save.data.survivalBest = r.streak; Save.save(); }
+      if (best) { Save.data.survivalBest = r.streak; Save.save(); Platform.happytime(); }
+      const canDouble = r.coins > 0 && Platform.adsReady();
       openSheet(`<h2 class="lose">KNOCKED OUT</h2><p class="sub">${BY_ID[r.p1].name} · SURVIVAL</p>
         <div class="big-count">${r.streak}</div><p class="sub">${best ? 'NEW BEST STREAK!' : 'BEST ' + Save.data.survivalBest}</p>
-        <div class="payout">${ic('coins', 'coin')}${fmt(r.coins)}<small>COINS THIS RUN</small></div>
+        ${xpLine()}
+        <div class="payout">${ic('coins', 'coin')}<span id="rCoins">${fmt(r.coins)}</span><small>COINS THIS RUN</small></div>
+        ${canDouble ? `<button class="btn reward" id="rDouble"><b>${ic('video')}DOUBLE YOUR COINS</b><small>WATCH AN AD · +${fmt(r.coins)}</small></button>` : ''}
         <div class="actions"><button class="btn primary" id="rAgain"><b>AGAIN</b></button><button class="btn" id="rMenu"><b>MENU</b></button></div>`, 'result');
+      if (canDouble) $('rDouble').onclick = async () => {
+        $('rDouble').disabled = true;
+        const ok = await Platform.rewarded();
+        if (ok) { Save.addCoins(r.coins); r.coins *= 2; $('rCoins').textContent = fmt(r.coins); $('rDouble').remove(); Sfx.play('coin'); coinsUI(); }
+        else { toast('NO AD AVAILABLE RIGHT NOW'); $('rDouble').disabled = false; }
+      };
       $('rAgain').onclick = () => { Sfx.play('ui'); startSurvival(r.p1); };
       $('rMenu').onclick = () => { Sfx.play('uiBack'); quitToMenu(); };
     }
@@ -1161,6 +1284,7 @@ const UI = (() => {
   // exposed for tests
   U._tutStep = () => (U.tut ? U.tut.i : 99);
   U._cardHtml = cardHtml;   // tests render a chosen hand
+  U._cardTilt = cardTilt;
   U._start = { level: i => playLevel(Campaign.levels[i]), levels: () => openLevels(), ascent: startAscent, survival: startSurvival, training: startTraining, select: openSelect };
   return U;
 })();

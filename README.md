@@ -52,7 +52,7 @@ The campaign follows Element Rag's stage map: 8 chapters of 6 levels, one per st
 
 Other modes:
 - **Ascent** (replaces CPU Versus): a roguelite climb, one round per floor against the CPU on a random stage.
-  - Your health and meter carry over. You heal 25% after each floor and 50% after a boss.
+  - Your health and meter carry over. You heal 25% after each floor and 50% after a boss. The heal is shown, not hidden: the cleared sheet shows your health before and after, and the next floor opens with your bar visibly refilling under a **+X% HEALTH** popup.
   - After every win you pick **1 of 3 cards**: powers that last for the run. Cards come in four rarities, and rarer cards are stronger and stranger. Deeper floors and boss rewards tilt the draw toward rarer cards.
 
     | Rarity | Look | Cards |
@@ -60,8 +60,14 @@ Other modes:
     | Common | matte, grey edge | Berserker, Iron Skin, Overcharge, Quick Hands, Fleet, First Aid (heal 35% now), Pocket Change (+40% coins) |
     | Rare | blue, a sweep of light | Vampiric, Regeneration, Black Sparks, Iron Guard, Primed, Thorns, Adrenaline, Featherweight (jump higher, float down) |
     | Epic | violet glow, turning rays | Second Wind, Glass Cannon, Momentum, Aftershock (heavies echo with a shockwave), Double Tap (super refunds meter) |
-    | Legendary | gold foil, spinning edge, holographic sheen, sparkles | Phoenix (rise from a knockout once per run), Midas Touch (every hit throws out a coin), Giant Form, Chain Lightning, Infinite Ki |
+    | Legendary | gold foil, spinning gold edge, holographic sheen, sparkles, glow | Phoenix (rise from a knockout once per run), Midas Touch (every hit throws out a coin), Giant Form, Chain Lightning, Infinite Ki |
 
+  - Cards are built like collectibles:
+    - a rarity banner, with rays and halftone in the rarity colour;
+    - the power's icon and its category (HEAL, COMBO, POWER and so on);
+    - a ribbon name plate.
+
+    They tilt toward your pointer with a glare that follows it, and epic cards get their own turning violet edge.
   - Every fifth floor is a **boss** with more health, a bigger body and a 60-coin bonus.
   - When you fall, a summary shows floors cleared, your cards and coins earned. CLIMB AGAIN is one press away. Your best floor is saved.
 - **Survival:** endless fights. You keep your health and heal 35% between wins (45% after a super finish), with a full-health breather every fifth win.
@@ -77,6 +83,17 @@ Other modes:
 | Recovery | 6% shorter special cooldowns |
 
 Upgrades apply in levels, Survival and Ascent, but not in Training. A fighter's total rank shows on their tile. The full design is in `docs/GAMEPLAY_PLAN.md`.
+
+## Coming back for more
+
+- **Daily missions:** three goals each day, such as "Land 5 combo finishers", "Win 2 fights with Jin" or "Clear 4 Ascent floors".
+  - Each mission pays 60 to 110 coins, and claiming all three opens a 150-coin daily chest.
+  - The home screen shows your progress and a badge when a reward is waiting.
+  - Missions count in Levels, Ascent and Survival, and refresh at midnight UTC.
+- **Fighter mastery:** every fighter levels up from 1 to 20 as you play them.
+  - Every fight earns XP: more for a win, and extra for finishers, long combos and Black Sparks.
+  - Each level pays coins, and levels 5, 10, 15 and 20 earn a title: Adept, Expert, Master, Grandmaster.
+  - Mastery shows on the home screen, on result sheets and in the fighter's profile.
 
 ## Controls
 
@@ -102,6 +119,7 @@ The skill bar at the bottom of the screen shows your two specials with their key
   - **Air combos:** after the ender launches the foe, press **W** right away to jump after them. Air attacks home in on a juggled foe: light, light, then heavy spikes them into the floor. They bounce **once per combo**, so you can keep going.
   - **Hitstun deterioration:** the longer a combo runs, the less stun each hit adds and the less damage it does, until it drops.
   - The hit counter grades long combos (NICE, GREAT, AMAZING, SHOWDOWN) and shows the combo's damage. When a special starts, its name pops up over your head.
+- **Combo breaks:** a CPU can't be juggled forever. After a long combo, a CPU breaks out. It recovers mid-air, jumps clear and blows you back a step, with a **BREAK!** shockwave. Stronger CPUs break sooner: about 9 hits at level 1 and 6 at level 9. Supers can't be broken, and a CPU that has just broken can't do it again for about 9 seconds, so long combos still pay.
 - **CPU defence:** after being hit or blocking, CPU fighters keep holding guard or answer with a quick jab, like a person would. Stronger CPUs do it more often.
 - **Safety net:** a move used a third time in one combo makes the victim **BREAK!** free, in case anything still loops.
 - **Clashes:** if two normal attacks hit each other on the same frame, they **CLASH!** and both fighters bounce apart instead of trading hits.
@@ -241,7 +259,7 @@ Eight stages, built like Element Rag's backdrops. Each has far, mid and near lay
 
 ## UI on every screen
 
-- **FIGHTERS screen:** all 16 fighters fit on one screen (4 by 4), each tile showing their role, rank, price or lock. The right side is a hero panel: the live preview with the fighter's name, role and style over it, stat bars, and MOVES / UPGRADES / PROFILE tabs. The action button is always visible.
+- **FIGHTERS screen:** all 16 fighters fit on one screen (4 by 4), arranged by colour from red to pink, each tile showing their role, rank, price or lock. The right side is a hero panel: the live preview with the fighter's name, role and style over it, stat bars, and MOVES / UPGRADES / PROFILE tabs. The action button is always visible.
 - **Fighter preview:** the select screen shows a live preview of the fighter you're looking at, on their home stage, running through their combo finisher, both specials and their super against a dummy. Tap any move in the list to watch it next. It works for locked fighters too, so you can see what you're buying.
 
 - The whole interface is laid out for 1280x720 and scaled to the window, so it looks the same on a phone, a tablet, a laptop or a 4K monitor. Phones get a little extra size (19%) so text stays readable.
@@ -257,6 +275,20 @@ Eight stages, built like Element Rag's backdrops. Each has far, mid and near lay
 - `R` retries from a result screen, and `Enter` takes the highlighted button.
 - Tapping a level on the map starts it straight away.
 - Tips and combo counters from the last fight are cleared before the next one.
+
+## CrazyGames SDK
+
+`js/platform.js` wraps the CrazyGames HTML5 SDK v3. Every call is guarded, so the game runs exactly the same offline, on other sites, or with the SDK blocked. In that case no ad buttons appear.
+
+- **Lifecycle:** init (with a 4-second timeout, so it never holds up boot), then loading start and stop around boot.
+- **Gameplay events:** gameplay start and stop whenever a real fight is live and not paused or behind a panel. The events are sent only on changes, so they never double up.
+- **Happytime:** a 3-star or chapter clear, a new Ascent or Survival best, a legendary card, a mastery level-up, and opening the daily chest.
+- **Saves:** go through the SDK data module, so progress follows the player's CrazyGames account. Elsewhere, saves use localStorage.
+- **Mute:** the platform's mute setting is honoured live.
+- **Ads:**
+  - A midgame ad only at a natural break before a fight starts. It is never during a fight, never in the first 2 minutes, and at most every 3 minutes.
+  - Two opt-in rewarded ads: **REVIVE AT 50% HEALTH** once per Ascent run, and **DOUBLE YOUR COINS** at the end of a Survival run.
+  - Game audio is muted while an ad plays.
 
 ## Testing
 
@@ -296,8 +328,9 @@ NODE_PATH=$(npm root -g) node tools/exploit.js
   4. It checks the level map, including that locked levels give a message.
   5. It checks that PLAY goes straight into the fight.
   6. It plays Ascent (a floor, a card pick by key, the card applied to the fighter, the run-over sheet, CLIMB AGAIN), plays Survival, clears a trial in Training and uses every pause option, then buys a coin-exclusive fighter and an upgrade rank.
+  7. It checks the CrazyGames SDK against a recording mock (`tools/crazygames-mock.js`): init, loading, gameplay start and stop (never doubled), happytime, data-module saves and the mute listener.
 
-Latest results: mashing light tops out at 2 hits for every fighter, against a dummy or a CPU. Light, light, heavy combos for all 16. The fuzz found no issues. The soak ran 256 matches (602 rounds) across all stages and twists with no issues; a card stress test ran every gimmick card at once with no errors. All flow checks passed, including Ascent, upgrades and trials. The UI was checked at desktop, iPhone and Android landscape, and iPad sizes.
+Latest results: mashing light tops out at 2 hits for every fighter, against a dummy or a CPU. Light, light, heavy combos for all 16. The fuzz found no issues. The soak ran 256 matches (595 rounds) across all stages and twists with no issues and no page errors; a card stress test ran every gimmick card at once with no errors. All flow checks passed, including Ascent, upgrades and trials. The UI was checked at desktop, iPhone and Android landscape, and iPad sizes.
 
 ## Project layout
 
@@ -312,7 +345,8 @@ js/rag.js         Element Rag's active ragdoll and stickman drawing, pose librar
 js/fx.js          particles, rings, arcs, slash trails, hit stars (from Element Rag, extended)
 js/fighters.js    16 fighters: normals, keyframed specials and scripted supers; stage list
 js/campaign.js    chapters, levels, twists, recruits, stars
-js/meta.js        upgrades, Ascent cards and rarities, training trials (one "mods" object per fighter)
+js/meta.js        upgrades, Ascent cards and rarities, training trials, daily missions, fighter mastery
+js/platform.js    CrazyGames SDK v3 wrapper: events, happytime, cloud saves, mute, ads
 js/game.js        rounds, move runtime, hits / guard / juggles / Black Spark, projectiles, beams,
                   fields, minions, marks, barriers, cut-ins, impact frames, finishers, camera
 js/stage.js       layered parallax stages, weather, portraits

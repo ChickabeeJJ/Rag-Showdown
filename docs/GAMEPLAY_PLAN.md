@@ -92,6 +92,13 @@ A checklist appears in Training. Each trial pays coins the first time you clear 
 
 - **Skill icons:** matte, with no glossy highlight.
 
+### 6. Retention
+
+- **Daily missions:** three goals a day with coin rewards and a chest for all three, so there is a reason to come back tomorrow.
+- **Fighter mastery:** levels 1 to 20 per fighter. Each level pays coins, and milestones grant titles, so there is a reason to keep playing your main.
+- **Combo breaks:** CPUs escape long combos, so fights stay interactive. This rewards reading the break, not just mashing.
+- **Healing you can see:** between floors and Survival fights, the health bar refills on screen.
+
 ## Quality gates
 
 - **Combos:** light-light-heavy combos for all 16 fighters, and mashing light stops at two hits (`tools/exploit.js`).

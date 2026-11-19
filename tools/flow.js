@@ -3,6 +3,7 @@
 //  2. Winning gives stars and coins; NEXT LEVEL jumps straight into the next fight.
 //  3. Losing shows DEFEATED with RETRY; recruit levels unlock fighters; the level map works.
 //  4. Ascent (floor, card pick, run over), Survival, Training with trials, buying a fighter and an upgrade.
+//  5. The CrazyGames SDK integration, against a recording mock.
 // Usage: serve the repo on :8123, then  NODE_PATH=$(npm root -g) node tools/flow.js [url] [shotDir]
 const { chromium } = require('playwright');
 const URL = process.argv[2] || 'http://localhost:8123/';
@@ -34,6 +35,9 @@ const SHOTS = process.argv[3] || null;
     return p.textContent('#sheet h2');
   };
 
+  // the CrazyGames SDK is replaced by a recording mock (tools/crazygames-mock.js)
+  const mock = require('fs').readFileSync(require('path').join(__dirname, 'crazygames-mock.js'), 'utf8');
+  await p.route('https://sdk.crazygames.com/**', r => r.fulfill({ status: 200, contentType: 'application/javascript', body: mock }));
   await p.goto(URL);
   // ---------------- 1. straight into gameplay, with the guide
   await p.waitForFunction(() => UI.fightOn && Game.cfg && Game.cfg.tutorial && Game.state === 'fight', null, { timeout: 15000 });
@@ -189,6 +193,18 @@ const SHOTS = process.argv[3] || null;
   await click('#sdMain');
   await shot('roster');
   console.log('roster ok');
+
+  // ---------------- platform SDK: every integration point fired
+  const calls = await ev(() => window.__sdkCalls || []);
+  for (const need of ['init', 'settingsListener', 'loadingStart', 'loadingStop', 'gameplayStart', 'gameplayStop', 'happytime', 'data.getItem', 'data.setItem'])
+    if (!calls.includes(need)) fail('SDK call missing: ' + need);
+  if (calls.indexOf('loadingStop') < calls.indexOf('init')) fail('SDK loading events before init');
+  // gameplay start/stop alternate, never doubled
+  const gp = calls.filter(c => c === 'gameplayStart' || c === 'gameplayStop');
+  if (gp.some((c, i) => i && c === gp[i - 1])) fail('gameplay events doubled');
+  // a platform mute silences the game
+  await ev(() => window.__sdkMute(true));
+  console.log('sdk ok', JSON.stringify({ calls: calls.length, gameplay: gp.length, ads: calls.filter(c => c.startsWith('requestAd')) }));
 
   const all = errs.concat(await ev(() => window.__errors));
   console.log(all.length ? 'ERRORS\n' + all.join('\n') : 'ALL FLOWS PASSED');

@@ -91,6 +91,16 @@ const Game = (() => {
       f.onLand = () => onLand(f);
       if (G.ctrls[i] && G.ctrls[i].reset) G.ctrls[i].reset(f);
     });
+    // healing carried in from the last floor (Ascent, Survival) plays out on
+    // screen: the bar starts where the last fight left it and fills up
+    const hf = c.healFrom; c.healFrom = null;
+    G.fighters.forEach((f, i) => {
+      f.healLeft = 0; f.breakPending = null; f.burstCd = 0; f.breakAt = 0;
+      if (hf && hf[i] != null && hf[i] < hp0[i] - 0.004) {
+        const from = Math.max(1, Math.round(f.maxHp * hf[i]));
+        f.healLeft = f.hp - from; f.hp = from; f.healT = 0.5; f.healSaid = false;
+      }
+    });
     G.combo = [null, null];
     G.timer = c.training || c.tutorial ? Infinity : c.timeLimit || 99;
     G.state = 'intro'; G.stateT = 0; G.winner = -1;
@@ -179,6 +189,34 @@ const Game = (() => {
       });
     }
   }
+  // a combo break: the CPU recovers in the air, jumps clear and blows the
+  // attacker back a step. It can't break again for a while.
+  function comboBreak(f, att) {
+    f.burstCd = 9; f.breakAt = 0;
+    const away = Math.sign(f.root.x - att.root.x) || -att.facing;
+    const pv = f.pelvis;
+    f.clearAction();
+    f.stunT = 0; f.juggle = 0; f.bounce = 0;
+    if (f.mode === 'tumble' || f.mode === 'hit' || f.mode === 'block') {
+      f.root.x = clamp(pv.x, WALL_L + 24 * f.s, WALL_R - 24 * f.s);
+      f.root.y = Math.min(GROUND, pv.y + 50 * f.s);
+      f.mode = 'rising'; f.riseT = 0; f.m = Math.max(f.m, 0.55);
+    }
+    f.root.grounded = false; f.root.hover = false; f.root.jumps = 1;
+    f.root.vy = -f.jumpV * f.s * 0.8;
+    f.root.vx = away * f.walk * f.s * 1.3;
+    f.invuln = Math.max(f.invuln, 0.7);
+    f.facing = -away;
+    if (att.alive && att.mode !== 'dead') att.stagger(-away * 620 * att.s / 2, -60, P.NECK, 0.24, false);
+    G.combo[att.side] = null;
+    const c = f.center();
+    G.fx.ring(c.x, c.y, '#ffffff', 230, 0.35, 12); G.fx.ring(c.x, c.y, f.def.color, 160, 0.3, 8);
+    for (let i = 0; i < 14; i++) { const a = i / 14 * TAU; G.fx.add({ x: c.x, y: c.y, vx: Math.cos(a) * 700, vy: Math.sin(a) * 700, drag: 4, life: 0.3, size: 4, color: '#e6fbff' }); }
+    G.flash('#ffffff', 0.18); G.shake(9); G.slow(0.5, 0.18);
+    G.say(c.x, c.y - 240, 'BREAK!', '#9ff4ff', 42);
+    Sfx.play('counter');
+  }
+
   function phoenixRise(f, att) {
     f.mods.phoenix--;
     f.phoenixUsed = true;
@@ -346,6 +384,13 @@ const Game = (() => {
     def.meter = Math.min(100, def.meter + dmg * 0.06 * def.mods.meter);
     if (att.mods.lifesteal && att.alive) att.hp = Math.min(att.maxHp, att.hp + dmg * att.mods.lifesteal);
     cardEffects(att, def, spec, kind, dmg, n, x, y, dir, stopped);
+    // CPUs don't stay trapped: a long enough combo and they burst out
+    // (stronger CPUs sooner). Supers and stopped time can't be broken.
+    const ctl = G.ctrls[def.side];
+    if (ctl instanceof CpuCtrl && kind !== 'super' && !stopped && def.hp > 0 && !(def.burstCd > 0)) {
+      if (n === 1 || !def.breakAt) def.breakAt = Math.round(9 - ctl.lv * 0.45) + (Math.random() < 0.5 ? 1 : 0);
+      if (n >= def.breakAt) def.breakPending = att;
+    }
     // Second Wind: the first knockout blow of a floor leaves them standing
     if (def.hp <= 0 && def.mods.secondWind > 0 && !stopped) {
       def.mods.secondWind--;
@@ -929,6 +974,20 @@ const Game = (() => {
     updateBeams(dt);
     updateFields(dt);
     for (let i = G.timers.length - 1; i >= 0; i--) { const t = G.timers[i]; t.t -= dt; if (t.t <= 0) { G.timers.splice(i, 1); t.fn(); } }
+    for (const f of G.fighters) {
+      if (f.burstCd > 0) f.burstCd -= dt;
+      if (f.breakPending) { const a = f.breakPending; f.breakPending = null; if (fighting && f.alive && f.hp > 0 && f.stopT <= 0 && G.hitstop <= 0.2) comboBreak(f, a); }
+      // the floor heal: a short beat, then the bar fills with a green shimmer
+      if (f.healLeft > 0 && f.alive) {
+        // waits for the FIGHT! banner to clear, then fills while you fight
+        if (G.state !== 'fight' || G.stateT < 0.85) continue;
+        const c = f.center();
+        if (!f.healSaid) { f.healSaid = true; G.fx.text(c.x, c.y - 230, `+${Math.round(f.healLeft / f.maxHp * 100)}% HEALTH`, '#45e08a', 32, { dur: 1.4, vy: -30 }); G.fx.ring(c.x, c.y, '#45e08a', 170, 0.45, 8); Sfx.play('rise'); }
+        const k = Math.min(f.healLeft, f.maxHp * 0.5 * dt);
+        f.hp = Math.min(f.maxHp, f.hp + k); f.healLeft -= k;
+        if (Math.random() < 0.7) G.fx.add({ x: c.x + rand(-34, 34), y: c.y + rand(-50, 50), vx: 0, vy: rand(-160, -80), life: 0.6, size: rand(3, 5), color: Math.random() < 0.5 ? '#45e08a' : '#b8ffd0' });
+      }
+    }
     if (fighting) for (const f of G.fighters) {
       if (!f.alive || f.stopT > 0) continue;
       // Regeneration heals while you are on your feet; Infinite Ki fills the meter

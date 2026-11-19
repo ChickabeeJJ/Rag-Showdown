@@ -12,6 +12,9 @@ const URL = process.argv[3] || 'http://localhost:8123/';
   const errs = [];
   p.on('pageerror', e => errs.push('PAGEERR ' + e.message));
   p.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
+  // the CrazyGames SDK is served by the recording mock (no network needed)
+  const mock = require('fs').readFileSync(require('path').join(__dirname, 'crazygames-mock.js'), 'utf8');
+  await p.route('https://sdk.crazygames.com/**', r => r.fulfill({ status: 200, contentType: 'application/javascript', body: mock }));
   await p.goto(URL);
   await p.waitForTimeout(1500);
   const out = await p.evaluate(async (PER) => {

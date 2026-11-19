@@ -6,7 +6,7 @@
 
 const Sfx = (() => {
   let ac = null, master = null, sfxBus = null, musicBus = null, noiseBuf = null, comp = null;
-  let sfxOn = true, musicOn = true, suspended = false;
+  let sfxOn = true, musicOn = true, suspended = false, platformMute = false;
   let track = 'menu', timer = null, nextT = 0, stepN = 0;
   const last = {};
 
@@ -16,7 +16,7 @@ const Sfx = (() => {
     if (!AC) return false;
     try { ac = new AC(); } catch (e) { return false; }
     comp = ac.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4; comp.connect(ac.destination);
-    master = ac.createGain(); master.gain.value = 0.85; master.connect(comp);
+    master = ac.createGain(); master.gain.value = platformMute ? 0 : 0.85; master.connect(comp);
     sfxBus = ac.createGain(); sfxBus.gain.value = sfxOn ? 0.6 : 0; sfxBus.connect(master);
     musicBus = ac.createGain(); musicBus.gain.value = musicOn ? 0.22 : 0; musicBus.connect(master);
     noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
@@ -167,7 +167,9 @@ const Sfx = (() => {
 
   function setSfx(on) { sfxOn = on; if (sfxBus) sfxBus.gain.value = on ? 0.6 : 0; }
   function setMusic(on) { musicOn = on; if (musicBus) musicBus.gain.value = on ? 0.22 : 0; }
+  // the platform (CrazyGames) mute setting: silences everything, above the in-game toggles
+  function setPlatformMute(m) { platformMute = m; if (master) master.gain.value = m ? 0 : 0.85; }
   function suspend(v) { suspended = v; if (!ac) return; if (v) ac.suspend(); else ac.resume(); }
 
-  return { ensure, play, music, setSfx, setMusic, suspend };
+  return { ensure, play, music, setSfx, setMusic, suspend, setPlatformMute };
 })();

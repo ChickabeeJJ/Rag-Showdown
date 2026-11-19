@@ -7,6 +7,9 @@
 
 (async function boot() {
   const canvas = document.getElementById('stage');
+  // the platform SDK first: saves may live in its data module
+  await Platform.init();
+  Platform.loadingStart();
   Save.load();
   // phones and tablets start with the touch controls (and touch wording in the guide)
   if (window.matchMedia && matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
@@ -31,6 +34,7 @@
   };
   UI.fitUi = fitUi;
   fitUi();
+  Platform.loadingStop();
 
   const inFight = () => UI.screen === null && UI.fightOn && !UI.modalOpen();
   for (const ev of ['pointerdown', 'keydown', 'touchend']) window.addEventListener(ev, () => Sfx.ensure(), { capture: true, passive: true });
@@ -111,6 +115,8 @@
       Game.update(dt);
       Game.render();
       UI.tick();
+      // gameplay start / stop for the platform: a real fight, live and unpaused
+      Platform.gameplay(inFight() && !Game.paused && Game.state !== 'over');
     } catch (err) {
       window.__errors.push(String(err && err.stack || err));
       console.error(err);
