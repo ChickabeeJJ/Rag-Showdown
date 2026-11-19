@@ -4,7 +4,8 @@
    (PLAY drops you straight into your next level; a new player boots
    straight into level 1-1 with a guide that teaches as you fight, and tips
    pop up later the first time they matter), fighter select / roster shop,
-   Versus (CPU or two players), Survival, Training, result sheets, pause,
+   Ascent (a roguelite climb), Survival, Training (with trials), upgrades,
+   result sheets, pause,
    settings, the fight HUD and the touch pad. Built on Element Rag's UI.
    ========================================================================= */
 
@@ -33,6 +34,8 @@ const UI = (() => {
   function openSheet(html, cls = '') {
     const m = $('modal'), sh = $('sheet');
     $('coach').classList.add('hidden');
+    // a sheet replaces the fight's banners: drop any WINS / K.O. callout still on screen
+    if (typeof Game !== 'undefined' && Game.callouts && /result/.test(cls)) Game.callouts.length = 0;
     sh.className = 'sheet ' + cls;
     sh.onclick = null;
     U.sheetDismiss = null;
@@ -107,7 +110,7 @@ const UI = (() => {
     hydrate();
     $('btnPlay').onclick = () => { Sfx.play('fight'); playLevel(Campaign.next(), true); };   // PLAY cuts straight in, no bars
     $('btnLevels').onclick = () => { Sfx.play('ui'); openLevels(); };
-    $('btnVersus').onclick = () => { Sfx.play('ui'); openSelect('versus'); };
+    $('btnAscent').onclick = () => { Sfx.play('ui'); openSelect('ascent'); };
     $('btnSurvival').onclick = () => { Sfx.play('ui'); openSelect('survival'); };
     $('btnTraining').onclick = () => { Sfx.play('ui'); openSelect('training'); };
     $('btnRoster').onclick = () => { Sfx.play('ui'); openSelect('roster'); };
@@ -121,7 +124,7 @@ const UI = (() => {
     Sfx.setSfx(Save.data.settings.sfx); Sfx.setMusic(Save.data.settings.music);
     // wrap hits so the guide and tips can react to what happens in the fight
     const rawHit = Game.hit;
-    Game.hit = function (att, def, spec, x, y, act) { const r = rawHit.apply(this, arguments); if (r) onFightHit(att, def, spec, r); return r; };
+    Game.hit = function (att, def, spec, x, y, act) { const r = rawHit.apply(this, arguments); if (r) onFightHit(att, def, spec, r, act); return r; };
     if (!Save.data.tutorialDone && !U.noAutoStart) {
       // a brand-new player goes straight into the first level; the guide teaches as they fight
       playLevel(Campaign.levels[0], true);
@@ -152,6 +155,7 @@ const UI = (() => {
     $('playSub').textContent = `LEVEL ${nx.label} · ${CHAPTERS[nx.c].name}`;
     $('homeStars').textContent = Campaign.stars();
     $('survSub').textContent = `BEST ${d.survivalBest}`;
+    $('ascSub').textContent = d.ascentBest ? `BEST FLOOR ${d.ascentBest}` : 'ROGUELITE CLIMB';
     $('homePick').innerHTML = `${pt(def)}<div><small>YOUR FIGHTER</small><b>${def.name}</b><small style="color:${def.color}">${def.title}</small></div><button class="btn small" id="homeChange"><b>CHANGE</b></button>`;
     $('homeChange').onclick = () => { Sfx.play('ui'); openSelect('roster'); };
     const canBuy = ROSTER.some(f => !Save.owned(f.id) && d.coins >= f.price);
@@ -167,8 +171,8 @@ const UI = (() => {
   function openSelect(mode) {
     const last = Save.owned(Save.data.lastPick) ? Save.data.lastPick : 'kaze';
     const others = ROSTER.filter(f => f.id !== last && !f.boss);
-    U.sel = { mode, p1: last, p2: mode === 'training' ? 'kaze' : pick(others).id, view: last, picking: 0, p2human: false, cpuLv: 4, stage: 'random', dummy: 'stand' };
-    $('selTitle').textContent = { versus: 'VERSUS', survival: 'SURVIVAL · CHOOSE YOUR FIGHTER', training: 'TRAINING · CHOOSE YOUR FIGHTER', roster: 'FIGHTERS' }[mode];
+    U.sel = { mode, p1: last, p2: mode === 'training' ? 'kaze' : pick(others).id, view: last, dummy: 'stand' };
+    $('selTitle').textContent = { ascent: 'ASCENT · CHOOSE YOUR FIGHTER', survival: 'SURVIVAL · CHOOSE YOUR FIGHTER', training: 'TRAINING · CHOOSE YOUR FIGHTER', roster: 'FIGHTERS' }[mode];
     show('select');
     renderSelect();
   }
@@ -180,9 +184,9 @@ const UI = (() => {
       const own = Save.owned(f.id);
       const tags = [];
       if (s.p1 === f.id && s.mode !== 'roster') tags.push('<span>P1</span>');
-      if (s.mode === 'versus' && s.p2 === f.id) tags.push(`<span class="p2">${s.p2human ? 'P2' : 'CPU'}</span>`);
       const right = !own ? `<span class="price${f.coinOnly ? ' excl' : ''}">${ic('coins', 'coin') + fmt(f.price)}</span>` : Save.data.clears[f.id] != null ? `<span class="clear ic" data-icon="trophy"></span>` : '';
-      return `<button class="ftile ${s.view === f.id ? 'on' : ''}" data-id="${f.id}" style="--c:${f.color}">${pt(f, own ? '' : 'locked')}<span class="tagc">${tags.join('')}</span>${right}<b>${f.name}</b><small>${f.title}</small></button>`;
+      const rk = own ? Meta.totalRank(f.id) : 0;
+      return `<button class="ftile ${s.view === f.id ? 'on' : ''}" data-id="${f.id}" style="--c:${f.color}">${pt(f, own ? '' : 'locked')}<span class="tagc">${tags.join('')}</span>${right}${rk ? `<span class="rank">R${rk}</span>` : ''}<b>${f.name}</b><small>${f.title}</small></button>`;
     }).join('');
     grid.querySelectorAll('.ftile').forEach(b => {
       b.onclick = () => {
@@ -190,11 +194,11 @@ const UI = (() => {
         const id = b.dataset.id;
         s.view = id;
         if (Save.owned(id) && s.mode !== 'roster') {
-          if (s.mode === 'versus' && s.picking === 1) s.p2 = id; else s.p1 = id;
+          s.p1 = id;
         }
         renderSelect();
       };
-      b.ondblclick = () => { if (Save.owned(b.dataset.id) && s.mode !== 'roster' && s.mode !== 'versus') confirmSelect(); };
+      b.ondblclick = () => { if (Save.owned(b.dataset.id) && s.mode !== 'roster') confirmSelect(); };
     });
     renderDetail();
     hydrate(grid);
@@ -208,6 +212,15 @@ const UI = (() => {
       row('sp1', m.sp1, '<kbd>Q</kbd>', `SPECIAL · ${m.sp1.cd || 2}S COOLDOWN`) +
       row('sp2', m.sp2, '<kbd>E</kbd>', `SPECIAL · ${m.sp2.cd || 2}S COOLDOWN`) +
       row('super', m.super, '<kbd>F</kbd>', 'SUPER · FULL METER · FINISHER', 'super');
+  }
+
+  // the upgrade panel: four tracks, five ranks each, bought with coins
+  function upgradeRows(def) {
+    const r = Meta.ranks(def.id);
+    return `<div class="upg"><div class="upg-head"><b>UPGRADES</b><small>RANK ${Meta.totalRank(def.id)} / ${Meta.UPGRADES.length * Meta.MAX_RANK} · LEVELS, SURVIVAL AND ASCENT</small></div>${Meta.UPGRADES.map(U => {
+      const n = r[U.id], cost = Meta.nextCost(def.id, U.id);
+      return `<div class="upg-row" data-u="${U.id}" style="--c:${def.color}"><span class="upg-ic">${ic(U.icon)}</span><div class="upg-mid"><b>${U.name}</b><small>${n ? U.desc(n) : 'No bonus yet'}</small></div><span class="pips">${[0, 1, 2, 3, 4].map(k => `<i class="${k < n ? 'on' : ''}"></i>`).join('')}</span>${cost == null ? '<span class="upg-max">MAX</span>' : `<button class="btn small upg-buy" data-u="${U.id}" ${Save.data.coins < cost ? 'disabled' : ''}><b>${ic('coins', 'coin')}${fmt(cost)}</b></button>`}</div>`;
+    }).join('')}</div>`;
   }
 
   function renderDetail() {
@@ -225,15 +238,12 @@ const UI = (() => {
       foot = `<div class="sd-foot"><button class="btn primary" id="sdMain" ${Save.data.lastPick === def.id ? 'disabled' : ''}><b>${Save.data.lastPick === def.id ? 'YOUR FIGHTER' : 'SET AS YOUR FIGHTER'}</b></button><button class="btn" id="sdTry"><b>TRY IN TRAINING</b></button></div>`;
     } else {
       let opts = '';
-      if (s.mode === 'versus') {
-        opts = `<div class="sd-opts">
-          <div class="row"><small>PICKING</small><nav class="seg" id="optPick"><button data-v="0" class="${s.picking === 0 ? 'active' : ''}">P1 · ${BY_ID[s.p1].name}</button><button data-v="1" class="${s.picking === 1 ? 'active' : ''}">${s.p2human ? 'P2' : 'CPU'} · ${BY_ID[s.p2].name}</button></nav></div>
-          ${s.p2human ? '' : `<div class="row"><small>CPU LEVEL</small><nav class="seg" id="optLv">${[1, 2, 3, 4, 5, 6, 7, 8].map(n => `<button data-v="${n}" class="${s.cpuLv === n ? 'active' : ''}">${n}</button>`).join('')}</nav></div>`}
-          <div class="row"><small>STAGE</small><nav class="seg" id="optStage"><button data-v="random" class="${s.stage === 'random' ? 'active' : ''}">RANDOM</button>${STAGE_IDS.map(id => `<button data-v="${id}" class="${s.stage === id ? 'active' : ''}">${STAGES[id].name.split(' ')[0]}</button>`).join('')}</nav></div></div>`;
+      if (s.mode === 'ascent') {
+        opts = `<div class="sd-note">${ic('up')}<span>Climb floor after floor. After each win, pick <b>1 of 3 boons</b>. Every fifth floor is a <b>boss</b>. Best: <b>FLOOR ${Save.data.ascentBest}</b>.</span></div>`;
       } else if (s.mode === 'training') {
         opts = `<div class="sd-opts"><div class="row"><small>DUMMY</small><nav class="seg" id="optDummy">${['kaze', 'ryo', 'homura', 'mugi'].map(id => `<button data-v="${id}" class="${s.p2 === id ? 'active' : ''}">${BY_ID[id].name}</button>`).join('')}</nav></div></div>`;
       }
-      const label = { versus: 'FIGHT!', survival: 'START SURVIVAL', training: 'ENTER TRAINING' }[s.mode];
+      const label = { ascent: 'START ASCENT', survival: 'START SURVIVAL', training: 'ENTER TRAINING' }[s.mode];
       foot = `${opts}<div class="sd-foot"><button class="btn primary big" id="sdGo"><b>${label}</b></button></div>`;
     }
     $('selDetail').innerHTML = `
@@ -242,6 +252,7 @@ const UI = (() => {
       <p class="sd-blurb">${esc(def.blurb)}</p>
       <div class="sd-stats" style="--c:${def.color}"><div><small>POWER</small>${meter(st[0])}</div><div><small>SPEED</small>${meter(st[1])}</div><div><small>RANGE</small>${meter(st[2])}</div></div>
       <div class="sd-moves">${moveRows(def)}</div>
+      ${own ? upgradeRows(def) : ''}
       ${foot}`;
     const D = $('selDetail');
     hydrate(D);
@@ -255,10 +266,13 @@ const UI = (() => {
     on('sdTry', () => { U.sel.mode = 'training'; U.sel.p1 = def.id; U.sel.p2 = 'kaze'; confirmSelect(); });
     on('sdGo', () => { Sfx.play('fight'); confirmSelect(); });
     const segs = (id, f) => { const e = $(id); if (e) e.querySelectorAll('button').forEach(b => { b.onclick = () => { Sfx.play('ui'); f(b.dataset.v); renderSelect(); }; }); };
-    segs('optPick', v => { s.picking = +v; s.view = +v ? s.p2 : s.p1; });
-    segs('optLv', v => { s.cpuLv = +v; });
-    segs('optStage', v => { s.stage = v; });
     segs('optDummy', v => { s.p2 = v; });
+    D.querySelectorAll('.upg-buy').forEach(b => {
+      b.onclick = () => {
+        if (Meta.buyRank(def.id, b.dataset.u)) { Sfx.play('unlock'); coinsUI(); renderSelect(); /* feedback in place: the bought row glows, no toast over the preview */ const el = document.querySelector(`#select .upg-row[data-u="${b.dataset.u}"]`); if (el) { el.classList.add('flash'); const on = el.querySelectorAll('.pips i.on'); if (on.length) on[on.length - 1].classList.add('pop'); } }
+        else { Sfx.play('uiBack'); toast('NOT ENOUGH COINS'); }
+      };
+    });
   }
 
   // the live preview: the main canvas runs a showcase for the viewed fighter,
@@ -290,7 +304,7 @@ const UI = (() => {
     const s = U.sel;
     if (!Save.owned(s.p1)) return;
     Save.data.lastPick = s.p1; Save.save();
-    if (s.mode === 'versus') startVersus();
+    if (s.mode === 'ascent') startAscent(s.p1);
     else if (s.mode === 'survival') startSurvival(s.p1);
     else if (s.mode === 'training') startTraining(s.p1, s.p2);
   }
@@ -412,7 +426,7 @@ const UI = (() => {
     const tut = L.tutorial && !Save.data.tutorialDone;
     const waves = L.waves.map((id, k) => (k === L.waves.length - 1 ? foe : id === me && !L.recruit ? Campaign.foeFor({ ...L, foe: id }, me) : id));
     const hpMul = [1, tut ? 1 : L.waveHp];
-    const cfg = { p1: me, p2: waves[0], waves, waveHp: L.waveHp, fastIntro: true, waveCtrl: k => cpu(lvEase(L.lv - (k < waves.length - 1 ? 1 : 0))), onWave: k => onWave(k), ctrls: [human(0), tut ? new DummyCtrl('stand') : cpu(lvEase(L.lv - (waves.length > 1 ? 1 : 0)))], stage: L.stage, mode: 'level', toWin: L.toWin,
+    const cfg = { p1: me, p2: waves[0], waves, waveHp: L.waveHp, fastIntro: true, mods: tut ? null : [Meta.modsFor(me, { upgrades: true }), null], waveCtrl: k => cpu(lvEase(L.lv - (k < waves.length - 1 ? 1 : 0))), onWave: k => onWave(k), ctrls: [human(0), tut ? new DummyCtrl('stand') : cpu(lvEase(L.lv - (waves.length > 1 ? 1 : 0)))], stage: L.stage, mode: 'level', toWin: L.toWin,
       chip: `LEVEL ${L.label} · ${CHAPTERS[L.c].name}${tw !== 'classic' ? ' · ' + TWISTS[tw].name : ''}`, roundSub: `LEVEL ${L.label}${tw !== 'classic' ? ' · ' + TWISTS[tw].name : ''}`,
       tutorial: tut, hpMul, onEnd: res => setTimeout(() => levelEnd(L, res), 900) };
     if (tw === 'giant') { cfg.scale = [1, 1.25]; hpMul[1] *= 1.25; cfg.waveHp *= 1.25; }
@@ -565,8 +579,9 @@ const UI = (() => {
       Game.endTutorial();
     }
   }
-  function onFightHit(att, def, spec, r) {
+  function onFightHit(att, def, spec, r, act) {
     if (!U.fightOn) return;
+    if (U.run && U.run.mode === 'training' && att.side === 0 && r === 'hit') trialHit(att, def, spec, act);
     const t = U.tut;
     if (t && def.side === 0 && r === 'block') t.blocked++;
     // tips the first time something matters
@@ -626,28 +641,70 @@ const UI = (() => {
     if (L.boss) bits.push('<b>BOSS:</b> best of three rounds.');
     if (bits.length) coach(bits.join('<br>'), 4);
   }
-  function startVersus() {
-    const s = U.sel;
-    const stage = s.stage === 'random' ? pick(STAGE_IDS) : s.stage;
-    s.p2human = false;
-    U.run = { mode: 'versus', p1: s.p1, p2: s.p2, p2human: false, lv: s.cpuLv, stage };
-    const go = () => beginFight({ p1: s.p1, p2: s.p2, ctrls: [human(0), s.p2human ? human(1) : cpu(s.cpuLv)], stage, mode: 'versus', toWin: 2, twoP: s.p2human,
-      chip: s.p2human ? 'VERSUS · PLAYER 1 vs PLAYER 2' : `VERSUS · CPU LV ${s.cpuLv}`, onEnd: res => setTimeout(() => versusEnd(res), 900) });
-    versusSheet(s.p1, s.p2, s.p2human ? 'PLAYER 1 vs PLAYER 2' : `CPU LEVEL ${s.cpuLv}`, go);
+  /* ------------------------------------------------------------ ascent
+     A roguelite climb: one-round floors against the CPU, health and meter
+     carry over, a boon choice after every win, a boss every fifth floor. */
+  const isBossFloor = fl => fl % 5 === 0;
+  function startAscent(id) {
+    U.run = { mode: 'ascent', p1: id, floor: 1, hp: 1, meter: 0, coins: 0, boons: {} };
+    Save.data.ascentRuns = (Save.data.ascentRuns || 0) + 1; Save.save();
+    ascentFloor();
   }
-
-  function versusEnd(res) {
+  function boonCount(r) { return Object.values(r.boons).reduce((a, b) => a + b, 0); }
+  function ascentFloor() {
+    const r = U.run, fl = r.floor, boss = isBossFloor(fl);
+    const pool = ROSTER.filter(f => f.id !== r.p1).map(f => f.id);
+    const oid = pick(pool);
+    const lv = Math.min(8, 1 + Math.floor((fl - 1) / 2));
+    const foe = Meta.base();
+    foe.hp = boss ? 1.45 + fl * 0.02 : 1 + Math.min(0.4, fl * 0.025);
+    foe.dmg = 1 + Math.min(0.3, fl * 0.015);
+    r.cur = { id: oid, lv, boss };
+    const mods = Meta.modsFor(r.p1, { upgrades: true, boons: r.boons });
+    versusSheet(r.p1, oid, `${boss ? 'BOSS · ' : ''}FLOOR ${fl}`, () => beginFight({ p1: r.p1, p2: oid, ctrls: [human(0), cpu(lv)], stage: pick(STAGE_IDS), mode: 'ascent', toWin: 1,
+      hpStart: [r.hp, 1], meter0: r.meter, mods: [mods, foe], scale: boss ? [1, 1.1] : null, fastIntro: fl > 1, roundSub: boss ? 'BOSS FLOOR' : 'FLOOR ' + fl,
+      chip: `ASCENT · FLOOR ${fl}${boss ? ' · BOSS' : ''} · ${boonCount(r)} BOONS`, onEnd: res => setTimeout(() => ascentEnd(res), 700) }), null, 1.4);
+  }
+  function boonChips(r) {
+    const list = Object.entries(r.boons).filter(([, n]) => n > 0);
+    return list.length ? `<div class="boon-chips">${list.map(([id, n]) => { const B = Meta.BOON[id]; return `<span style="--c:${B.col}">${ic(B.icon)}${B.name}${n > 1 ? ' ×' + n : ''}</span>`; }).join('')}</div>` : '';
+  }
+  function ascentEnd(res) {
     const r = U.run;
-    let rw = { total: 0, parts: [] };
-    if (!r.p2human) { recordMatch(res, r.p1); rw = rewardFor(res, 20 + r.lv * 6); Save.addCoins(rw.total); }
-    const title = r.p2human ? (res.winner === 0 ? 'PLAYER 1 WINS' : 'PLAYER 2 WINS') : res.winner === 0 ? 'YOU WIN' : 'YOU LOSE';
-    const w = res.winner === 0 ? r.p1 : r.p2, l = res.winner === 0 ? r.p2 : r.p1;
-    openSheet(`<h2 class="${res.winner === 0 || r.p2human ? 'win' : 'lose'}">${title}</h2><p class="sub">${BY_ID[w].name} DEFEATS ${BY_ID[l].name} · ${Math.max(...res.wins)}-${Math.min(...res.wins)}</p>
-      ${statTiles(res.stats)}${payoutHtml(rw)}
-      <div class="actions"><button class="btn primary" id="rRe"><b>REMATCH</b></button><button class="btn" id="rSel"><b>CHANGE FIGHTERS</b></button><button class="btn" id="rMenu"><b>MENU</b></button></div>`, 'result');
-    $('rRe').onclick = () => { Sfx.play('ui'); U.sel = Object.assign(U.sel || {}, { p1: r.p1, p2: r.p2, p2human: r.p2human, cpuLv: r.lv, stage: 'random' }); startVersus(); };
-    $('rSel').onclick = () => { Sfx.play('ui'); closeSheet(); endFight(); openSelect('versus'); };
-    $('rMenu').onclick = () => { Sfx.play('uiBack'); quitToMenu(); };
+    if (res.winner === 0) {
+      const fl = r.floor, boss = isBossFloor(fl);
+      const c = 15 + fl * 4 + (boss ? 60 : 0) + res.stats.finishers * 15;
+      Save.addCoins(c); r.coins += c;
+      if (fl > Save.data.ascentBest) { Save.data.ascentBest = fl; Save.save(); }
+      if (Save.dailyReady()) { Save.data.daily = Save.today(); Save.addCoins(100); r.coins += 100; toast('FIRST WIN TODAY +100 COINS'); }
+      recordMatch(res, r.p1);
+      r.hp = Math.min(1, res.hp[0] + 0.25);
+      r.meter = Game.fighters[0] ? Game.fighters[0].meter : 0;
+      r.floor++;
+      Sfx.play(boss ? 'perfect' : 'coin');
+      // the decision: one of three boons
+      const offer = Meta.offer(r.boons);
+      if (!offer.length) { ascentFloor(); return; }
+      openSheet(`<h2 class="win">FLOOR ${fl} CLEARED</h2><p class="sub">+${c} COINS${boss ? ' · BOSS BONUS' : ''} · HEALTH +25%</p>
+        <p class="tip">Choose a boon for the rest of the run</p>
+        <div class="boons">${offer.map((B, k) => `<button class="boon" data-b="${B.id}" style="--c:${B.col}"><span class="boon-ic">${ic(B.icon)}</span><b>${B.name}</b><small>${B.desc}</small><em>${(r.boons[B.id] || 0) ? 'STACK ' + ((r.boons[B.id] || 0) + 1) + '/' + B.max : 'NEW'}</em><kbd>${k + 1}</kbd></button>`).join('')}</div>
+        ${boonChips(r)}`, 'result wide');
+      const choose = id => { Sfx.play('unlock'); r.boons[id] = (r.boons[id] || 0) + 1; window.removeEventListener('keydown', keys, true); ascentFloor(); };
+      const keys = e => { const k = +e.key; if (k >= 1 && k <= offer.length) { e.preventDefault(); choose(offer[k - 1].id); } };
+      window.addEventListener('keydown', keys, true);
+      $('sheet').querySelectorAll('.boon').forEach(b => { b.onclick = () => choose(b.dataset.b); });
+    } else {
+      const cleared = r.floor - 1, best = cleared >= Save.data.ascentBest && cleared > 0;
+      openSheet(`<h2 class="lose">RUN OVER</h2><p class="sub">${BY_ID[r.p1].name} · ASCENT</p>
+        <div class="big-count">${cleared}</div><p class="sub">${cleared === 1 ? 'FLOOR' : 'FLOORS'} CLEARED · ${best ? 'NEW BEST!' : 'BEST ' + Save.data.ascentBest}</p>
+        ${boonChips(r)}
+        <div class="payout">${ic('coins', 'coin')}${fmt(r.coins)}<small>COINS THIS RUN</small></div>
+        <p class="hint">Spend coins on upgrades in FIGHTERS to climb higher.</p>
+        <div class="actions"><button class="btn" id="rMenu"><b>MENU</b></button><button class="btn" id="rUpg"><b>UPGRADES</b></button><button class="btn primary" id="rRetry"><b>CLIMB AGAIN</b></button></div>`, 'result');
+      $('rRetry').onclick = () => { Sfx.play('fight'); startAscent(r.p1); };
+      $('rUpg').onclick = () => { Sfx.play('ui'); closeSheet(); endFight(); openSelect('roster'); U.sel.view = r.p1; renderSelect(); };
+      $('rMenu').onclick = () => { Sfx.play('uiBack'); quitToMenu(); };
+    }
   }
 
   function startSurvival(id) {
@@ -660,7 +717,7 @@ const UI = (() => {
     const oid = r.streak > 0 && r.streak % 5 === 4 ? (r.p1 === 'saibo' ? pick(pool) : 'saibo') : pick(pool.filter(x => x !== 'saibo'));
     const lv = Math.min(8, 1 + Math.floor(r.streak / 2));
     r.cur = { id: oid, lv };
-    versusSheet(r.p1, oid, `STREAK ${r.streak} · CPU LV ${lv}`, () => beginFight({ p1: r.p1, p2: oid, ctrls: [human(0), cpu(lv)], stage: pick(STAGE_IDS), mode: 'survival', toWin: 1,
+    versusSheet(r.p1, oid, `STREAK ${r.streak} · CPU LV ${lv}`, () => beginFight({ p1: r.p1, p2: oid, ctrls: [human(0), cpu(lv)], stage: pick(STAGE_IDS), mode: 'survival', toWin: 1, mods: [Meta.modsFor(r.p1, { upgrades: true }), null],
       hpStart: [r.hp, 1], meter0: r.meter, fastIntro: r.streak > 0, chip: `SURVIVAL · STREAK ${r.streak} · CPU LV ${lv}`, onEnd: res => setTimeout(() => survivalEnd(res), 700) }), null, 1.6);
   }
   function survivalEnd(res) {
@@ -692,6 +749,30 @@ const UI = (() => {
     U.run = { mode: 'training', p1: id, dummy: dummy || 'kaze', dmode: 'stand', meter: true };
     beginFight(trainingCfg());
   }
+  /* --------------------------------------------------------------- trials
+     Five combo challenges per fighter, shown as a checklist in Training.
+     Each one pays coins the first time it's cleared. */
+  function renderTrials() {
+    const el = $('trials'), r = U.run;
+    if (!r || r.mode !== 'training') { el.classList.add('hidden'); return; }
+    const done = Meta.trialsDone(r.p1);
+    el.classList.remove('hidden');
+    el.innerHTML = `<b>TRIALS ${done.length}/${Meta.TRIALS.length}</b>${Meta.TRIALS.map(T => `<div class="trial ${done.includes(T.id) ? 'done' : ''}">${ic(done.includes(T.id) ? 'check' : 'target')}<span><em>${T.name}</em>${T.desc}</span></div>`).join('')}`;
+    hydrate(el);
+  }
+  function trialHit(att, def, spec, act) {
+    const cm = Game.combo[att.side] || { n: 1, uses: {} };
+    const uses = cm.uses || {};
+    const h = { key: act && act.key, kind: spec.kind || 'light', combo: cm.n || 1, juggled: def.mode === 'tumble', usedNormal: ['l1', 'l2', 'h', 'hEnd'].some(k => uses[k]) };
+    for (const T of Meta.TRIALS) {
+      if (Meta.trialsDone(att.def.id).includes(T.id) || !T.check(h)) continue;
+      if (Meta.clearTrial(att.def.id, T.id)) {
+        Sfx.play('unlock'); toast(`TRIAL CLEARED · ${T.name} · +${Meta.TRIAL_PAY} COINS`); coinsUI();
+        renderTrials();
+      }
+    }
+  }
+
   function trainingCfg() {
     const r = U.run;
     return { p1: r.p1, p2: r.dummy, ctrls: [human(0), new DummyCtrl(r.dmode)], stage: 'lab', mode: 'training', toWin: 99, training: true, trainingMeter: r.meter,
@@ -701,7 +782,7 @@ const UI = (() => {
   function versusSheet(a, b, label, go, run, dur = 2.4) {
     const A = BY_ID[a], B = BY_ID[b];
     const side = (def, cls, who) => `<div class="vs-side ${cls}" style="--c:${def.color}"><small>${who}</small>${pt(def, 'vs-pt')}<b>${def.name}</b><span>${def.title}</span></div>`;
-    const sh = openSheet(`<div class="vs">${side(A, 'you', 'PLAYER 1')}<div class="vs-mid"><b>VS</b><small>${esc(label)}</small></div>${side(B, 'rival', U.sel && U.sel.p2human && U.run && U.run.mode === 'versus' ? 'PLAYER 2' : 'CPU')}</div>
+    const sh = openSheet(`<div class="vs">${side(A, 'you', 'PLAYER 1')}<div class="vs-mid"><b>VS</b><small>${esc(label)}</small></div>${side(B, 'rival', U.run && U.run.cur && U.run.cur.boss ? 'BOSS' : 'CPU')}</div>
       <p class="hint">${('ontouchstart' in window) ? 'TAP' : 'CLICK'} TO START</p>`, 'versus');
     let started = false;
     const start = () => { if (started) return; started = true; clearTimeout(U.vsT); go(); };
@@ -758,6 +839,7 @@ const UI = (() => {
       b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up);
     });
     U.hudCache = {};
+    renderTrials();
   }
 
   U.tick = function () {
@@ -830,11 +912,12 @@ const UI = (() => {
       ${training ? `<div class="sd-opts"><div class="row"><small>DUMMY</small><nav class="seg" id="pDummy">${[['stand', 'STAND'], ['guard', 'GUARD'], ['jump', 'JUMP'], ['cpu', 'CPU']].map(([v, l]) => `<button data-v="${v}" class="${r.dmode === v ? 'active' : ''}">${l}</button>`).join('')}</nav></div>
       <div class="row"><small>METER</small><nav class="seg" id="pMeter"><button data-v="1" class="${r.meter ? 'active' : ''}">INFINITE</button><button data-v="0" class="${!r.meter ? 'active' : ''}">NORMAL</button></nav></div></div>` : ''}
       <div class="pause-stack">
+        ${r.mode === 'ascent' ? boonChips(r) : ''}
         <button class="btn primary" id="pRes"><b>RESUME</b></button>
         <button class="btn" id="pMoves"><b>MOVE LIST</b></button>
-        ${r.mode === 'survival' ? '' : `<button class="btn" id="pRestart"><b>${r.mode === 'level' ? 'RETRY LEVEL' : 'RESTART'}</b></button>`}
+        ${r.mode === 'survival' || r.mode === 'ascent' ? '' : `<button class="btn" id="pRestart"><b>${r.mode === 'level' ? 'RETRY LEVEL' : 'RESTART'}</b></button>`}
         <button class="btn" id="pSet"><b>SETTINGS</b></button>
-        <button class="btn danger" id="pQuit"><b>${r.mode === 'survival' ? 'QUIT RUN' : 'QUIT'}</b></button>
+        <button class="btn danger" id="pQuit"><b>${r.mode === 'survival' || r.mode === 'ascent' ? 'QUIT RUN' : 'QUIT'}</b></button>
       </div>`, 'pause');
     U.sheetDismiss = () => U.resume();
     $('pRes').onclick = () => U.resume();
@@ -842,7 +925,7 @@ const UI = (() => {
     $('pSet').onclick = () => openSettings(() => U.openPauseAgain());
     $('pQuit').onclick = () => { Game.paused = false; quitToMenu(); };
     const rs = $('pRestart');
-    if (rs) rs.onclick = () => { Game.paused = false; if (training) beginFight(trainingCfg()); else if (r.mode === 'versus') startVersus(); else if (r.mode === 'level') playLevel(r.L); };
+    if (rs) rs.onclick = () => { Game.paused = false; if (training) beginFight(trainingCfg()); else if (r.mode === 'level') playLevel(r.L); };
     if (training) {
       sh.querySelectorAll('#pDummy button').forEach(b => { b.onclick = () => { r.dmode = b.dataset.v; Game.ctrls[1] = new DummyCtrl(r.dmode); Game.ctrls[1].reset(Game.fighters[1]); U.openPauseAgain(); }; });
       sh.querySelectorAll('#pMeter button').forEach(b => { b.onclick = () => { r.meter = b.dataset.v === '1'; Game.cfg.trainingMeter = r.meter; U.openPauseAgain(); }; });
@@ -989,7 +1072,7 @@ const UI = (() => {
 
   // exposed for tests
   U._tutStep = () => (U.tut ? U.tut.i : 99);
-  U._start = { level: i => playLevel(Campaign.levels[i]), levels: () => openLevels(), versus: () => startVersus(), survival: startSurvival, training: startTraining, select: openSelect };
+  U._start = { level: i => playLevel(Campaign.levels[i]), levels: () => openLevels(), ascent: startAscent, survival: startSurvival, training: startTraining, select: openSelect };
   return U;
 })();
 

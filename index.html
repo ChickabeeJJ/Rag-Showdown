@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0c0e15">
   <meta name="description" content="Rag Showdown - a 1v1 ragdoll fighting game. 16 stickman fighters with anime-style powers, cinematic supers with impact-frame finishers, a 48-level campaign, Versus, Survival and Training.">
   <title>Rag Showdown</title>
-  <link rel="stylesheet" href="css/style.css?v=19">
+  <link rel="stylesheet" href="css/style.css?v=21">
 </head>
 <body>
   <canvas id="stage" aria-label="Game"></canvas>
@@ -26,6 +26,7 @@
     <div class="sm p2" id="sm1"><b>SUPER</b><div class="trk"><i></i></div></div>
     <div class="skillbar" id="skillbar"></div>
     <div class="coach hidden" id="coach"><p id="coachText"></p></div>
+    <div class="trials hidden" id="trials"></div>
     <div class="tut hidden" id="tut">
       <div class="tut-dots" id="tutDots"></div>
       <div class="tut-vis" id="tutVis"></div>
@@ -46,7 +47,7 @@
       <div class="home-menu">
         <button class="btn primary big" id="btnPlay"><span class="ic" data-icon="play"></span><span class="bt"><b>PLAY</b><small id="playSub">LEVEL 1-1</small></span></button>
         <div class="btn-row">
-          <button class="btn mode" id="btnVersus"><span class="ic" data-icon="swords"></span><span class="bt"><b>VERSUS</b><small>PICK YOUR RIVAL</small></span></button>
+          <button class="btn mode" id="btnAscent"><span class="ic" data-icon="up"></span><span class="bt"><b>ASCENT</b><small id="ascSub">ROGUELITE CLIMB</small></span></button>
           <button class="btn mode" id="btnSurvival"><span class="ic" data-icon="infinity"></span><span class="bt"><b>SURVIVAL</b><small id="survSub">BEST 0</small></span></button>
         </div>
         <div class="btn-row">
@@ -96,19 +97,20 @@
   <div id="bars" aria-hidden="true"><i style="--i:4"></i><i style="--i:3"></i><i style="--i:5"></i><i style="--i:2"></i><i style="--i:6"></i><i style="--i:1"></i><i style="--i:7"></i><i style="--i:0"></i><i style="--i:8"></i></div>
   <div id="rotate" class="hidden"><div><span class="ic" data-icon="rotate"></span><p>TURN YOUR DEVICE SIDEWAYS</p><button class="btn primary" id="btnRotateOk"><b>PLAY ANYWAY</b></button></div></div>
 
-  <script src="js/util.js?v=19"></script>
-  <script src="js/icons.js?v=19"></script>
-  <script src="js/audio.js?v=19"></script>
-  <script src="js/rag.js?v=19"></script>
-  <script src="js/fx.js?v=19"></script>
-  <script src="js/fighters.js?v=19"></script>
-  <script src="js/save.js?v=19"></script>
-  <script src="js/campaign.js?v=19"></script>
-  <script src="js/stage.js?v=19"></script>
-  <script src="js/input.js?v=19"></script>
-  <script src="js/ai.js?v=19"></script>
-  <script src="js/game.js?v=19"></script>
-  <script src="js/ui.js?v=19"></script>
-  <script src="js/main.js?v=19"></script>
+  <script src="js/util.js?v=21"></script>
+  <script src="js/icons.js?v=21"></script>
+  <script src="js/audio.js?v=21"></script>
+  <script src="js/rag.js?v=21"></script>
+  <script src="js/fx.js?v=21"></script>
+  <script src="js/fighters.js?v=21"></script>
+  <script src="js/save.js?v=21"></script>
+  <script src="js/campaign.js?v=21"></script>
+  <script src="js/meta.js?v=21"></script>
+  <script src="js/stage.js?v=21"></script>
+  <script src="js/input.js?v=21"></script>
+  <script src="js/ai.js?v=21"></script>
+  <script src="js/game.js?v=21"></script>
+  <script src="js/ui.js?v=21"></script>
+  <script src="js/main.js?v=21"></script>
 </body>
 </html>

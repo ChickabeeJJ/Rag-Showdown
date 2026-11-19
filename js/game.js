@@ -64,7 +64,7 @@ const Game = (() => {
     G.hitstop = 0; G.slowK = 1; G.slowT = 0; G.cut = null; G.tintS = null; G.windS = null; G.impactQ.length = 0; G.focusS = null; G.flashC = null;
     const hp0 = c.hpStart || [1, 1];
     // in levels and Survival the player gets a sturdier body than the CPU
-    const pBonus = c.mode === 'level' || c.mode === 'survival' ? 1.3 : 1;
+    const pBonus = c.mode === 'level' || c.mode === 'survival' || c.mode === 'ascent' ? 1.3 : 1;
     G.fighters = [
       new Rag(BY_ID[c.p1], { side: 0, x: 560, facing: 1, hpMul: (c.hpMul || [1, 1])[0] * pBonus }),
       new Rag(BY_ID[c.p2], { side: 1, x: 1040, facing: -1, hpMul: (c.hpMul || [1, 1])[1] }),
@@ -73,9 +73,17 @@ const Game = (() => {
     G.fighters.forEach(f => { f.baseS = f.s; });
     WORLD_G = c.grav || 1;
     if (c.p1 === c.p2) G.fighters[1].alt = true;   // mirror match: player 2 is a shade darker
+    // upgrades and boons (meta.js) arrive as one mods object per side
+    G.fighters.forEach((f, i) => {
+      const m = (c.mods || [])[i];
+      if (!m) return;
+      Object.assign(f.mods, m);
+      f.maxHp = Math.round(f.maxHp * (m.hp || 1));
+      f.walk *= m.speed || 1;
+    });
     G.fighters.forEach((f, i) => {
       f.hp = Math.max(1, Math.round(f.maxHp * hp0[i]));
-      f.meter = G.meters[i] || 0;
+      f.meter = Math.max(G.meters[i] || 0, f.mods.startMeter || 0);
       f.buf = [];
       f.onLand = () => onLand(f);
       if (G.ctrls[i] && G.ctrls[i].reset) G.ctrls[i].reset(f);
@@ -217,13 +225,15 @@ const Game = (() => {
 
     /* ---------------------------------------------------------- blocked */
     if (!spec.unblockable && !stopped && canBlock(def, att)) {
-      const chip = Math.round((spec.chip != null ? spec.chip : 0) * spec.dmg * att.def.power * (G.cfg.dmgMul || 1));
+      const chip = def.mods.chipImmune ? 0 : Math.round((spec.chip != null ? spec.chip : 0) * spec.dmg * att.def.power * att.mods.dmg * def.mods.taken * (G.cfg.dmgMul || 1));
       def.hp = Math.max(kind === 'super' ? 0 : 1, def.hp - chip);
       def.lastHit = Object.assign({ att }, spec);
-      def.guard -= spec.dmg * (kind === 'light' ? 0.22 : 0.4);
+      def.guard -= spec.dmg * (kind === 'light' ? 0.22 : 0.4) * def.mods.guard;
       def.guardT = 0;
-      att.meter = Math.min(100, att.meter + spec.dmg * 0.05);
-      def.meter = Math.min(100, def.meter + spec.dmg * 0.08);
+      att.meter = Math.min(100, att.meter + spec.dmg * 0.05 * att.mods.meter);
+      def.meter = Math.min(100, def.meter + spec.dmg * 0.08 * def.mods.meter);
+      // Thorns: blocking stings the attacker
+      if (def.mods.thorns && kind !== 'super') { att.hp = Math.max(1, att.hp - def.mods.thorns); att.flash = 0.6; G.fx.ring(x, y, '#a06bff', 70, 0.25, 5); }
       G.fx.add({ kind: 'impact', x, y, size: 50, life: 0.12, color: '#8fd6ff', rot: rand(0, TAU) });
       G.fx.ring(x, y, '#8fd6ff', 60, 0.2, 4);
       Sfx.play('block');
@@ -265,17 +275,28 @@ const Game = (() => {
     const counter = def.action && def.action.t < def.action.w && def.action.move.kind !== 'super' && kind !== 'super';
     if (counter) { scale *= 1.25; tag = 'COUNTER'; }
     let bf = false;
-    if (spec.bf && !stopped && Math.random() < BF_CHANCE + (n >= 3 ? 0.06 : 0)) { bf = true; scale *= 2.0; }
+    if (spec.bf && !stopped && Math.random() < BF_CHANCE + (n >= 3 ? 0.06 : 0) + att.mods.bf) { bf = true; scale *= 2.0; }
     // in levels and Survival the CPU hits a little softer than the player
     const easy = att.side === 1 && (G.cfg.mode === 'level' || G.cfg.mode === 'survival') ? 0.8 : 1;
-    const dmg = Math.max(1, Math.round(spec.dmg * att.def.power * scale * (G.cfg.dmgMul || 1) * easy));
+    const exec = att.mods.exec && def.hp < def.maxHp * 0.3 ? 1 + att.mods.exec : 1;
+    const dmg = Math.max(1, Math.round(spec.dmg * att.def.power * scale * (G.cfg.dmgMul || 1) * easy * att.mods.dmg * def.mods.taken * exec));
     def.hp -= dmg;
     G.combo[att.side].dmg = (cm && inCombo ? cm.dmg || 0 : 0) + dmg;
     def.lastHit = Object.assign({ att }, spec, { bf });
     if (spec.bounce && !bounced) def.bounce = 1;   // one ground bounce per combo, as in the Vs. games
     def.flash = 0.75;
-    att.meter = Math.min(100, att.meter + dmg * (kind === 'super' ? 0 : 0.085) + (bf ? 25 : 0));
-    def.meter = Math.min(100, def.meter + dmg * 0.06);
+    att.meter = Math.min(100, att.meter + (dmg * (kind === 'super' ? 0 : 0.085) + (bf ? 25 : 0)) * att.mods.meter);
+    def.meter = Math.min(100, def.meter + dmg * 0.06 * def.mods.meter);
+    if (att.mods.lifesteal && att.alive) att.hp = Math.min(att.maxHp, att.hp + dmg * att.mods.lifesteal);
+    // Second Wind: the first knockout blow of a floor leaves them standing
+    if (def.hp <= 0 && def.mods.secondWind > 0 && !stopped) {
+      def.mods.secondWind--;
+      def.hp = Math.round(def.maxHp * 0.2);
+      def.invuln = Math.max(def.invuln, 1.0);
+      G.say(def.root.x, def.root.y - 320, 'SECOND WIND', '#45e08a', 44);
+      G.fx.ring(def.center().x, def.center().y, '#45e08a', 200, 0.5, 10);
+      Sfx.play('rise');
+    }
     if (G.stats && G.mode !== 'demo') {
       if (att.side === 0) { G.stats.dmg += dmg; G.stats.maxCombo = Math.max(G.stats.maxCombo, n); if (bf) G.stats.bf++; }
       else G.stats.taken += dmg;
@@ -313,6 +334,8 @@ const Game = (() => {
     // presentation
     const k = clamp(dmg / 120, 0.15, 1);
     G.fx.hit(x, y, spec.color || att.def.color, k, dir > 0 ? 0 : Math.PI);
+    // each fighter's normals carry their own signature spark
+    if ((kind === 'light' || kind === 'heavy') && typeof HIT_STYLE !== 'undefined' && HIT_FX[HIT_STYLE[att.def.id]]) HIT_FX[HIT_STYLE[att.def.id]](G, x, y, dir);
     if (spec.slash || (act && act.move && act.move.slash)) G.fx.slash(x - dir * 30, y, 60, dir > 0 ? -1.2 : 1.9, dir > 0 ? 1.2 : 4.3, '#ffffff', 10, 0.14);
     Sfx.play(spec.sfx || (kind === 'light' ? 'hitL' : 'hitH'), k);
     if (bf) {
@@ -387,7 +410,7 @@ const Game = (() => {
     f.blocking = false;
     f.dashT = 0;
     if (!f.root.grounded && (mv.kind === 'special' || mv.kind === 'super')) { f.root.hover = true; f.root.vy = 0; }
-    if (mv.kind === 'special') f.cds[key] = mv.cd || 2;
+    if (mv.kind === 'special') f.cds[key] = (mv.cd || 2) * f.mods.cd;
     if (mv.kind === 'super') { f.meter = 0; G.ghost(f, f.def.color, 0.5); }
     if (mv.kind === 'light' || mv.kind === 'heavy' || mv.kind === 'throw') Sfx.play(mv.kind === 'light' ? 'swish' : 'swishH');
     if (mv.kind === 'special') {

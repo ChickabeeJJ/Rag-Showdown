@@ -51,9 +51,24 @@ The campaign follows Element Rag's stage map: 8 chapters of 6 levels, one per st
   - the first win of each day (+100).
 
 Other modes:
-- **Versus:** against a CPU (level 1-8) or a second player on the same keyboard or a second gamepad.
+- **Ascent** (replaces CPU Versus): a roguelite climb, one round per floor against the CPU on a random stage.
+  - Your health and meter carry over, and you heal 25% after each win.
+  - After every win you pick **1 of 3 boons**, powers that last for the run: Berserker, Iron Skin, Vampiric, Overcharge, Quick Hands, Second Wind, Black Sparks, Iron Guard, Primed, Fleet, Executioner and Thorns. Some stack.
+  - Every fifth floor is a **boss** with more health, a bigger body and a 60-coin bonus.
+  - When you fall, a summary shows floors cleared, your boons and coins earned. CLIMB AGAIN is one press away. Your best floor is saved.
 - **Survival:** endless fights. You keep your health and heal between wins.
-- **Training:** a dummy that can stand, guard, jump or fight, with infinite meter.
+- **Training:** a dummy that can stand, guard, jump or fight, with infinite meter. Each fighter has five **trials** that teach the combo system (finisher, cancel into a special, air combo, a 5-hit combo, super in a combo). Each pays 40 coins the first time.
+
+**Upgrades.** Open FIGHTERS and spend coins on four upgrade tracks per fighter, 5 ranks each (60, 140, 240, 360 and 500 coins):
+
+| Track | Per rank |
+| --- | --- |
+| Power | +4% damage |
+| Vitality | +6% health |
+| Focus | +8% super meter gain |
+| Recovery | 6% shorter special cooldowns |
+
+Upgrades apply in levels, Survival and Ascent, but not in Training. A fighter's total rank shows on their tile. The full design is in `docs/GAMEPLAY_PLAN.md`.
 
 ## Controls
 
@@ -69,7 +84,7 @@ Other modes:
 | Throw | left + right click together | LB | (none) |
 | Pause | `P` / `Esc` | START | ⏸ |
 
-The skill bar at the bottom of the screen shows your two specials with their keys and cooldowns; the super has its own meter in the corner. Versus is always against the CPU, at the level you choose; there is no two-player mode.
+The skill bar at the bottom of the screen shows your two specials with their keys and cooldowns; the super has its own meter in the corner. There is no two-player mode.
 
 - **Combos follow Street Fighter's frame data:**
   - A grounded normal's hitstun is whatever is left of the attacker's swing plus a fixed **advantage**. A jab leaves you slightly ahead, so it **chains** into the next button while it's still out, but pressing it again from neutral is too slow to combo. The second light leaves you slightly behind, so mashing after a string lets the opponent jab you first. Blocked normals always leave the attacker behind, heavies most of all.
@@ -92,6 +107,29 @@ The skill bar at the bottom of the screen shows your two specials with their key
 **Bodies and looks.** Every fighter is still Element Rag's cream, faceless mannequin, but each is dressed so no two read alike: their own hair (tuft, ponytail, buns, topknot, mohawk, long hair), clothes (gi pants and belt, robe, hakama, jacket, vest, hoodie, boxing trunks) and details (masks, a visor, goggles, horns, prayer beads, gloves, wraps, boots). Scarves, capes, hair and coat tails are small physics chains that swing with every move. Everything is generic martial-arts and street wear built from simple shapes. No anime character's design is copied.
 
 **Hair and headwear** all grow out of one scalp cap that follows the head's outline, so spikes, crests, buns, horns, hoods and goggle straps stay attached to the head from every angle. Hoods are proper cowls open at the face. **Mugi** has a lighter, feminine build: a slightly narrower waist, wider hips, slimmer limbs and a soft chest line built into her outline, with buns and bangs. Sleeveless tops on everyone else run over the shoulder and end in a clean cap. Sword fighters carry proper katanas: a gently curved blade with a glowing edge, a round guard and a wrapped hilt.
+
+**Fighting styles.** Every fighter's light, light and heavy come from their style, so no two hit alike:
+
+| Style | Fighters | Light, light, heavy |
+| --- | --- | --- |
+| Karate | Kaze | straight punch, reverse punch, roundhouse |
+| Ninja | Ryo | knife hand, palm strike, hook kick |
+| Mystic | Aoi | palm spark, flick, force push |
+| Sword | Homura | iaido slash, rising slash, piercing thrust |
+| Reaper | Jin | low reap, high reap, overhead cleave |
+| Rubber brawler | Mugi | stretch jab, rubber hook, stomp kick |
+| Boxer | Kohei | jab, straight, overhand |
+| Monk | Taro | palm, elbow, twin palm |
+| Casual | Saibo | lazy jab, jab, normal punch |
+| Feral | Ripper | claw, backhand claw, saw lunge |
+| Regal | Monarch | backhand, royal palm, shadow rise |
+| Giant | Goro | hammer fist, forearm smash, shoulder charge |
+| Kung fu | Kensei | finger strike, twin palms, crane kick |
+| Soldier | Blaze | elbow, knee, side kick |
+| Dual blades | Zen | cross cut, return cut, cross slash |
+| Calm | Shige | point, flick, psi lift |
+
+Each fighter's hits also spark in their own way: ki rings, smoke puffs, arcane rings, water splashes, dark crescents, rubber pops, volt arcs, spirit wisps, shockwaves, metal sparks, shadow, quake dust, pressure points, flame, gold cross-cuts and psi ripples. Look-alikes now wear different garments: Monarch in charcoal and gold, Aoi in a pale lavender robe, Saibo in a white jacket, Blaze in a tan turnout coat, and Kensei in a maroon Tang jacket. Skill icons are matte, with no glossy highlight.
 
 **Health.** Every fighter has 2.4 times the health of earlier builds, and in levels and Survival you get another 30% on top, so a fight lasts several combos instead of one. Timers were lengthened to match (wave refills to 80 s, Beat the Clock is 75 s). In levels and Survival the CPU also plays softer: about 25% below its listed level, and its hits do 20% less damage.
 
@@ -235,9 +273,9 @@ NODE_PATH=$(npm root -g) node tools/exploit.js
   3. It loses a level and retries it, and recruits a fighter.
   4. It checks the level map, including that locked levels give a message.
   5. It checks that PLAY goes straight into the fight.
-  6. It checks Versus is against the CPU only, plays Survival and Training with every pause option, and buys a coin-exclusive fighter.
+  6. It plays Ascent (a floor, a boon pick by key, the boon applied to the fighter, the run-over sheet, CLIMB AGAIN), plays Survival, clears a trial in Training and uses every pause option, then buys a coin-exclusive fighter and an upgrade rank.
 
-Latest results: mashing light tops out at 2 hits for every fighter, against a dummy or a CPU. Light, light, heavy combos for all 16. The fuzz found no issues. The soak ran 256 matches (631 rounds) across all stages and twists with no issues. All flow checks passed. The UI was checked at desktop, iPhone and Android landscape, and iPad sizes.
+Latest results: mashing light tops out at 2 hits for every fighter, against a dummy or a CPU. Light, light, heavy combos for all 16. The fuzz found no issues. The soak ran 256 matches (631 rounds) across all stages and twists with no issues. All flow checks passed, including Ascent, upgrades and trials. The UI was checked at desktop, iPhone and Android landscape, and iPad sizes.
 
 ## Project layout
 
@@ -252,13 +290,14 @@ js/rag.js         Element Rag's active ragdoll and stickman drawing, pose librar
 js/fx.js          particles, rings, arcs, slash trails, hit stars (from Element Rag, extended)
 js/fighters.js    16 fighters: normals, keyframed specials and scripted supers; stage list
 js/campaign.js    chapters, levels, twists, recruits, stars
+js/meta.js        upgrades, Ascent boons, training trials (one "mods" object per fighter)
 js/game.js        rounds, move runtime, hits / guard / juggles / Black Spark, projectiles, beams,
                   fields, minions, marks, barriers, cut-ins, impact frames, finishers, camera
 js/stage.js       layered parallax stages, weather, portraits
 js/input.js       mouse + keyboard (2 sets), gamepads, touch
 js/ai.js          CPU fighters, levels 1-9
 js/save.js        localStorage progress and settings
-js/ui.js          home + demo, levels, guide and tips, select / shop, Versus, Survival, Training, HUD
+js/ui.js          home + demo, levels, guide and tips, select / shop / upgrades, Ascent, Survival, Training + trials, HUD
 js/main.js        boot, loop, input routing
 tools/            headless soak, exploit and UI flow tests
 assets/fonts/     Rubik (SIL Open Font License)

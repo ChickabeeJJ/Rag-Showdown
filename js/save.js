@@ -19,6 +19,10 @@ const Save = (() => {
     tips: {},            // contextual tips already shown
     tutorialDone: false,
     lastPick: 'kaze',
+    upg: {},             // fighter id -> { pow, vit, foc, rec } upgrade ranks
+    trials: {},          // fighter id -> cleared trial ids
+    ascentBest: 0,       // highest Ascent floor cleared
+    ascentRuns: 0,
     arcadeDiff: 1,       // 0 easy, 1 normal, 2 hard
     settings: { sfx: true, music: true, shake: true, flashes: true },
   });
@@ -37,6 +41,9 @@ const Save = (() => {
         if (!Number.isFinite(S.data.coins) || S.data.coins < 0) S.data.coins = 0;
         if (!S.data.levels || typeof S.data.levels !== 'object') S.data.levels = {};
         if (!S.data.tips || typeof S.data.tips !== 'object') S.data.tips = {};
+        if (!S.data.upg || typeof S.data.upg !== 'object') S.data.upg = {};
+        if (!S.data.trials || typeof S.data.trials !== 'object') S.data.trials = {};
+        if (!Number.isFinite(S.data.ascentBest)) S.data.ascentBest = 0;
       }
     } catch (e) { S.data = fresh(); }
   };

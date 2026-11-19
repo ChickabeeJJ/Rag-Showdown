@@ -154,6 +154,7 @@ class Rag {
     this.input = { x: 0 };
     this.action = null;
     this.cds = { sp1: 0, sp2: 0 };
+    this.mods = Meta.base();     // upgrades and boons (meta.js); plain stats by default
     this.meter = 0;
     this.guard = 100;           // guard gauge; empties from blocking
     this.guardT = 0;            // time since last block (regen delay)

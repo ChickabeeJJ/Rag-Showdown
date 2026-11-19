@@ -1680,18 +1680,18 @@ const easeIn2 = t => t * t;
   const W = {
     kaze:     { stance: 'karate', gear: 'headband', hair: 'tuft', hairC: '#2a2630', pants: INK, belt: 'acc', wraps: true, cape: true },
     ryo:      { stance: 'ninja', gear: 'headband', hair: 'ponytail', hairC: '#231f28', face: 'mask', maskC: '#2a2d3c', top: '#2a2d3c', topKind: 'tank', pants: '#2a2d3c', shinWrap: '#d8d0bf', belt: 'acc', beltTails: true },
-    aoi:      { stance: 'mystic', gear: 'hood', hoodC: '#3b2d62', top: '#3b2d62', topKind: 'robe', sleeve: 'long', wideSleeve: true, trim: 'acc', pants: '#2d2450', pantsKind: 'robe', extra: 'orbs' },
+    aoi:      { stance: 'mystic', gear: 'hood', hoodC: '#d9d0f2', top: '#e6dff7', topKind: 'robe', sleeve: 'long', wideSleeve: true, trim: 'acc', pants: '#b9aee0', pantsKind: 'robe', extra: 'orbs' },
     homura:   { stance: 'sword', gear: 'none', hair: 'topknot', hairC: '#1f1b22', top: '#1e4a55', topKind: 'haori', sleeve: 'short', trim: 'acc', pants: '#23283a', pantsKind: 'hakama', belt: '#d8d0bf', beltTails: false, coat: '#1e4a55', cape: false },
     jin:      { stance: 'reaper', gear: 'hood', hoodC: '#1c1f3a', top: '#1c1f3a', topKind: 'jacket', sleeve: 'long', trim: 'acc', pants: NIGHT, boots: '#14162a', coat: '#1c1f3a', cape: false },
     mugi:     { stance: 'loose', gear: 'none', hair: 'buns', hairC: '#4a2a2e', top: 'acc', topKind: 'tank', trim: '#ffd1e6', pants: '#35507a', pantsKind: 'shorts', boots: '#f2e6ef', build: { chest: 0.9, waist: 0.8, hip: 1.12, arm: 0.86, leg: 0.93, curvy: true, bust: true }, bareShoulder: true },
     kohei:    { stance: 'boxer', gear: 'none', hair: 'spikes', hairC: '#1d2a24', top: '#1d3b2c', topKind: 'tank', pants: 'acc', pantsKind: 'shorts', glove: 'acc', belt: '#f2f2f2', beltTails: false },
     taro:     { stance: 'monk', gear: 'none', hair: 'buzz', hairC: '#5c5f6b', top: '#4f5f80', topKind: 'robe', sleeve: 'short', trim: 'acc', sash: true, pants: '#3a4560', pantsKind: 'hakama', extra: 'beads', cape: false },
-    saibo:    { stance: 'casual', gear: 'none', hair: 'part', hairC: '#26262e', face: 'visor', top: CHAR, topKind: 'jacket', sleeve: 'long', trim: 'acc', pants: CHAR, boots: '#1d1d24', cape: true },
+    saibo:    { stance: 'casual', gear: 'none', hair: 'part', hairC: '#26262e', face: 'visor', top: '#e9edf2', topKind: 'jacket', sleeve: 'long', trim: 'acc', pants: '#c9cfd8', boots: '#2b2d36', cape: true },
     ripper:   { stance: 'feral', gear: 'none', hair: 'spikes', hairC: '#3a2c22', horns: true, top: '#2d2a28', topKind: 'vest', pants: '#2b2a30', boots: '#1d1c22', wraps: '#cfc6b4' },
-    monarch:  { stance: 'regal', gear: 'none', hair: 'long', hairC: '#c9cde0', top: '#241d40', topKind: 'jacket', sleeve: 'long', trim: 'acc', pants: '#1a1630', boots: '#120f22', extra: 'pauldron', coat: '#241d40', cape: true },
+    monarch:  { stance: 'regal', gear: 'none', hair: 'long', hairC: '#c9cde0', top: '#2b2b30', topKind: 'jacket', sleeve: 'long', trim: '#d9b45a', pants: '#232328', boots: '#141418', extra: 'pauldron', coat: '#2b2b30', cape: true },
     titan:    { stance: 'giant', gear: 'none', hair: 'long', hairC: '#3e2d22', pants: EARTH, belt: '#6b4a2e', beltTails: false, wraps: '#d9cbb0', extra: 'pauldron', trim: '#7a6a58', cape: false, build: { chest: 1.3, waist: 1.15, arm: 1.2, leg: 1.15 } },
-    kensei:   { stance: 'kungfu', gear: 'band', hair: 'part', hairC: '#262028', top: '#24302a', topKind: 'vest', pants: '#202428', belt: 'acc', wraps: true, cape: false },
-    blaze:    { stance: 'soldier', gear: 'none', hair: 'spikes', hairC: '#3a1e14', face: 'goggles', top: '#2a2a30', topKind: 'jacket', sleeve: 'long', stripes: true, trim: 'acc', pants: '#2a2a30', boots: '#18181c' },
+    kensei:   { stance: 'kungfu', gear: 'band', hair: 'part', hairC: '#262028', top: '#7a2633', topKind: 'gi', sleeve: 'short', trim: 'acc', pants: '#2a2228', belt: 'acc', wraps: true, cape: false },
+    blaze:    { stance: 'soldier', gear: 'none', hair: 'spikes', hairC: '#3a1e14', face: 'goggles', top: '#b98a4a', topKind: 'jacket', sleeve: 'long', stripes: true, trim: 'acc', pants: '#9a7038', boots: '#2a2018' },
     triblade: { stance: 'dual', gear: 'band', hair: 'mohawk', hairC: '#2f3a22', top: '#4a3a1e', topKind: 'tank', pants: '#2a261c', belt: 'acc', beltTails: true, wraps: true },
     psychic:  { stance: 'calm', gear: 'none', hair: 'part', hairC: '#1c1c22', top: '#1d3a44', topKind: 'hoodie', sleeve: 'long', trim: 'acc', pants: '#22252e', extra: 'orbs' },
   };
@@ -1700,6 +1700,141 @@ const easeIn2 = t => t * t;
   for (const id of ['ryo', 'aoi', 'psychic', 'kohei']) BY_ID[id].look.build = Object.assign({ chest: 0.92, waist: 0.9, arm: 0.92, leg: 0.95 }, BY_ID[id].look.build);
   for (const id of ['ripper', 'blaze']) BY_ID[id].look.build = Object.assign({ chest: 1.08, waist: 1, arm: 1.05, leg: 1.02 }, BY_ID[id].look.build);
 })();
+
+/* ------------------------------------------------------- fighting styles
+   Each stance brings its own light, light, heavy: a karateka punches straight
+   and finishes with a roundhouse, a boxer jabs and throws an overhand, a giant
+   swings hammer fists and shoulder-charges, a swordsman draws and thrusts.
+   Names, poses, reach, timing and knockback change; the frame-data rules in
+   game.js keep every string a real combo. Fighter-specific normals (Mugi's
+   stretch jab) are left alone. */
+const PZ = (wind, strike) => ({ wind, strike });
+const STYLE_SETS = {
+  karate: {
+    l1: { name: 'Straight Punch', pose: PZ({ fh: [8, 8] }, { fh: [50, 0], lean: 7 }) },
+    l2: { name: 'Reverse Punch', pose: PZ({ bh: [2, 12], lean: -3 }, { bh: [50, 0], fh: [6, 20], lean: 13, ff: [28, 0] }) },
+    h: { name: 'Roundhouse', pose: PZ({ ff: [0, -44], lean: -8 }, { ff: [62, -108], lean: -24, bf: [-10, 0] }), box: [76, -108, 30] },
+  },
+  ninja: {
+    l1: { name: 'Knife Hand', w: 0.04, pose: PZ({ fh: [6, -18], lean: -2 }, { fh: [46, 16], lean: 9 }), box: [62, -104, 24] },
+    l2: { name: 'Palm Strike', pose: PZ({ bh: [0, 8] }, { bh: [48, 4], fh: [10, 22], lean: 11 }) },
+    h: { name: 'Hook Kick', pose: PZ({ ff: [-6, -60], crouch: 6, lean: -10, fh: [10, -10] }, { ff: [56, -116], lean: -26, bf: [-8, 0], fh: [-6, 6] }), box: [70, -114, 30], kb: [380, -120] },
+  },
+  boxer: {
+    l1: { name: 'Jab', w: 0.04, r: 0.11, pose: PZ({ fh: [12, -6] }, { fh: [48, -8], lean: 8 }), box: [64, -116, 22] },
+    l2: { name: 'Straight', pose: PZ({ bh: [8, -2] }, { bh: [52, -6], fh: [14, -8], lean: 14, ff: [26, 0] }), box: [66, -114, 24] },
+    h: { name: 'Overhand', pose: PZ({ fh: [-4, -32], lean: -8, crouch: 6 }, { fh: [50, -4], lean: 20, crouch: 14, ff: [36, 0] }), box: [70, -110, 30], kb: [460, -40] },
+  },
+  kungfu: {
+    l1: { name: 'Finger Strike', pose: PZ({ fh: [14, 0] }, { fh: [52, -10], lean: 6 }), box: [66, -118, 22] },
+    l2: { name: 'Twin Palms', pose: PZ({ fh: [6, 14], bh: [2, 18], lean: -4 }, { fh: [46, 4], bh: [44, 12], lean: 12, ff: [30, 0] }) },
+    h: { name: 'Crane Kick', pose: PZ({ ff: [10, -50], crouch: 4, fh: [20, -32], bh: [-22, -28] }, { ff: [66, -98], lean: -14, fh: [12, -38], bh: [-30, -32] }), box: [74, -104, 30] },
+  },
+  loose: {
+    l2: { name: 'Rubber Hook', pose: PZ({ bh: [-16, 6], lean: -4 }, { bh: [54, 0], lean: 13 }), box: [72, -108, 26] },
+    h: { name: 'Stomp Kick', pose: PZ({ ff: [14, -52], crouch: 6, lean: -4 }, { ff: [62, -24], lean: 10, crouch: 14 }), box: [72, -44, 32], kb: [480, -120] },
+  },
+  feral: {
+    l1: { name: 'Claw', pose: PZ({ fh: [20, -32], lean: 4 }, { fh: [46, 30], lean: 16, crouch: 8 }), box: [64, -96, 28] },
+    l2: { name: 'Backhand Claw', pose: PZ({ bh: [-12, 0] }, { bh: [46, 26], fh: [0, 30], lean: 15 }), box: [64, -94, 28] },
+    h: { name: 'Saw Lunge', pose: PZ({ fh: [-10, 10], lean: -8, crouch: 16 }, { fh: [58, 10], lean: 26, crouch: 20, ff: [46, 0], bf: [-42, 0] }), box: [86, -90, 30] },
+  },
+  giant: {
+    l1: { name: 'Hammer Fist', w: 0.07, r: 0.14, pose: PZ({ fh: [10, -42], lean: -4 }, { fh: [44, 22], lean: 14, crouch: 10 }), box: [62, -98, 30] },
+    l2: { name: 'Forearm Smash', w: 0.07, pose: PZ({ fh: [0, 10], lean: -4 }, { fh: [38, 0], bh: [32, 6], lean: 16 }), box: [62, -106, 30] },
+    h: { name: 'Shoulder Charge', step: 220, pose: PZ({ lean: -6, crouch: 16, fh: [0, 22], bh: [-10, 22] }, { lean: 28, crouch: 18, fh: [16, 26], bh: [4, 28], ff: [44, 0], bf: [-40, 0] }), box: [64, -96, 38], kb: [560, -80] },
+  },
+  soldier: {
+    l1: { name: 'Elbow', pose: PZ({ fh: [4, 12] }, { fh: [26, -6], lean: 13 }), box: [52, -112, 28] },
+    l2: { name: 'Knee', pose: PZ({ ff: [10, -30] }, { ff: [40, -58], lean: -4, fh: [22, 10] }), box: [50, -72, 30] },
+    h: { name: 'Side Kick', pose: PZ({ ff: [0, -50], lean: -10 }, { ff: [72, -62], lean: -24, bf: [-12, 0] }), box: [82, -74, 30] },
+  },
+  mystic: {
+    l1: { name: 'Palm Spark', pose: PZ({ fh: [10, 6] }, { fh: [48, -2], lean: 6 }) },
+    l2: { name: 'Flick', pose: PZ({ bh: [-6, -10] }, { bh: [46, -14], lean: 8 }) },
+    h: { name: 'Force Push', pose: PZ({ fh: [-12, 14], bh: [-14, 16], lean: -4, crouch: 10 }, { fh: [50, 6], bh: [48, 12], lean: 16, crouch: 10, ff: [32, 0], bf: [-34, 0] }), box: [72, -100, 34], kb: [560, -40] },
+  },
+  calm: {
+    l1: { name: 'Point', pose: PZ({ fh: [16, 10] }, { fh: [50, -14], lean: 4 }), box: [66, -118, 22] },
+    l2: { name: 'Flick', pose: PZ({ bh: [-4, 4] }, { bh: [44, -10], lean: 7 }) },
+    h: { name: 'Psi Lift', pose: PZ({ fh: [14, 24], bh: [6, 26], crouch: 10 }, { fh: [26, -44], bh: [14, -42], lean: -4 }), box: [68, -120, 34], kb: [180, -560] },
+  },
+  regal: {
+    l1: { name: 'Backhand', pose: PZ({ fh: [-6, 4] }, { fh: [48, -4], lean: 6 }) },
+    l2: { name: 'Royal Palm', pose: PZ({ bh: [0, 10] }, { bh: [48, 2], lean: 10 }) },
+    h: { name: 'Shadow Rise', pose: PZ({ fh: [10, 30], bh: [-6, 30], crouch: 12 }, { fh: [30, -46], bh: [-8, -40], lean: -6 }), box: [70, -112, 34], kb: [200, -520] },
+  },
+  monk: {
+    l1: { name: 'Palm', pose: PZ({ fh: [10, 10] }, { fh: [48, 2], lean: 7 }) },
+    l2: { name: 'Elbow', pose: PZ({ bh: [4, 10] }, { bh: [30, -4], lean: 13 }), box: [54, -110, 28] },
+    h: { name: 'Twin Palm', pose: PZ({ fh: [-12, 14], bh: [-14, 16], lean: -4, crouch: 10 }, { fh: [50, 8], bh: [-26, 22], lean: 18, crouch: 10, ff: [34, 0], bf: [-34, 0] }), box: [72, -100, 32] },
+  },
+  casual: {
+    l1: { name: 'Lazy Jab', pose: PZ({ fh: [10, 30] }, { fh: [44, 4], lean: 2 }) },
+    l2: { name: 'Jab', pose: PZ({ fh: [10, 20] }, { fh: [48, 0], lean: 4 }) },
+    h: { name: 'Normal Punch', w: 0.15, pose: PZ({ fh: [-8, 8], lean: -4 }, { fh: [52, 0], lean: 12, ff: [30, 0] }), box: [72, -108, 32], kb: [640, -70] },
+  },
+  sword: {
+    l1: { name: 'Iaido Slash', arc: [-0.5, 0.5] },
+    l2: { name: 'Rising Slash', arc: [1.1, -0.9] },
+    h: { name: 'Piercing Thrust', pose: PZ({ fh: [0, 14], bh: [-6, 16], lean: -6 }, { fh: [58, 4], bh: [42, 8], lean: 18, ff: [42, 0], bf: [-38, 0] }), box: [112, -104, 26], slash: false, kb: [520, -30] },
+  },
+  reaper: {
+    l1: { name: 'Low Reap', arc: [-0.6, 1.1] },
+    l2: { name: 'High Reap', arc: [-1.7, 0.5] },
+    h: { name: 'Overhead Cleave', w: 0.16, arc: [-2.5, 0.9], box: [96, -96, 40], kb: [420, 120] },
+  },
+  dual: {
+    l1: { name: 'Cross Cut', arc: [-1.0, 0.6] },
+    l2: { name: 'Return Cut', arc: [0.9, -1.0] },
+    h: { name: 'Cross Slash', arc: [-1.6, 1.3], box: [96, -96, 40], kb: [470, -70] },
+  },
+};
+(function fightingStyles() {
+  for (const d of ROSTER) {
+    const set = STYLE_SETS[d.look.stance];
+    if (!set) continue;
+    const R = d.reach || 0;
+    for (const k of ['l1', 'l2', 'h']) {
+      const o = set[k], mv = d.moves[k];
+      if (!o || !mv || mv.rubber) continue;
+      mv.name = o.name;
+      for (const t of ['w', 'a', 'r']) if (o[t] != null) mv[t] = o[t];
+      if (o.box) mv.box = [o.box[0] + (o.arc ? R : 0), o.box[1], o.box[2]];
+      if (o.kb) mv.hit = Object.assign({}, mv.hit, { kb: o.kb });
+      let fn = null;
+      if (o.arc) { fn = arcPose(o.arc[0], o.arc[1]); mv.slash = true; }
+      else if (o.pose) { const id = `style_${d.look.stance}_${k}`; POSES[id] = o.pose; mv.pose = id; mv.poseFn = undefined; mv.slash = o.slash != null ? o.slash : false; }
+      if (fn) mv.poseFn = fn;
+      // a lunging heavy carries the body forward
+      if (o.step) { const step = o.step; mv.tick = (G, f, act) => { if (phaseOf(act).ph === 1 && act.vx == null) f.root.vx = f.facing * step * f.s / 2; }; }
+    }
+  }
+})();
+
+/* each fighter's hits spark in their own way (normals; specials have their own) */
+const HIT_STYLE = {
+  kaze: 'ki', ryo: 'smoke', aoi: 'arcane', homura: 'water', jin: 'crescent', mugi: 'pop', kohei: 'volt', taro: 'spirit',
+  saibo: 'shock', ripper: 'metal', monarch: 'shadow', titan: 'quake', kensei: 'points', blaze: 'flame', triblade: 'gold', psychic: 'psi',
+};
+const HIT_FX = {
+  ki: (G, x, y, d) => { G.fx.ring(x, y, '#9fe3ff', 70, 0.22, 5); for (let i = 0; i < 6; i++) G.fx.add({ x, y, vx: Math.cos(i) * 300 + d * 200, vy: Math.sin(i) * 300, life: 0.25, size: 4, color: '#bfefff' }); },
+  smoke: (G, x, y) => { for (let i = 0; i < 3; i++) G.fx.add({ kind: 'smoke', x: x + rand(-14, 14), y: y + rand(-10, 10), size: rand(20, 32), life: 0.4, color: '#e9e4d4', add: false }); },
+  arcane: (G, x, y) => { G.fx.ring(x, y, '#c9a8ff', 60, 0.3, 4); G.fx.ring(x, y, '#7f5bff', 36, 0.22, 3); },
+  water: (G, x, y, d) => { for (let i = 0; i < 9; i++) G.fx.add({ x, y, vx: d * rand(100, 420), vy: rand(-380, -60), g: 1300, life: 0.45, size: rand(3, 6), color: i % 2 ? '#7fe0ff' : '#ffffff' }); },
+  crescent: (G, x, y, d) => G.fx.slash(x - d * 10, y, 50, d > 0 ? -1.1 : 2.0, d > 0 ? 1.1 : 4.2, '#9fb0ff', 10, 0.18),
+  pop: (G, x, y) => { G.fx.ring(x, y, '#ff8fc8', 54, 0.2, 6); for (let i = 0; i < 5; i++) G.fx.add({ x, y, vx: rand(-260, 260), vy: rand(-320, -80), g: 600, life: 0.4, size: 5, color: '#ffd1e6' }); },
+  volt: (G, x, y) => { for (let i = 0; i < 3; i++) G.fx.arc(x, y, x + rand(-60, 60), y + rand(-60, 60), '#7dff8a', 0.1); },
+  spirit: (G, x, y) => { for (let i = 0; i < 4; i++) G.fx.add({ x: x + rand(-10, 10), y, vx: rand(-60, 60), vy: rand(-200, -120), g: -40, life: 0.6, size: rand(5, 8), color: '#b39bff' }); },
+  shock: (G, x, y) => { G.fx.ring(x, y, '#ffffff', 110, 0.25, 8); },
+  metal: (G, x, y, d) => { for (let i = 0; i < 10; i++) G.fx.add({ x, y, vx: d * rand(200, 700), vy: rand(-500, 200), g: 1800, life: 0.3, size: 3, color: i % 2 ? '#ffb13d' : '#ffe2a0' }); },
+  shadow: (G, x, y) => { for (let i = 0; i < 4; i++) G.fx.add({ kind: 'smoke', x: x + rand(-12, 12), y: y + rand(-12, 12), size: rand(18, 28), life: 0.35, color: '#2a1c4a', add: false }); G.fx.ring(x, y, '#8a6bff', 44, 0.2, 3); },
+  quake: (G, x, y) => { G.fx.dust(x, GROUND, 6); G.fx.chunks(x, y, '#b9a58f', 4, 360, 6); },
+  points: (G, x, y) => { for (let i = 0; i < 4; i++) { const a = i / 4 * TAU; G.fx.add({ x: x + Math.cos(a) * 18, y: y + Math.sin(a) * 18, vx: 0, vy: 0, life: 0.3, size: 5, color: '#e2ff9a' }); } },
+  flame: (G, x, y, d) => { for (let i = 0; i < 6; i++) G.fx.add({ kind: 'flame', x, y, vx: d * rand(80, 300), vy: rand(-260, -40), life: 0.35, size: rand(8, 13), color: i % 2 ? '#ff5a1c' : '#ffc23d' }); },
+  gold: (G, x, y, d) => { G.fx.slash(x, y, 46, -0.8, 0.8, '#fff0b0', 8, 0.16); G.fx.slash(x, y, 46, 0.8 + Math.PI, -0.8 + Math.PI, '#fff0b0', 8, 0.16); },
+  psi: (G, x, y) => { G.fx.ring(x, y, '#9ff4ff', 50, 0.25, 3); G.fx.ring(x, y, '#9ff4ff', 90, 0.35, 2); },
+};
 
 const STAGES = {
   dojo:   { name: 'SUNSET DOJO', sky: ['#ff9a5a', '#ffcf7a', '#ffe6b0'], ground: '#7a4a2e', line: '#5e3820', far: '#c7724a', near: '#8d4a35', sun: '#fff1c4' },
