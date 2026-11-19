@@ -60,6 +60,7 @@ const Game = (() => {
   G.startRound = function () {
     const c = G.cfg;
     G.projs.length = 0; G.beams.length = 0; G.fields.length = 0; G.summons.length = 0; G.ghosts.length = 0; G.callouts.length = 0; G.corpses.length = 0;
+    G.timers.length = 0;
     G.fx.clear();
     G.hitstop = 0; G.slowK = 1; G.slowT = 0; G.cut = null; G.tintS = null; G.windS = null; G.impactQ.length = 0; G.focusS = null; G.flashC = null;
     const hp0 = c.hpStart || [1, 1];
@@ -70,17 +71,19 @@ const Game = (() => {
       new Rag(BY_ID[c.p2], { side: 1, x: 1040, facing: -1, hpMul: (c.hpMul || [1, 1])[1] }),
     ];
     if (c.scale) G.fighters.forEach((f, i) => { f.s *= c.scale[i] || 1; });
-    G.fighters.forEach(f => { f.baseS = f.s; });
     WORLD_G = c.grav || 1;
     if (c.p1 === c.p2) G.fighters[1].alt = true;   // mirror match: player 2 is a shade darker
-    // upgrades and boons (meta.js) arrive as one mods object per side
+    // upgrades and cards (meta.js) arrive as one mods object per side
     G.fighters.forEach((f, i) => {
       const m = (c.mods || [])[i];
       if (!m) return;
       Object.assign(f.mods, m);
       f.maxHp = Math.round(f.maxHp * (m.hp || 1));
       f.walk *= m.speed || 1;
+      if (m.scale && m.scale !== 1) f.s *= m.scale;
+      if (m.jump && m.jump !== 1) f.jumpV *= m.jump;
     });
+    G.fighters.forEach(f => { f.baseS = f.s; });
     G.fighters.forEach((f, i) => {
       f.hp = Math.max(1, Math.round(f.maxHp * hp0[i]));
       f.meter = Math.max(G.meters[i] || 0, f.mods.startMeter || 0);
@@ -140,6 +143,57 @@ const Game = (() => {
   };
 
   /* -------------------------------------------------------------- spawners */
+  // run fn after a delay of fight time (cleared when a round starts)
+  G.timers = [];
+  G.later = (d, fn) => { G.timers.push({ t: d, fn }); };
+  /* ----------------------------------------------------- card effects
+     Run-only powers from Ascent cards (meta.js). Each one is visible: a
+     coin, a lightning bolt, a shockwave, a burst of fire. */
+  function cardEffects(att, def, spec, kind, dmg, n, x, y, dir, stopped) {
+    const m = att.mods;
+    // Midas Touch: every hit throws out a coin
+    if (m.midas && att.side === 0) {
+      att.midasCoins = (att.midasCoins || 0) + 1;
+      G.fx.add({ kind: 'coin', x, y, vx: -dir * rand(80, 260), vy: rand(-620, -420), g: 1500, life: 0.8, size: 7, color: '#ffd34d', add: false });
+      Sfx.play('coin');
+    }
+    // Chain Lightning: every 4th hit of a combo calls a bolt down on them
+    if (m.storm && n % 4 === 0 && !stopped && def.alive) {
+      const c = def.center(), bolt = Math.round(40 * m.dmg);
+      def.hp -= bolt; def.flash = 1;
+      let px = c.x + rand(-30, 30), py = c.y - 620;
+      for (let i = 0; i < 7; i++) { const nx = c.x + rand(-40, 40) * (1 - i / 7), ny = py + (c.y - py) / (7 - i); G.fx.arc(px, py, nx, ny, '#e8fbff', 0.22); G.fx.arc(px, py, nx, ny, '#8fe8ff', 0.3); px = nx; py = ny; }
+      G.fx.ring(c.x, c.y, '#8fe8ff', 140, 0.3, 8); G.flash('#cff6ff', 0.25); G.shake(7); Sfx.play('thunder');
+      G.fx.text(c.x, c.y - 200, `${bolt}`, '#8fe8ff', 30, { dur: 0.7 });
+    }
+    // Aftershock: heavies echo with a second shockwave a beat later
+    if (m.after && (kind === 'heavy') && !spec.echo && !stopped) {
+      const echo = Math.max(1, Math.round(dmg * m.after));
+      G.later(0.26, () => {
+        if (!def.alive || G.state !== 'fight') return;
+        const c = def.center();
+        def.hp -= echo; def.flash = 0.8;
+        G.fx.ring(c.x, c.y, '#ffcf6a', 150, 0.35, 10); G.fx.ring(c.x, c.y, '#ffffff', 90, 0.25, 6);
+        G.shake(6); Sfx.play('boom');
+        G.fx.text(c.x, c.y - 200, `${echo}`, '#ffcf6a', 28, { dur: 0.7 });
+      });
+    }
+  }
+  function phoenixRise(f, att) {
+    f.mods.phoenix--;
+    f.phoenixUsed = true;
+    f.hp = Math.round(f.maxHp * 0.6);
+    f.invuln = Math.max(f.invuln, 1.6);
+    const c = f.center();
+    G.flash('#ffb13d', 0.6); G.shake(16); G.slow(0.3, 0.7);
+    G.fx.ring(c.x, c.y, '#ffd34d', 320, 0.6, 16); G.fx.ring(c.x, c.y, '#ff5a1c', 220, 0.45, 12);
+    for (let i = 0; i < 40; i++) { const a = rand(0, TAU), v = rand(300, 900); G.fx.add({ kind: 'flame', x: c.x, y: c.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 200, life: rand(0.4, 0.8), size: rand(10, 18), color: i % 3 ? '#ff7a2a' : '#ffd34d' }); }
+    // the blast throws the attacker clear
+    if (att && att.alive) { att.root.vx = Math.sign(att.root.x - f.root.x || 1) * 1100; att.root.vy = -500; att.root.grounded = false; }
+    G.callout('REBORN', 'PHOENIX', 'perfect', 1.3);
+    Sfx.play('flame'); Sfx.play('rise');
+  }
+
   G.proj = o => { const p = Object.assign({ t: 0, hits: 0, tk: 0, every: 0.1, multi: 1, strength: 1, life: 1.5 }, o); G.projs.push(p); return p; };
   G.beam = o => { const b = Object.assign({ t: 0, len: 0, tk: 1, lastHit: -9 }, o); G.beams.push(b); return b; };
   G.field = o => { const fl = Object.assign({ t: 0, tk: 0, dead: false }, o); G.fields.push(fl); return fl; };
@@ -279,7 +333,10 @@ const Game = (() => {
     // in levels and Survival the CPU hits a little softer than the player
     const easy = att.side === 1 && (G.cfg.mode === 'level' || G.cfg.mode === 'survival') ? 0.8 : 1;
     const exec = att.mods.exec && def.hp < def.maxHp * 0.3 ? 1 + att.mods.exec : 1;
-    const dmg = Math.max(1, Math.round(spec.dmg * att.def.power * scale * (G.cfg.dmgMul || 1) * easy * att.mods.dmg * def.mods.taken * exec));
+    // cards: Adrenaline (low health) and Momentum (long combos)
+    const adren = att.mods.adren && att.hp < att.maxHp * 0.35 ? 1 + att.mods.adren : 1;
+    const mom = att.mods.momentum ? 1 + Math.min(0.5, att.mods.momentum * (n - 1)) : 1;
+    const dmg = Math.max(1, Math.round(spec.dmg * att.def.power * scale * (G.cfg.dmgMul || 1) * easy * att.mods.dmg * def.mods.taken * exec * adren * mom));
     def.hp -= dmg;
     G.combo[att.side].dmg = (cm && inCombo ? cm.dmg || 0 : 0) + dmg;
     def.lastHit = Object.assign({ att }, spec, { bf });
@@ -288,6 +345,7 @@ const Game = (() => {
     att.meter = Math.min(100, att.meter + (dmg * (kind === 'super' ? 0 : 0.085) + (bf ? 25 : 0)) * att.mods.meter);
     def.meter = Math.min(100, def.meter + dmg * 0.06 * def.mods.meter);
     if (att.mods.lifesteal && att.alive) att.hp = Math.min(att.maxHp, att.hp + dmg * att.mods.lifesteal);
+    cardEffects(att, def, spec, kind, dmg, n, x, y, dir, stopped);
     // Second Wind: the first knockout blow of a floor leaves them standing
     if (def.hp <= 0 && def.mods.secondWind > 0 && !stopped) {
       def.mods.secondWind--;
@@ -297,6 +355,8 @@ const Game = (() => {
       G.fx.ring(def.center().x, def.center().y, '#45e08a', 200, 0.5, 10);
       Sfx.play('rise');
     }
+    // Phoenix: once per run, rise from the knockout in a burst of fire
+    if (def.hp <= 0 && def.mods.phoenix > 0 && !stopped) phoenixRise(def, att);
     if (G.stats && G.mode !== 'demo') {
       if (att.side === 0) { G.stats.dmg += dmg; G.stats.maxCombo = Math.max(G.stats.maxCombo, n); if (bf) G.stats.bf++; }
       else G.stats.taken += dmg;
@@ -411,7 +471,7 @@ const Game = (() => {
     f.dashT = 0;
     if (!f.root.grounded && (mv.kind === 'special' || mv.kind === 'super')) { f.root.hover = true; f.root.vy = 0; }
     if (mv.kind === 'special') f.cds[key] = (mv.cd || 2) * f.mods.cd;
-    if (mv.kind === 'super') { f.meter = 0; G.ghost(f, f.def.color, 0.5); }
+    if (mv.kind === 'super') { f.meter = f.mods.superRefund || 0; G.ghost(f, f.def.color, 0.5); }
     if (mv.kind === 'light' || mv.kind === 'heavy' || mv.kind === 'throw') Sfx.play(mv.kind === 'light' ? 'swish' : 'swishH');
     if (mv.kind === 'special') {
       // anime-style move callout over the fighter's head
@@ -868,6 +928,16 @@ const Game = (() => {
     updateProjs(dt);
     updateBeams(dt);
     updateFields(dt);
+    for (let i = G.timers.length - 1; i >= 0; i--) { const t = G.timers[i]; t.t -= dt; if (t.t <= 0) { G.timers.splice(i, 1); t.fn(); } }
+    if (fighting) for (const f of G.fighters) {
+      if (!f.alive || f.stopT > 0) continue;
+      // Regeneration heals while you are on your feet; Infinite Ki fills the meter
+      if (f.mods.regen && f.mode === 'active' && f.hp < f.maxHp) {
+        f.hp = Math.min(f.maxHp, f.hp + f.maxHp * f.mods.regen * dt);
+        if (Math.random() < dt * 6) { const c = f.center(); G.fx.add({ x: c.x + rand(-26, 26), y: c.y + rand(-40, 30), vx: 0, vy: -90, life: 0.6, size: 4, color: '#45e08a' }); }
+      }
+      if (f.mods.kiRegen && f.meter < 100) f.meter = Math.min(100, f.meter + f.mods.kiRegen * dt);
+    }
     updateSummons(dt);
     updateCombo(dt);
     // wall splats

@@ -2,7 +2,7 @@
 //  1. A fresh visitor boots straight into level 1-1 and the guide teaches each control.
 //  2. Winning gives stars and coins; NEXT LEVEL jumps straight into the next fight.
 //  3. Losing shows DEFEATED with RETRY; recruit levels unlock fighters; the level map works.
-//  4. Ascent (floor, boon pick, run over), Survival, Training with trials, buying a fighter and an upgrade.
+//  4. Ascent (floor, card pick, run over), Survival, Training with trials, buying a fighter and an upgrade.
 // Usage: serve the repo on :8123, then  NODE_PATH=$(npm root -g) node tools/flow.js [url] [shotDir]
 const { chromium } = require('playwright');
 const URL = process.argv[2] || 'http://localhost:8123/';
@@ -106,7 +106,7 @@ const SHOTS = process.argv[3] || null;
   await p.waitForFunction(() => UI.screen === 'home' && !UI.fightOn, null, { timeout: 10000 });
   console.log('map + play ok');
 
-  // ---------------- 4. ascent: a floor, a boon choice, then the run ends
+  // ---------------- 4. ascent: a floor, a card choice, then the run ends
   await click('#btnAscent');
   if (await ev(() => !!document.getElementById('optP2'))) fail('two-player option still shown');
   await click('#sdGo');
@@ -116,21 +116,21 @@ const SHOTS = process.argv[3] || null;
   await p.mouse.click(640, 400); await p.waitForTimeout(40);
   if (!(await ev(() => Game.fighters[0].action && Game.fighters[0].action.key))) fail('P1 left click attack');
   await finish(true);
-  await p.waitForSelector('.boon', { timeout: 10000 });
-  if ((await p.$$('.boon')).length !== 3) fail('ascent should offer 3 boons');
-  const boonId = await p.getAttribute('.boon:nth-child(2)', 'data-b');
+  await p.waitForSelector('.rcard', { timeout: 10000 });
+  if ((await p.$$('.rcard')).length !== 3) fail('ascent should offer 3 cards');
+  const cardId = await p.getAttribute('.rcard:nth-child(2)', 'data-b');
   await p.keyboard.press('Digit2');
   await p.waitForSelector('.sheet.versus', { timeout: 10000 });
-  const run = await ev(() => ({ floor: UI.run.floor, boons: UI.run.boons, best: Save.data.ascentBest }));
-  if (run.floor !== 2 || run.boons[boonId] !== 1 || run.best !== 1) fail('ascent after floor 1: ' + JSON.stringify(run));
+  const run = await ev(() => ({ floor: UI.run.floor, cards: UI.run.cards, best: Save.data.ascentBest }));
+  if (run.floor !== 2 || run.cards[cardId] !== 1 || run.best !== 1) fail('ascent after floor 1: ' + JSON.stringify(run));
   await p.click('.sheet.versus');
   await p.waitForFunction(() => UI.fightOn && Game.state === 'fight' && UI.run.floor === 2, null, { timeout: 15000 });
-  if (!(await ev(id => { const m = Meta.modsFor(UI.run.p1, { upgrades: true, boons: { [id]: 1 } }), f = Game.fighters[0].mods; return Object.keys(m).every(k => m[k] === f[k]); }, boonId))) fail('boon not applied to the fighter');
+  if (!(await ev(id => { const m = Meta.modsFor(UI.run.p1, { upgrades: true, cards: { [id]: 1 } }), f = Game.fighters[0].mods; return Object.keys(m).every(k => m[k] === f[k]); }, cardId))) fail('card not applied to the fighter');
   h = await finish(false);
   if (!/RUN OVER/.test(h)) fail('ascent loss sheet: ' + h);
   await click('#rRetry');
   await p.waitForSelector('.sheet.versus'); await p.click('.sheet.versus');
-  await p.waitForFunction(() => UI.fightOn && Game.state === 'fight' && UI.run.floor === 1 && Object.keys(UI.run.boons).length === 0, null, { timeout: 15000 });
+  await p.waitForFunction(() => UI.fightOn && Game.state === 'fight' && UI.run.floor === 1 && Object.keys(UI.run.cards).length === 0, null, { timeout: 15000 });
   await p.keyboard.press('KeyP'); await click('#pQuit');
   await p.waitForFunction(() => UI.screen === 'home' && !UI.fightOn, null, { timeout: 10000 });
   console.log('ascent ok');
@@ -182,7 +182,7 @@ const SHOTS = process.argv[3] || null;
   await click('#sdBuy');
   if (!(await ev(() => Save.owned('ripper')))) fail('buy ripper');
   const c1 = await ev(() => Save.data.coins);
-  await click('.upg-buy[data-u="pow"]');
+  await click('.sd-tabs button[data-t="upg"]'); await click('.upg-buy[data-u="pow"]');
   const up = await ev(() => ({ r: Meta.ranks('ripper').pow, c: Save.data.coins, m: Meta.modsFor('ripper', { upgrades: true }).dmg }));
   if (up.r !== 1 || up.c !== c1 - 60 || Math.abs(up.m - 1.04) > 1e-9) fail('upgrade purchase: ' + JSON.stringify(up));
   if (!(await p.textContent('.ftile[data-id="ripper"]')).includes('R1')) fail('rank badge on tile');

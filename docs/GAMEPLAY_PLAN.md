@@ -9,7 +9,7 @@
 - **Primary challenge:** spacing, blocking at the right time, and converting a hit into a full combo.
 - **Session rhythm:**
   - **30 seconds:** one level or one Ascent floor.
-  - **2 minutes:** a few floors and a boon choice, or a trial.
+  - **2 minutes:** a few floors and a card choice, or a trial.
   - **10 minutes:** a full Ascent run, or a chapter, then an upgrade.
 - **Pillars:**
   1. Every fighter feels different in the hand.
@@ -28,21 +28,14 @@ The game had four modes: Levels (8 chapters), Survival, CPU Versus, and Training
 
 - **The run:** you pick a fighter and climb floors. Each floor is a single round against a CPU on a random stage. Your health and meter carry over, and you heal 25% after each win.
 - **Bosses:** every fifth floor is a boss. Bosses have more health, a red BOSS callout, and a bigger payout.
-- **Boons:** after each win you choose 1 of 3 boons, which are run-only powers. They stack within limits, and the choice is the decision layer of the mode. There are 12 boons:
-  - Berserker: more damage.
-  - Iron Skin: take less damage.
-  - Vampiric: heal from damage dealt.
-  - Overcharge: more super meter.
-  - Quick Hands: shorter special cooldowns.
-  - Second Wind: survive one lethal hit.
-  - Black Sparks: more crits.
-  - Iron Guard: slower guard drain and no chip damage.
-  - Primed: start each floor with half a super.
-  - Fleet: walk faster.
-  - Executioner: bonus damage on weakened foes.
-  - Thorns: blocking hurts the attacker.
+- **Cards:** after each win you choose 1 of 3 cards, which are run-only powers. They stack within limits, and the choice is the decision layer of the mode. There are 25 cards in four rarities, and the draw is weighted by rarity. Deeper floors and boss rewards tilt it toward rarer cards. Each rarity has a clearly richer finish, so a rare draw feels like an event.
+  - **Common:** Berserker, Iron Skin, Overcharge, Quick Hands, Fleet, First Aid, Pocket Change.
+  - **Rare:** Vampiric, Regeneration, Black Sparks, Iron Guard, Primed, Thorns, Adrenaline, Featherweight.
+  - **Epic:** Second Wind, Glass Cannon, Momentum, Aftershock, Double Tap.
+  - **Legendary:** Phoenix, Midas Touch, Giant Form, Chain Lightning, Infinite Ki.
+- **Healing:** 25% after each floor and 50% after a boss, plus First Aid, Regeneration, Vampiric and Phoenix. Survival heals 35% per win (45% after a super finish) and fully every fifth win.
 - **Rewards:** coins every floor, a bonus at boss floors, and a saved best floor.
-- **Game over:** a summary shows the floor reached, your boons and the coins earned. RETRY is one press away.
+- **Game over:** a summary shows the floor reached, your cards and the coins earned. RETRY is one press away.
 
 ### 2. Upgrades: per-fighter ranks bought with coins
 
@@ -65,7 +58,7 @@ Every fighter has five trials that teach the combo system step by step:
 
 1. Land your combo finisher.
 2. Cancel a light or heavy into a special.
-3. Hit a juggled foe with an air heavy.
+3. Launch a foe, then hit them in the air with an air heavy.
 4. Land a 5-hit combo.
 5. Land your super in a combo.
 
@@ -90,6 +83,7 @@ A checklist appears in Training. Each trial pays coins the first time you clear 
   - sword (iaido): quick slash, rising slash, thrust;
   - reaper: low and high cleaves, overhead;
   - dual: cross cuts and a cross slash.
+- **Finishers:** six are ranged projectiles that carry the foe across the screen and double as zoning (Ryo, Aoi, Homura, Taro, Monarch, Shige). The rest are close launchers.
 - **Frame data:** the frame data system keeps combos working for everyone. Light-light-heavy still connects, and mashing still stops at two hits.
 - **Hit sparks:** every fighter's hits spark differently: ki, smoke, arcane rings, water, dark crescents, rubber pops, volt arcs, spirit wisps, shockwaves, metal sparks, shadow, quake dust, pressure points, flame, gold cuts and psi ripples.
 - **Designs:** look-alikes are separated with their own garment palettes, not just accent colours. Monarch, Jin and Aoi no longer share dark purple coats. Saibo, Blaze and Ripper no longer share charcoal jackets.

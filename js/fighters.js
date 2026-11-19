@@ -430,22 +430,83 @@ fighter({
         }
         if (act.t >= act.w + 0.95 && once(act, 'violet')) {
           const h = hand(f);
-          G.proj({ owner: f, x: h.x + f.facing * 30, y: f.root.y - 110 * f.s, vx: f.facing * 1500, vy: 0, r: 92, life: 1.6, strength: 99, pierce: true, color: '#b06bff',
-            draw: (ctx, p, time) => { ctx.globalCompositeOperation = 'lighter'; Glow.draw(ctx, '#a35bff', p.x, p.y, p.r * 3.4, 1); ctx.fillStyle = '#e8d6ff'; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fill(); ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 0.6, 0, TAU); ctx.fill(); ctx.globalCompositeOperation = 'source-over'; G.fx.add({ x: p.x - Math.sign(p.vx) * p.r, y: p.y + rand(-p.r, p.r), vx: -p.vx * 0.2, vy: rand(-60, 60), life: 0.4, size: rand(10, 24), color: '#b06bff' }); },
+          const y0 = f.root.y - 110 * f.s;
+          G.proj({ owner: f, x: h.x + f.facing * 30, y: y0, x0: h.x + f.facing * 30, vx: f.facing * 1500, vy: 0, r: 92, life: 1.6, strength: 99, pierce: true, color: '#b06bff',
+            draw: (ctx, p, time) => drawVioletVoid(ctx, p, time),
             spec: { dmg: 300, kb: [1300, -700], stun: 1.4, launch: true, hs: 0.22, unblockable: true, color: '#c58bff', kind: 'super', big: true, name: 'Violet Void', sfx: 'hitH' } });
-          G.shake(16); Sfx.play('violet'); G.say(f.root.x, f.root.y - 330, 'VIOLET VOID', '#e0c8ff', 50);
+          G.shake(18); G.flash('#e9d8ff', 0.45); Sfx.play('violet'); Sfx.play('boom'); G.say(f.root.x, f.root.y - 330, 'VIOLET VOID', '#e0c8ff', 50);
+          G.fx.ring(h.x + f.facing * 30, y0, '#ffffff', 260, 0.4, 14); G.fx.ring(h.x + f.facing * 30, y0, '#a35bff', 380, 0.55, 8);
         }
       },
       draw: (G, ctx, f, act, time) => {
         const k = act.t - act.w;
         if (k > 0.3 && k < 0.95) {
-          const h = hand(f), b = hand(f, true), m = clamp((k - 0.3) / 0.6, 0, 1);
-          drawSphereAt(ctx, lerp(h.x, b.x, m * 0.5) + f.facing * 10, h.y - 20, 14, '#4f8dff', time);
-          drawSphereAt(ctx, lerp(b.x, h.x, m * 0.5) + f.facing * 10, b.y - 20 + 14, 14, '#ff3b4f', time);
+          // blue and red spiral in around a point ahead of his palms, tethered
+          // by crackling arcs, faster and closer until they collide
+          const h = hand(f), m = clamp((k - 0.3) / 0.62, 0, 1), cx = h.x + f.facing * 40, cy = h.y - 24;
+          const R = 70 * (1 - easeIn2(m)) + 4, ang = m * m * 16 + time * 3;
+          const bx = cx + Math.cos(ang) * R, by = cy + Math.sin(ang) * R * 0.6, rx = cx - Math.cos(ang) * R, ry = cy - Math.sin(ang) * R * 0.6;
+          ctx.globalCompositeOperation = 'lighter';
+          Glow.draw(ctx, '#8a4bff', cx, cy, 120 + m * 160, 0.35 + m * 0.5);
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.strokeStyle = '#e9d8ff'; ctx.lineWidth = 2; ctx.globalAlpha = 0.5 + m * 0.5;
+          ctx.beginPath(); ctx.moveTo(bx, by);
+          for (let i = 1; i < 6; i++) ctx.lineTo(lerp(bx, rx, i / 6) + rand(-8, 8), lerp(by, ry, i / 6) + rand(-8, 8));
+          ctx.lineTo(rx, ry); ctx.stroke(); ctx.globalAlpha = 1;
+          drawSphereAt(ctx, bx, by, 13 + m * 6, '#4f8dff', time);
+          drawSphereAt(ctx, rx, ry, 13 + m * 6, '#ff3b4f', time);
+          if (m > 0.97 && once(act, 'merge')) { G.flash('#ffffff', 0.35); G.fx.ring(cx, cy, '#ffffff', 160, 0.3, 10); Sfx.play('clash'); }
         }
       } },
   },
 });
+
+// Violet Void: blue and red merged into one sphere that erases what it passes
+function drawVioletVoid(ctx, p, time) {
+  const d = Math.sign(p.vx) || 1, r = p.r, x = p.x, y = p.y;
+  // the trench it leaves: a band of nothing with violet edges, fading behind
+  const x0 = p.x0 != null ? p.x0 : x - d * 400;
+  const tg = ctx.createLinearGradient(x0, 0, x, 0);
+  tg.addColorStop(0, 'rgba(10,4,20,0)'); tg.addColorStop(0.7, 'rgba(10,4,20,0.55)'); tg.addColorStop(1, 'rgba(10,4,20,0.85)');
+  ctx.fillStyle = tg; ctx.fillRect(Math.min(x0, x), y - r * 0.8, Math.abs(x - x0), r * 1.6);
+  const eg = ctx.createLinearGradient(x0, 0, x, 0);
+  eg.addColorStop(0, 'rgba(163,91,255,0)'); eg.addColorStop(1, 'rgba(200,150,255,0.9)');
+  ctx.fillStyle = eg; ctx.fillRect(Math.min(x0, x), y - r * 0.8, Math.abs(x - x0), 3); ctx.fillRect(Math.min(x0, x), y + r * 0.8 - 3, Math.abs(x - x0), 3);
+  // glow and a horizontal lens streak
+  ctx.globalCompositeOperation = 'lighter';
+  Glow.draw(ctx, '#a35bff', x, y, r * 4.2, 1);
+  Glow.draw(ctx, '#ff4fd8', x - d * r * 0.4, y, r * 2.2, 0.35);
+  const ls = ctx.createLinearGradient(x - r * 5, 0, x + r * 5, 0);
+  ls.addColorStop(0, 'rgba(200,160,255,0)'); ls.addColorStop(0.5, 'rgba(240,225,255,0.85)'); ls.addColorStop(1, 'rgba(200,160,255,0)');
+  ctx.fillStyle = ls; ctx.fillRect(x - r * 5, y - 2.5, r * 10, 5);
+  ctx.globalCompositeOperation = 'source-over';
+  // two counter-rotating rings of distortion
+  ctx.lineWidth = 3;
+  for (let i = 0; i < 2; i++) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate((i ? -1 : 1) * time * (3 + i * 2));
+    ctx.strokeStyle = i ? 'rgba(255,120,220,0.7)' : 'rgba(170,120,255,0.8)';
+    ctx.setLineDash([22 + i * 10, 14]); ctx.beginPath(); ctx.ellipse(0, 0, r * (1.28 + i * 0.26), r * (1.12 + i * 0.22), 0, 0, TAU); ctx.stroke();
+    ctx.restore();
+  }
+  ctx.setLineDash([]);
+  // the sphere: white-hot centre, violet body, a dark rim
+  const g = ctx.createRadialGradient(x - d * r * 0.15, y - r * 0.15, r * 0.05, x, y, r);
+  g.addColorStop(0, '#ffffff'); g.addColorStop(0.3, '#f1e4ff'); g.addColorStop(0.62, '#b06bff'); g.addColorStop(0.9, '#5a1fa8'); g.addColorStop(1, '#2a0a52');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+  // blue and red still swirling inside it
+  ctx.save(); ctx.beginPath(); ctx.arc(x, y, r * 0.96, 0, TAU); ctx.clip();
+  ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+  for (const [col, ph] of [['rgba(79,141,255,0.85)', 0], ['rgba(255,59,79,0.85)', Math.PI]]) {
+    ctx.strokeStyle = col; ctx.lineWidth = r * 0.16;
+    ctx.beginPath();
+    for (let k = 0; k <= 24; k++) { const u = k / 24, a = ph + time * 9 + u * 5.2, rr = r * (0.15 + u * 0.8); const px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr; k ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+    ctx.stroke();
+  }
+  ctx.globalCompositeOperation = 'source-over'; ctx.restore();
+  // lightning off the surface, and debris dragged in from ahead
+  if (Math.random() < 0.6) { const a = rand(0, TAU); Game.fx.arc(x + Math.cos(a) * r, y + Math.sin(a) * r, x + Math.cos(a) * r * rand(1.4, 1.9), y + Math.sin(a) * r * rand(1.4, 1.9), Math.random() < 0.5 ? '#e0c8ff' : '#ff8ae0', 0.1); }
+  if (Math.random() < 0.7) { const a = rand(-1.2, 1.2) + (d > 0 ? 0 : Math.PI), dd = r * rand(1.8, 2.6); const sx = x + Math.cos(a) * dd, sy = y + Math.sin(a) * dd; Game.fx.add({ x: sx, y: sy, vx: (x - sx) * 5 + p.vx, vy: (y - sy) * 5, life: 0.2, size: rand(3, 6), color: Math.random() < 0.5 ? '#c9a8ff' : '#3a2a52' }); }
+}
 
 /* ------------------------------------------------------------- HOMURA */
 fighter({
@@ -1272,7 +1333,7 @@ fighter({
         if (k >= 0 && once(act, 'in')) { G.teleport(f, clamp(o.root.x - (o.root.x >= f.root.x ? 1 : -1) * 120, WALL_L + 50, WALL_R - 50), GROUND); f.facing = o.root.x >= f.root.x ? 1 : -1; }
         if (k >= 0 && k < 0.55) {
           act.tk = (act.tk || 0) + STEP;
-          if (act.tk > 0.05) { act.tk = 0; const c = o.center(); G.hit(f, o, { dmg: 5, kb: [20, 0], stun: 0.4, hs: 0, unblockable: true, color: '#e2ff9a', kind: 'super', sfx: 'tap', noLaunch: true }, c.x + rand(-20, 20), c.y + rand(-50, 40), act); if (Math.random() < 0.3) G.say(c.x + rand(-80, 80), c.y - rand(140, 220), 'ATATA', '#e2ff9a', 30); }
+          if (act.tk > 0.05) { act.tk = 0; const c = o.center(); G.hit(f, o, { dmg: 5, kb: [20, 0], stun: 0.4, hs: 0, unblockable: true, color: '#e2ff9a', kind: 'super', sfx: 'tap', noLaunch: true }, c.x + rand(-20, 20), c.y + rand(-50, 40), act); if (Math.random() < 0.3) G.say(c.x + rand(-80, 80), c.y - rand(140, 220), 'アタタタ!', '#e2ff9a', 30); }
         }
         if (k >= 0.55 && once(act, 'turn')) {
           // he turns his back and walks away; the target is frozen
@@ -1281,7 +1342,12 @@ fighter({
           f.facing = -f.facing;
           G.teleport(f, clamp(f.root.x + f.facing * 160, WALL_L + 50, WALL_R - 50), GROUND);
         }
-        if (k >= 0.9 && once(act, 'line')) G.say(f.root.x, f.root.y - 320, "YOU'RE ALREADY DONE.", '#ffffff', 40);
+        // the line, in Japanese, with a small subtitle; then the target's last word
+        if (k >= 0.9 && once(act, 'line')) {
+          G.fx.text(f.root.x, f.root.y - 330, 'お前はもう死んでいる', '#ffffff', 44, { dur: 1.5, vy: -16 });
+          G.fx.text(f.root.x, f.root.y - 286, "YOU'RE ALREADY DONE.", '#e2ff9a', 18, { dur: 1.5, vy: -16 });
+        }
+        if (k >= 1.6 && once(act, 'nani') && o.alive) G.fx.text(o.root.x, o.root.y - 290, 'なにっ!?', '#ff6a6a', 40, { dur: 0.7, vy: -30 });
         if (k >= 2.1 && once(act, 'boom')) {
           const c = o.center();
           G.flash('#ffffff', 0.7); G.shake(26); Sfx.play('boom');
@@ -1525,6 +1591,20 @@ fighter({
   },
 });
 const easeIn2 = t => t * t;
+// a broken slab of floor, held (or thrown) by psychic force
+function drawSlab(ctx, x, y, rot, dir, time, a) {
+  const V = [[-34, -18], [-8, -30], [26, -24], [38, 0], [22, 24], [-12, 28], [-36, 8]];
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot * dir); ctx.globalAlpha = a;
+  ctx.globalCompositeOperation = 'lighter';
+  Glow.draw(ctx, '#00d9ff', 0, 0, 110, 0.55);
+  ctx.globalCompositeOperation = 'source-over';
+  const path = () => { ctx.beginPath(); V.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py))); ctx.closePath(); };
+  ctx.fillStyle = '#7d6e60'; path(); ctx.fill();
+  ctx.fillStyle = '#5e5248'; ctx.beginPath(); ctx.moveTo(22, 24); ctx.lineTo(38, 0); ctx.lineTo(10, 6); ctx.lineTo(-12, 28); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#9a8a7a'; ctx.beginPath(); ctx.moveTo(-34, -18); ctx.lineTo(-8, -30); ctx.lineTo(4, -12); ctx.lineTo(-20, -4); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#9ff4ff'; ctx.lineWidth = 3; ctx.lineJoin = 'round'; path(); ctx.stroke();
+  ctx.restore(); ctx.globalAlpha = 1;
+}
 
 
 /* =========================================================================
@@ -1550,13 +1630,7 @@ const easeIn2 = t => t * t;
 
   E('kaze', { name: 'Ki Uppercut', icon: 'orb', poseFn: UPPER, box: [52, -128, 36], hit: up(66, [200, -1150], '#7fd4ff'),
     tick: (G, f, act) => { if (act.t >= act.w && once(act, 'fx')) { handFx(G, f, '#7fd4ff', 16); const h = hand(f); G.fx.add({ kind: 'beam', x: h.x, y: h.y, size: 26, life: 0.25, color: '#7fd4ff' }); } } });
-  E('ryo', { name: 'Shadow Spin Kick', icon: 'swarm', poseFn: withSpin(phasePose({}, { ff: [6, -40], crouch: 10 }, { ff: [62, -96], bf: [-12, 0], lean: -20 }, {}), 1, 28), box: [70, -100, 42], a: 0.16,
-    hit: up(64, [380, -980], '#ffe27a'), tick: (G, f, act) => { if (act.t >= act.w && once(act, 'fx')) { G.ghost(f, '#ffe27a', 0.35); G.fx.add({ kind: 'smoke', x: f.root.x, y: f.root.y - 100, size: 50, life: 0.35, color: '#ffffff', add: false }); } } });
-  E('homura', { name: 'Rising Tide', icon: 'wave', poseFn: arcPose(1.3, -1.7, ph => (ph === 1 ? { crouch: -6, lift: 12 } : { crouch: 20 })), box: [80, -130, 40], slash: true,
-    hit: up(64, [220, -1150], '#4fd2ff'), tick: (G, f, act) => { if (act.t >= act.w && once(act, 'fx')) { const n = f.pts[P.NECK]; G.fx.slash(n.x, n.y + 10, 110, f.facing > 0 ? 1.3 : 1.84, f.facing > 0 ? -1.7 : 4.84, '#4fd2ff', 26, 0.35); for (let i = 0; i < 12; i++) G.fx.add({ x: n.x + f.facing * rand(20, 90), y: n.y + rand(-60, 40), vx: rand(-100, 100), vy: rand(-500, -200), g: 1200, life: 0.5, size: 5, color: '#9fe6ff' }); } } });
   E('mugi', { name: 'Rubber Whip Upper', icon: 'stretch', poseFn: UPPER, box: [104, -150, 40], rubber: 90, hit: up(64, [260, -1200], '#ff4fa3') });
-  E('kohei', { name: 'Volt Upper', icon: 'bolt', poseFn: UPPER, box: [54, -128, 36], hit: up(62, [200, -1150], '#7dff8a'),
-    tick: (G, f, act) => { if (act.t < act.w + act.a && Math.random() < 0.6) { const h = hand(f); G.fx.arc(h.x, h.y, h.x + rand(-60, 60), h.y + rand(-80, 40), '#7dff8a', 0.12); } } });
   E('blaze', { name: 'Fire Spin Kick', icon: 'flame', poseFn: withSpin(phasePose({}, { ff: [0, -40], crouch: 10 }, { ff: [64, -76], bf: [-10, 0], lean: -16 }, {}), 1, 20), box: [74, -86, 44], a: 0.16,
     hit: up(66, [480, -900], '#ffc23d'), tick: (G, f, act) => { if (phaseOf(act).ph === 1) { const q = f.pts[P.FFOOT]; for (let i = 0; i < 2; i++) G.fx.add({ kind: 'flame', x: q.x, y: q.y, vx: rand(-200, 200), vy: rand(-300, -60), life: 0.3, size: rand(8, 13), color: i ? '#ff5a1c' : '#ffc23d' }); } } });
   E('triblade', { name: 'Triple Rise', icon: 'swords', poseFn: arcPose(1.3, -1.7, ph => (ph === 1 ? { lift: 14 } : { crouch: 18 })), a: 0.18,
@@ -1567,17 +1641,188 @@ const easeIn2 = t => t * t;
     hit: up(44, [160, -820], '#e2ff9a'), onHit: (G, f, o) => G.mark(f, o, 2) });
   E('ripper', { name: 'Saw Uplift', icon: 'saw', poseFn: UPPER, a: 0.2,
     tick: (G, f, act) => { multi(G, f, act, [70, -120, 40], 4, 0.045, { dmg: 11, kb: [40, -200], stun: 0.4, hs: 0.02, color: '#ffcf6a', kind: 'heavy', sfx: 'cut', noLaunch: true }, up(36, [220, -1150], '#ffcf6a', { kind: 'heavy' })); if (phaseOf(act).ph === 1) { const h = hand(f); G.fx.add({ kind: 'spark', x: h.x, y: h.y, vx: rand(-500, 500), vy: rand(-500, 100), life: 0.2, size: 4, color: '#ffcf6a' }); } } });
-  E('aoi', { name: 'Red Flick', icon: 'burst', poseFn: BY_ID.aoi.moves.sp2.poseFn, box: [74, -104, 46], hit: up(58, [1150, -320], '#ff3b4f'),
-    tick: (G, f, act) => { if (act.t >= act.w && once(act, 'fx')) { const h = hand(f); G.fx.ring(h.x, h.y, '#ff3b4f', 110, 0.3, 8); Sfx.play('red'); } } });
-  E('taro', { name: 'Spirit Upper', icon: 'fist', poseFn: phasePose({}, { fh: [20, -30], crouch: 10 }, { fh: [36, -40], lean: 4 }, {}), box: [86, -134, 46], hit: up(66, [200, -1200], '#b39bff'),
-    start: (G, f, act) => { G.stand(f, 0.5); } });
-  E('psychic', { name: 'Psi Pop', icon: 'antigrav', poseFn: phasePose({}, { fh: [30, 20], bh: [24, 24] }, { fh: [44, -30], bh: [38, -24], lean: -4 }, {}), box: [90, -100, 52], hit: up(58, [60, -1350], '#9ff4ff'),
-    onHit: (G, f, o) => { const c = o.center(); G.fx.ring(c.x, c.y, '#00d9ff', 120, 0.35, 8); } });
-  E('monarch', { name: 'Shadow Rise', icon: 'grasp', poseFn: phasePose({}, { fh: [20, 30], bh: [10, 34], crouch: 18 }, { fh: [40, 44], bh: [30, 46], crouch: 28, lean: 16 }, {}), box: [100, -70, 56], hit: up(62, [100, -1250], '#a48bff'),
-    tick: (G, f, act) => { if (act.t >= act.w && once(act, 'fx')) { const x = f.root.x + f.facing * 100 * f.s / 2 * 1.7; for (let i = 0; i < 5; i++) G.fx.add({ kind: 'shard', x: x + (i - 2) * 18, y: GROUND, vx: (i - 2) * 30, vy: -900 - i % 2 * 300, life: 0.3, size: 10, color: '#6a4bdc' }); } } });
   E('titan', { name: 'Titan Hammer', icon: 'quake', poseFn: phasePose({}, { fh: [8, -48], bh: [-6, -46], lean: -6 }, { fh: [46, 40], bh: [38, 42], lean: 20, crouch: 26 }, {}), w: 0.12, box: [74, -80, 52],
     hit: { dmg: 76, kb: [120, 800], stun: 0.9, bstun: 0.3, hs: 0.13, launch: true, bounce: true, sfx: 'hitH', bf: true, color: '#ffd27a' },
     tick: (G, f, act) => { if (act.t >= act.w && once(act, 'fx')) { G.shake(8); G.fx.dust(f.root.x + f.facing * 80, GROUND, 10); } } });
+  /* ---- ranged finishers: a projectile that carries the foe across the
+     screen. They end the combo with space instead of a juggle, and they
+     still fly if the lights whiffed, so they double as a zoning tool (with
+     a longer recovery to pay for it). */
+  const blow = (dmg, kb, color, name, extra) => Object.assign({ dmg, kb, stun: 0.85, bstun: 0.24, hs: 0.1, launch: true, sfx: 'hitH', bf: true, color, kind: 'heavy', name }, extra || {});
+  const FAR = { far: true, r: 0.42 };
+  const fire = (act, f, fn) => { if (act.t >= act.w && once(act, 'fired')) fn(); };
+
+  // Ryo: a windmill shuriken that grinds through three times
+  E('ryo', Object.assign({ name: 'Windmill Shuriken', icon: 'star', w: 0.1,
+    poseFn: phasePose({}, { fh: [-18, -30], bh: [20, 10], lean: -8, crouch: 6 }, { fh: [56, -6], bh: [-24, 16], lean: 14, ff: [34, 0], bf: [-30, 0] }, { lean: 4 }),
+    tick: (G, f, act) => fire(act, f, () => {
+      const m = f.local(62, -112);
+      G.proj({ owner: f, x: m.x, y: m.y, vx: f.facing * 1350, vy: 0, r: 34, life: 1.1, multi: 3, every: 0.06, grind: 0.45, color: '#ffe27a',
+        spec: { dmg: 16, kb: [60, -40], stun: 0.4, bstun: 0.12, hs: 0.03, kind: 'heavy', sfx: 'cut', color: '#ffe27a', noLaunch: true },
+        final: blow(36, [920, -300], '#ffe27a', 'Windmill Shuriken'),
+        draw: (ctx, p, time) => {
+          const d = Math.sign(p.vx) || 1;
+          for (let g = 2; g >= 0; g--) {
+            ctx.save(); ctx.translate(p.x - d * g * 26, p.y); ctx.rotate(d * (p.t * 30 - g * 0.5)); ctx.globalAlpha = g ? 0.18 / g : 1;
+            for (let i = 0; i < 4; i++) {
+              ctx.rotate(TAU / 4);
+              ctx.fillStyle = '#c9ccd6'; ctx.beginPath(); ctx.moveTo(-7, -7); ctx.quadraticCurveTo(14, -16, 38, -2); ctx.quadraticCurveTo(16, -2, 7, 7); ctx.closePath(); ctx.fill();
+              if (!g) { ctx.strokeStyle = '#ffe27a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-6, -8); ctx.quadraticCurveTo(14, -16, 38, -2); ctx.stroke(); }
+            }
+            ctx.fillStyle = '#3a3d4a'; ctx.beginPath(); ctx.arc(0, 0, 9, 0, TAU); ctx.fill();
+            ctx.fillStyle = '#c9ccd6'; ctx.beginPath(); ctx.arc(0, 0, 3.5, 0, TAU); ctx.fill();
+            ctx.restore();
+          }
+          ctx.globalAlpha = 1;
+          if (Math.random() < 0.5) G.fx.add({ x: p.x - d * 30, y: p.y + rand(-26, 26), vx: -d * 300, vy: 0, life: 0.18, size: 2.5, color: '#fff4c4' });
+        } });
+      Sfx.play('slash');
+    }) }, FAR));
+
+  // Homura: a sweeping cut that sends a breaking wave along the ground
+  E('homura', Object.assign({ name: 'Crashing Tide', icon: 'wave', slash: true,
+    poseFn: arcPose(0.6, -0.6, ph => (ph === 1 ? { crouch: 16, ff: [40, 0], bf: [-36, 0] } : { crouch: 10 })),
+    tick: (G, f, act) => fire(act, f, () => {
+      const x0 = f.root.x + f.facing * 36 * f.s / 2;
+      G.proj({ owner: f, x: x0, y: GROUND - 64, vx: f.facing * 1250, vy: 0, r: 66, life: 0.85, multi: 2, every: 0.07, tk: 0.07, color: '#4fd2ff',
+        spec: { dmg: 20, kb: [140, -60], stun: 0.45, bstun: 0.14, hs: 0.04, kind: 'heavy', sfx: 'swishH', color: '#4fd2ff', noLaunch: true },
+        final: blow(40, [980, -380], '#4fd2ff', 'Crashing Tide'),
+        draw: (ctx, p, time) => {
+          const d = Math.sign(p.vx) || 1, k = Math.min(1, p.t / 0.12), H = 140 * k, x = p.x, gy = GROUND;
+          const crest = [x + d * 12, gy - H], lip = [x + d * 46, gy - H * 0.72];
+          const grad = ctx.createLinearGradient(0, gy - H, 0, gy);
+          grad.addColorStop(0, '#bff3ff'); grad.addColorStop(0.35, '#4fd2ff'); grad.addColorStop(1, '#0f5a7a');
+          ctx.fillStyle = grad; ctx.globalAlpha = 0.92;
+          ctx.beginPath(); ctx.moveTo(x - d * 110, gy);
+          ctx.quadraticCurveTo(x - d * 40, gy - H * 0.3, crest[0], crest[1]);
+          ctx.quadraticCurveTo(x + d * 52, gy - H * 1.02, lip[0], lip[1]);
+          ctx.quadraticCurveTo(x + d * 30, gy - H * 0.55, x + d * 58, gy);
+          ctx.closePath(); ctx.fill();
+          // foam along the crest and the curling lip
+          ctx.globalAlpha = 1; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(x - d * 30, gy - H * 0.55); ctx.quadraticCurveTo(x - d * 4, gy - H * 0.98, crest[0], crest[1]); ctx.quadraticCurveTo(x + d * 50, gy - H * 1.0, lip[0], lip[1]); ctx.stroke();
+          ctx.lineWidth = 2.5; ctx.globalAlpha = 0.6;
+          for (let i = 0; i < 3; i++) { const yy = gy - H * (0.2 + i * 0.16); ctx.beginPath(); ctx.moveTo(x - d * (70 - i * 14), yy + 8); ctx.quadraticCurveTo(x - d * (40 - i * 12), yy - 6, x - d * (8 - i * 8), yy); ctx.stroke(); }
+          ctx.globalAlpha = 1;
+          if (Math.random() < 0.8) G.fx.add({ x: lip[0] + rand(-10, 10), y: lip[1] + rand(-6, 6), vx: d * rand(60, 260), vy: rand(-320, -80), g: 1400, life: 0.4, size: rand(3, 6), color: Math.random() < 0.5 ? '#ffffff' : '#9fe6ff' });
+          if (Math.random() < 0.3) G.fx.add({ kind: 'smoke', x: x - d * 80, y: gy - 10, vx: -d * 80, vy: -30, life: 0.4, size: 18, color: '#d9f6ff', add: false });
+        } });
+      Sfx.play('wind'); G.fx.dust(x0, GROUND, 4, f.facing);
+    }) }, FAR));
+
+  // Aoi: a lance of crimson that drills straight through the air
+  E('aoi', Object.assign({ name: 'Crimson Lance', icon: 'lance', poseFn: BY_ID.aoi.moves.sp2.poseFn,
+    tick: (G, f, act) => fire(act, f, () => {
+      const h = hand(f);
+      G.proj({ owner: f, x: h.x + f.facing * 30, y: h.y, vx: f.facing * 1750, vy: 0, r: 30, life: 0.9, color: '#ff3b4f',
+        spec: blow(52, [1150, -330], '#ff3b4f', 'Crimson Lance'),
+        draw: (ctx, p, time) => {
+          const d = Math.sign(p.vx) || 1;
+          ctx.globalCompositeOperation = 'lighter';
+          Glow.draw(ctx, '#ff2c4a', p.x - d * 30, p.y, 150, 0.9);
+          ctx.globalCompositeOperation = 'source-over';
+          // spiral rings shed along the shaft
+          ctx.strokeStyle = '#ff7a8a'; ctx.lineWidth = 3;
+          for (let i = 0; i < 4; i++) {
+            const o = (i * 36 + (p.t * 900) % 36), rr = 22 - i * 4;
+            ctx.globalAlpha = 0.85 - i * 0.18;
+            ctx.beginPath(); ctx.ellipse(p.x - d * (20 + o), p.y, 5, rr, 0, 0, TAU); ctx.stroke();
+          }
+          ctx.globalAlpha = 1;
+          // the lance: a long red body, a white-hot core, a sharp head
+          ctx.fillStyle = '#ff3b4f';
+          ctx.beginPath(); ctx.moveTo(p.x + d * 46, p.y); ctx.lineTo(p.x + d * 6, p.y - 13); ctx.lineTo(p.x - d * 130, p.y - 5); ctx.lineTo(p.x - d * 130, p.y + 5); ctx.lineTo(p.x + d * 6, p.y + 13); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#fff1f3';
+          ctx.beginPath(); ctx.moveTo(p.x + d * 34, p.y); ctx.lineTo(p.x + d * 2, p.y - 5); ctx.lineTo(p.x - d * 110, p.y - 1.5); ctx.lineTo(p.x - d * 110, p.y + 1.5); ctx.lineTo(p.x + d * 2, p.y + 5); ctx.closePath(); ctx.fill();
+          if (Math.random() < 0.7) G.fx.add({ x: p.x - d * rand(40, 120), y: p.y + rand(-10, 10), vx: -d * rand(50, 200), vy: rand(-60, 60), life: 0.25, size: rand(2, 4), color: '#ff9aa6' });
+        } });
+      G.fx.ring(h.x, h.y, '#ff3b4f', 80, 0.25, 6); Sfx.play('red');
+    }) }, FAR));
+
+  // Taro: a giant spirit palm pushes out of his own palm and across the stage
+  E('taro', Object.assign({ name: 'Spirit Palm', icon: 'palm',
+    poseFn: phasePose({}, { fh: [-12, 14], bh: [-14, 18], lean: -4, crouch: 10 }, { fh: [52, -2], bh: [-22, 20], lean: 18, crouch: 10, ff: [36, 0], bf: [-34, 0] }, { lean: 6 }),
+    tick: (G, f, act) => fire(act, f, () => {
+      const m = f.local(80, -108);
+      G.proj({ owner: f, x: m.x, y: m.y, vx: f.facing * 1150, vy: 0, r: 62, life: 0.75, color: '#b39bff',
+        spec: blow(50, [1000, -260], '#b39bff', 'Spirit Palm'),
+        draw: (ctx, p, time) => {
+          const d = Math.sign(p.vx) || 1, k = 1.25 + Math.min(1, p.t / 0.1) * 0.4 + Math.sin(time * 18) * 0.04;
+          ctx.save(); ctx.translate(p.x, p.y); ctx.scale(d * k, k);
+          ctx.globalCompositeOperation = 'lighter';
+          Glow.draw(ctx, '#8a6bff', 0, 0, 130, 0.8);
+          ctx.globalCompositeOperation = 'source-over';
+          // an open palm seen from the side, pushing forward: palm, four fingers up, the thumb
+          const hand = () => {
+            ctx.beginPath(); ctx.roundRect(-18, -26, 34, 58, 14);
+            for (let i = 0; i < 4; i++) ctx.roundRect(-16 + i * 8.5, -62 + Math.abs(i - 1.5) * 6, 8, 40, 4);
+            ctx.save(); ctx.translate(-14, 6); ctx.rotate(-0.7); ctx.roundRect(-30, -5, 30, 10, 5); ctx.restore();
+          };
+          ctx.globalAlpha = 0.55; ctx.fillStyle = '#b39bff'; hand(); ctx.fill();
+          ctx.globalAlpha = 1; ctx.strokeStyle = '#efe8ff'; ctx.lineWidth = 3; hand(); ctx.stroke();
+          ctx.restore();
+          // speed streaks behind it
+          ctx.strokeStyle = 'rgba(200,185,255,0.5)'; ctx.lineWidth = 2;
+          for (let i = 0; i < 3; i++) { const y = p.y - 40 + i * 40 + Math.sin(time * 30 + i) * 6; ctx.beginPath(); ctx.moveTo(p.x - d * 40, y); ctx.lineTo(p.x - d * (110 + i * 20), y); ctx.stroke(); }
+        } });
+      Sfx.play('charge'); G.fx.ring(m.x, m.y, '#b39bff', 90, 0.3, 6);
+    }) }, FAR));
+
+  // Monarch: a hand on the ground, and a line of shadow spikes races out
+  E('monarch', Object.assign({ name: 'Umbral Spikes', icon: 'thorns',
+    poseFn: phasePose({}, { fh: [20, -10], bh: [10, 0], lean: -4 }, { fh: [40, 50], bh: [24, 46], crouch: 30, lean: 18 }, {}),
+    tick: (G, f, act) => fire(act, f, () => {
+      const x0 = f.root.x + f.facing * 60 * f.s / 2;
+      G.proj({ owner: f, x: x0, y: GROUND - 44, x0, vx: f.facing * 950, vy: 0, r: 46, life: 1.0, color: '#8a6bff',
+        spec: blow(48, [420, -900], '#a48bff', 'Umbral Spikes'),
+        draw: (ctx, p, time) => {
+          const d = Math.sign(p.vx) || 1, sp = Math.abs(p.vx), dist = Math.abs(p.x - p.x0);
+          // the crack it leaves in the floor
+          ctx.strokeStyle = 'rgba(20,12,40,0.85)'; ctx.lineWidth = 4;
+          ctx.beginPath(); ctx.moveTo(p.x0, GROUND - 1); ctx.lineTo(p.x, GROUND - 1); ctx.stroke();
+          // spikes erupt every 34 px behind the head of the line, then sink
+          for (let k = Math.floor(dist / 34); k >= 0; k--) {
+            const age = (dist - k * 34) / sp;
+            const h = age < 0.07 ? age / 0.07 : age < 0.2 ? 1 : Math.max(0, 1 - (age - 0.2) / 0.22);
+            if (h <= 0) break;
+            const x = p.x0 + d * k * 34, H = (70 + (k * 37 % 5) * 12) * h * (k === Math.floor(dist / 34) ? 1.35 : 1), w = 14;
+            ctx.fillStyle = '#2a1c4a'; ctx.beginPath(); ctx.moveTo(x - w, GROUND); ctx.lineTo(x + d * 3, GROUND - H); ctx.lineTo(x + w, GROUND); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#8a6bff'; ctx.beginPath(); ctx.moveTo(x + d * 3, GROUND - H); ctx.lineTo(x + w, GROUND); ctx.lineTo(x + w * 0.35, GROUND); ctx.closePath(); ctx.fill();
+          }
+          if (Math.random() < 0.6) G.fx.add({ kind: 'smoke', x: p.x, y: GROUND - 8, vx: rand(-40, 40), vy: -60, life: 0.35, size: 16, color: '#2a1c4a', add: false });
+        } });
+      G.shake(5); Sfx.play('domain'); G.fx.dust(x0, GROUND, 6, f.facing);
+    }) }, FAR));
+
+  // Shige: tears a slab out of the floor, then hurls it with his mind
+  E('psychic', Object.assign({ name: 'Debris Toss', icon: 'boulder', w: 0.14,
+    poseFn: phasePose({}, { fh: [30, 24], bh: [24, 28], crouch: 14 }, { fh: [40, -46], bh: [30, -40], lean: 10 }, { fh: [44, -10], bh: [34, -6] }),
+    draw: (G, ctx, f, act, time) => {
+      if (act.fired) return;
+      // the slab rises out of the floor in front of him during the wind-up
+      const k = clamp(act.t / act.w, 0, 1), x = f.root.x + f.facing * 90 * f.s / 2, y = GROUND - 20 - k * 70;
+      drawSlab(ctx, x, y, k * 0.6, f.facing, time, 0.4 + k * 0.6);
+    },
+    tick: (G, f, act) => {
+      if (act.t < 0.02 && once(act, 'rip')) { G.fx.dust(f.root.x + f.facing * 90 * f.s / 2, GROUND, 8); G.fx.chunks(f.root.x + f.facing * 90 * f.s / 2, GROUND - 10, '#8a7a6a', 5, 300, 6); }
+      fire(act, f, () => {
+        const x = f.root.x + f.facing * 90 * f.s / 2;
+        G.proj({ owner: f, x, y: GROUND - 120, vx: f.facing * 1300, vy: -30, r: 40, life: 1.0, color: '#9ff4ff',
+          spec: blow(54, [950, -420], '#9ff4ff', 'Debris Toss'),
+          onHit: (G, p) => G.fx.chunks(p.x, p.y, '#8a7a6a', 9, 520, 9),
+          draw: (ctx, p, time) => drawSlab(ctx, p.x, p.y, p.t * 9, Math.sign(p.vx) || 1, time, 1) });
+        Sfx.play('whoosh');
+      });
+    } }, FAR));
+
+  // Kohei: a lightning dash straight in, finishing in an uppercut
+  E('kohei', { name: 'Volt Rush Upper', icon: 'arcdash', w: 0.12, poseFn: phasePose({}, { lean: 22, crouch: 16, fh: [30, 16], bh: [-20, 20], ff: [40, 0], bf: [-40, 0] }, { fh: [20, -52], bh: [-6, 16], crouch: -6, lift: 10 }, {}),
+    box: [56, -128, 38], hit: up(64, [220, -1150], '#7dff8a'),
+    tick: (G, f, act) => {
+      if (act.t < act.w) { f.root.vx = f.facing * 1100 * f.s / 2; if (Math.random() < 0.8) { const c = f.center(); G.fx.arc(c.x - f.facing * 40, c.y + rand(-50, 50), c.x - f.facing * rand(120, 200), c.y + rand(-60, 60), '#7dff8a', 0.12); } }
+      if (act.t < act.w + 0.02 && act.t >= act.w - 0.01 && once(act, 'g')) G.ghost(f, '#7dff8a', 0.3);
+      if (act.t < act.w + act.a && Math.random() < 0.6) { const h = hand(f); G.fx.arc(h.x, h.y, h.x + rand(-60, 60), h.y + rand(-80, 40), '#7dff8a', 0.12); }
+    } });
   E('saibo', { name: 'Casual Upper', icon: 'goldfist', poseFn: UPPER, box: [52, -128, 36], hit: up(70, [150, -1500], '#ffffff'),
     onHit: (G, f, o) => G.say(f.root.x, f.root.y - 300, '...', '#ffffff', 30) });
 })();
@@ -1757,12 +2002,12 @@ const STYLE_SETS = {
   calm: {
     l1: { name: 'Point', pose: PZ({ fh: [16, 10] }, { fh: [50, -14], lean: 4 }), box: [66, -118, 22] },
     l2: { name: 'Flick', pose: PZ({ bh: [-4, 4] }, { bh: [44, -10], lean: 7 }) },
-    h: { name: 'Psi Lift', pose: PZ({ fh: [14, 24], bh: [6, 26], crouch: 10 }, { fh: [26, -44], bh: [14, -42], lean: -4 }), box: [68, -120, 34], kb: [180, -560] },
+    h: { name: 'Mind Toss', pose: PZ({ fh: [14, 24], bh: [6, 26], crouch: 10 }, { fh: [26, -44], bh: [14, -42], lean: -4 }), box: [68, -120, 34], kb: [180, -560] },
   },
   regal: {
     l1: { name: 'Backhand', pose: PZ({ fh: [-6, 4] }, { fh: [48, -4], lean: 6 }) },
     l2: { name: 'Royal Palm', pose: PZ({ bh: [0, 10] }, { bh: [48, 2], lean: 10 }) },
-    h: { name: 'Shadow Rise', pose: PZ({ fh: [10, 30], bh: [-6, 30], crouch: 12 }, { fh: [30, -46], bh: [-8, -40], lean: -6 }), box: [70, -112, 34], kb: [200, -520] },
+    h: { name: 'Dusk Palm', pose: PZ({ fh: [10, 30], bh: [-6, 30], crouch: 12 }, { fh: [30, -46], bh: [-8, -40], lean: -6 }), box: [70, -112, 34], kb: [200, -520] },
   },
   monk: {
     l1: { name: 'Palm', pose: PZ({ fh: [10, 10] }, { fh: [48, 2], lean: 7 }) },

@@ -52,11 +52,19 @@ The campaign follows Element Rag's stage map: 8 chapters of 6 levels, one per st
 
 Other modes:
 - **Ascent** (replaces CPU Versus): a roguelite climb, one round per floor against the CPU on a random stage.
-  - Your health and meter carry over, and you heal 25% after each win.
-  - After every win you pick **1 of 3 boons**, powers that last for the run: Berserker, Iron Skin, Vampiric, Overcharge, Quick Hands, Second Wind, Black Sparks, Iron Guard, Primed, Fleet, Executioner and Thorns. Some stack.
+  - Your health and meter carry over. You heal 25% after each floor and 50% after a boss.
+  - After every win you pick **1 of 3 cards**: powers that last for the run. Cards come in four rarities, and rarer cards are stronger and stranger. Deeper floors and boss rewards tilt the draw toward rarer cards.
+
+    | Rarity | Look | Cards |
+    | --- | --- | --- |
+    | Common | matte, grey edge | Berserker, Iron Skin, Overcharge, Quick Hands, Fleet, First Aid (heal 35% now), Pocket Change (+40% coins) |
+    | Rare | blue, a sweep of light | Vampiric, Regeneration, Black Sparks, Iron Guard, Primed, Thorns, Adrenaline, Featherweight (jump higher, float down) |
+    | Epic | violet glow, turning rays | Second Wind, Glass Cannon, Momentum, Aftershock (heavies echo with a shockwave), Double Tap (super refunds meter) |
+    | Legendary | gold foil, spinning edge, holographic sheen, sparkles | Phoenix (rise from a knockout once per run), Midas Touch (every hit throws out a coin), Giant Form, Chain Lightning, Infinite Ki |
+
   - Every fifth floor is a **boss** with more health, a bigger body and a 60-coin bonus.
-  - When you fall, a summary shows floors cleared, your boons and coins earned. CLIMB AGAIN is one press away. Your best floor is saved.
-- **Survival:** endless fights. You keep your health and heal between wins.
+  - When you fall, a summary shows floors cleared, your cards and coins earned. CLIMB AGAIN is one press away. Your best floor is saved.
+- **Survival:** endless fights. You keep your health and heal 35% between wins (45% after a super finish), with a full-health breather every fifth win.
 - **Training:** a dummy that can stand, guard, jump or fight, with infinite meter. Each fighter has five **trials** that teach the combo system (finisher, cancel into a special, air combo, a 5-hit combo, super in a combo). Each pays 40 coins the first time.
 
 **Upgrades.** Open FIGHTERS and spend coins on four upgrade tracks per fighter, 5 ranks each (60, 140, 240, 360 and 500 coins):
@@ -131,6 +139,19 @@ The skill bar at the bottom of the screen shows your two specials with their key
 
 Each fighter's hits also spark in their own way: ki rings, smoke puffs, arcane rings, water splashes, dark crescents, rubber pops, volt arcs, spirit wisps, shockwaves, metal sparks, shadow, quake dust, pressure points, flame, gold cross-cuts and psi ripples. Look-alikes now wear different garments: Monarch in charcoal and gold, Aoi in a pale lavender robe, Saibo in a white jacket, Blaze in a tan turnout coat, and Kensei in a maroon Tang jacket. Skill icons are matte, with no glossy highlight.
 
+**Supers worth watching.** Aoi's Violet Void is now a proper spectacle. Blue and red spiral in and collide, then a white-hot sphere fires. Red and blue still swirl inside it, rings counter-rotate around it, lightning crackles off its surface, debris is dragged in, and it leaves a band of erased space behind. Kensei's Already Done says the line in Japanese, お前はもう死んでいる ("you're already dead"), with a small English subtitle. His target answers なにっ!? just before the blast, and his rapid strikes shout アタタタ! Japanese text uses a small bundled subset of Dela Gothic One (OFL), so it looks the same on every device. Ripper's horns are rebuilt as clean tapered curves.
+
+**Combo finishers.** Light, light, heavy ends in each fighter's own finisher, and they come in two kinds. The move list tags each one.
+
+- **Ranged:** these finishers fire a projectile that carries the foe across the screen. They end the combo with space instead of a juggle, and if your lights whiff they still fly, so they double as a zoning tool, with a slightly longer recovery to pay for it.
+  - Ryo: Windmill Shuriken, which grinds through three times.
+  - Aoi: Crimson Lance.
+  - Homura: Crashing Tide, a breaking wave along the floor.
+  - Taro: Spirit Palm, a giant ghost hand.
+  - Monarch: Umbral Spikes, a line of shadow spikes racing out.
+  - Shige: Debris Toss, a slab torn from the floor and hurled.
+- **Close:** these finishers launch or bounce for a juggle. Kohei's Volt Rush Upper now dashes in on lightning first.
+
 **Health.** Every fighter has 2.4 times the health of earlier builds, and in levels and Survival you get another 30% on top, so a fight lasts several combos instead of one. Timers were lengthened to match (wave refills to 80 s, Beat the Clock is 75 s). In levels and Survival the CPU also plays softer: about 25% below its listed level, and its hits do 20% less damage.
 
 **Stances and motion.** Each fighter has a stance that suits them: karate, ninja, boxer, kung fu, swordsman, brawler, monk, soldier and more. Stances breathe, shift weight, and bounce on the balls of the feet (boxers). Walking is a fighting-game shuffle with planted feet that don't slide, a forward lean going in, and a tight guard going back. A hit reacts to where it lands: a head hit snaps the head back, a body hit doubles them over, a low hit buckles the knees. Knees and elbows only bend one way, even when limp. A knocked-down fighter pushes up off one knee to stand.
@@ -195,7 +216,7 @@ Eight stages, built like Element Rag's backdrops. Each has far, mid and near lay
 
 | Stage | Highlights |
 | --- | --- |
-| Neon Rooftop | Rebuilt as a rainy night city: stepped towers with lit window grids, rooftop water tanks and masts, a lattice tower, flickering neon signs with made-up glyphs, an LED screen, and a train on an elevated line. The roof is wet concrete, and the signs reflect in it. |
+| Neon Rooftop | Rebuilt as a rainy night city: stepped towers with lit window grids, rooftop water tanks and masts, a lattice tower, flickering neon signs lettered in real katakana (ラーメン ramen, カラオケ karaoke, コーヒー coffee, ゲーム games, ホテル hotel, 寿司 sushi) in a glowing tube style, an LED screen, and a train on an elevated line. The roof is wet concrete, and the signs reflect in it. |
 | Neon Rooftop: rain | Realistic rain in three depths. Fine, faint far rain; mid rain; and long bright streaks in front of the fighters. It falls at an angle in the wind, with crown splashes, ripples in puddles and ground mist, plus occasional lightning that flashes the sky before the thunder. |
 | Sunset Dojo | A hall on a stone plinth with tiled roofs, lit shoji and swaying lanterns. A fence and stone lanterns stand on the ground, and sun rays shine through. |
 | Sakura Shrine | A shaded torii on stone steps, branching cherry trees with lit blossom clusters, a snow-capped volcano and stone lanterns. |
@@ -220,6 +241,7 @@ Eight stages, built like Element Rag's backdrops. Each has far, mid and near lay
 
 ## UI on every screen
 
+- **FIGHTERS screen:** all 16 fighters fit on one screen (4 by 4), each tile showing their role, rank, price or lock. The right side is a hero panel: the live preview with the fighter's name, role and style over it, stat bars, and MOVES / UPGRADES / PROFILE tabs. The action button is always visible.
 - **Fighter preview:** the select screen shows a live preview of the fighter you're looking at, on their home stage, running through their combo finisher, both specials and their super against a dummy. Tap any move in the list to watch it next. It works for locked fighters too, so you can see what you're buying.
 
 - The whole interface is laid out for 1280x720 and scaled to the window, so it looks the same on a phone, a tablet, a laptop or a 4K monitor. Phones get a little extra size (19%) so text stays readable.
@@ -273,9 +295,9 @@ NODE_PATH=$(npm root -g) node tools/exploit.js
   3. It loses a level and retries it, and recruits a fighter.
   4. It checks the level map, including that locked levels give a message.
   5. It checks that PLAY goes straight into the fight.
-  6. It plays Ascent (a floor, a boon pick by key, the boon applied to the fighter, the run-over sheet, CLIMB AGAIN), plays Survival, clears a trial in Training and uses every pause option, then buys a coin-exclusive fighter and an upgrade rank.
+  6. It plays Ascent (a floor, a card pick by key, the card applied to the fighter, the run-over sheet, CLIMB AGAIN), plays Survival, clears a trial in Training and uses every pause option, then buys a coin-exclusive fighter and an upgrade rank.
 
-Latest results: mashing light tops out at 2 hits for every fighter, against a dummy or a CPU. Light, light, heavy combos for all 16. The fuzz found no issues. The soak ran 256 matches (602 rounds) across all stages and twists with no issues. All flow checks passed, including Ascent, upgrades and trials. The UI was checked at desktop, iPhone and Android landscape, and iPad sizes.
+Latest results: mashing light tops out at 2 hits for every fighter, against a dummy or a CPU. Light, light, heavy combos for all 16. The fuzz found no issues. The soak ran 256 matches (602 rounds) across all stages and twists with no issues; a card stress test ran every gimmick card at once with no errors. All flow checks passed, including Ascent, upgrades and trials. The UI was checked at desktop, iPhone and Android landscape, and iPad sizes.
 
 ## Project layout
 
@@ -290,7 +312,7 @@ js/rag.js         Element Rag's active ragdoll and stickman drawing, pose librar
 js/fx.js          particles, rings, arcs, slash trails, hit stars (from Element Rag, extended)
 js/fighters.js    16 fighters: normals, keyframed specials and scripted supers; stage list
 js/campaign.js    chapters, levels, twists, recruits, stars
-js/meta.js        upgrades, Ascent boons, training trials (one "mods" object per fighter)
+js/meta.js        upgrades, Ascent cards and rarities, training trials (one "mods" object per fighter)
 js/game.js        rounds, move runtime, hits / guard / juggles / Black Spark, projectiles, beams,
                   fields, minions, marks, barriers, cut-ins, impact frames, finishers, camera
 js/stage.js       layered parallax stages, weather, portraits

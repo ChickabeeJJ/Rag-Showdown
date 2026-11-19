@@ -1,9 +1,9 @@
 'use strict';
 /* =========================================================================
-   Meta-progression: fighter upgrades, Ascent boons and training trials.
+   Meta-progression: fighter upgrades, Ascent cards and training trials.
    Everything here produces one plain "mods" object per fighter, which the
-   fight reads through Rag.mods (see DEFAULT_MODS in rag.js). Upgrades are
-   permanent and bought with coins; boons last for one Ascent run.
+   fight reads through Rag.mods. Upgrades are permanent and bought with
+   coins; cards last for one Ascent run.
    ========================================================================= */
 
 const Meta = (() => {
@@ -36,38 +36,80 @@ const Meta = (() => {
     return true;
   }
 
-  /* --------------------------------------------------------------- boons */
-  // max: how many times a boon can stack in one run
-  const BOONS = [
-    { id: 'berserk', name: 'BERSERKER', icon: 'fist', col: '#ff6b5a', max: 3, desc: '+15% damage.', apply: m => { m.dmg *= 1.15; } },
-    { id: 'iron', name: 'IRON SKIN', icon: 'shield', col: '#9fb3d9', max: 3, desc: 'Take 12% less damage.', apply: m => { m.taken *= 0.88; } },
-    { id: 'vamp', name: 'VAMPIRIC', icon: 'heart', col: '#ff4f7a', max: 2, desc: 'Heal 6% of the damage you deal.', apply: m => { m.lifesteal += 0.06; } },
-    { id: 'charge', name: 'OVERCHARGE', icon: 'burst', col: '#ffd34d', max: 2, desc: '+30% super meter gain.', apply: m => { m.meter *= 1.3; } },
-    { id: 'quick', name: 'QUICK HANDS', icon: 'clock', col: '#7fd4ff', max: 2, desc: 'Specials recharge 25% faster.', apply: m => { m.cd *= 0.75; } },
-    { id: 'wind', name: 'SECOND WIND', icon: 'up', col: '#45e08a', max: 1, desc: 'Once per floor, survive a knockout blow.', apply: m => { m.secondWind += 1; } },
-    { id: 'spark', name: 'BLACK SPARKS', icon: 'bolt', col: '#ff2c4a', max: 2, desc: '+10% Black Spark chance on heavies.', apply: m => { m.bf += 0.1; } },
-    { id: 'guard', name: 'IRON GUARD', icon: 'shield', col: '#8fd6ff', max: 1, desc: 'No chip damage; guard drains 40% slower.', apply: m => { m.chipImmune = true; m.guard *= 0.6; } },
-    { id: 'primed', name: 'PRIMED', icon: 'star', col: '#ffb13d', max: 1, desc: 'Start every floor with half a super.', apply: m => { m.startMeter = Math.max(m.startMeter, 50); } },
-    { id: 'fleet', name: 'FLEET', icon: 'haste', col: '#b4ff3d', max: 2, desc: 'Walk 12% faster.', apply: m => { m.speed *= 1.12; } },
-    { id: 'exec', name: 'EXECUTIONER', icon: 'swords', col: '#e7b84c', max: 1, desc: '+30% damage to foes under 30% health.', apply: m => { m.exec += 0.3; } },
-    { id: 'thorns', name: 'THORNS', icon: 'target', col: '#a06bff', max: 1, desc: 'Foes take damage when you block them.', apply: m => { m.thorns += 14; } },
+  /* --------------------------------------------------------------- cards
+     Ascent rewards: after every floor you pick 1 of 3 cards, run-only powers.
+     Each has a rarity; rarer cards are stronger, stranger and drawn less
+     often. max: how many copies can stack in one run. now(run): an instant
+     effect when picked (healing). Fight effects go through the mods object. */
+  const RARITY = {
+    common: { name: 'COMMON', col: '#a9b3c6', pips: 1, w: 58 },
+    rare: { name: 'RARE', col: '#4fa8ff', pips: 2, w: 28 },
+    epic: { name: 'EPIC', col: '#c45bff', pips: 3, w: 11 },
+    legendary: { name: 'LEGENDARY', col: '#ffc53d', pips: 4, w: 3 },
+  };
+  const CARDS = [
+    // common: solid, simple numbers
+    { id: 'berserk', rar: 'common', name: 'BERSERKER', icon: 'fist', col: '#ff6b5a', max: 3, desc: '+12% damage.', apply: m => { m.dmg *= 1.12; } },
+    { id: 'iron', rar: 'common', name: 'IRON SKIN', icon: 'shield', col: '#9fb3d9', max: 3, desc: 'Take 10% less damage.', apply: m => { m.taken *= 0.9; } },
+    { id: 'charge', rar: 'common', name: 'OVERCHARGE', icon: 'burst', col: '#ffd34d', max: 2, desc: '+30% super meter gain.', apply: m => { m.meter *= 1.3; } },
+    { id: 'quick', rar: 'common', name: 'QUICK HANDS', icon: 'clock', col: '#7fd4ff', max: 2, desc: 'Specials recharge 20% faster.', apply: m => { m.cd *= 0.8; } },
+    { id: 'fleet', rar: 'common', name: 'FLEET', icon: 'haste', col: '#b4ff3d', max: 2, desc: 'Walk 12% faster.', apply: m => { m.speed *= 1.12; } },
+    { id: 'aid', rar: 'common', name: 'FIRST AID', icon: 'heal', col: '#45e08a', max: 9, desc: 'Heal 35% of your health right now.', now: r => { r.hp = Math.min(1, r.hp + 0.35); } },
+    { id: 'purse', rar: 'common', name: 'POCKET CHANGE', icon: 'coins', col: '#ffd34d', max: 2, desc: '+40% coins from every floor.', now: r => { r.coinMul = (r.coinMul || 1) + 0.4; } },
+    // rare: a twist on how you fight
+    { id: 'vamp', rar: 'rare', name: 'VAMPIRIC', icon: 'heart', col: '#ff4f7a', max: 2, desc: 'Heal 6% of the damage you deal.', apply: m => { m.lifesteal += 0.06; } },
+    { id: 'regen', rar: 'rare', name: 'REGENERATION', icon: 'spiritbloom', col: '#45e08a', max: 2, desc: 'Slowly regain health while you fight.', apply: m => { m.regen += 0.006; } },
+    { id: 'spark', rar: 'rare', name: 'BLACK SPARKS', icon: 'bolt', col: '#ff2c4a', max: 2, desc: '+10% Black Spark chance on heavies.', apply: m => { m.bf += 0.1; } },
+    { id: 'guard', rar: 'rare', name: 'IRON GUARD', icon: 'shieldUi', col: '#8fd6ff', max: 1, desc: 'No chip damage; guard drains 40% slower.', apply: m => { m.chipImmune = true; m.guard *= 0.6; } },
+    { id: 'primed', rar: 'rare', name: 'PRIMED', icon: 'star', col: '#ffb13d', max: 1, desc: 'Start every floor with half a super.', apply: m => { m.startMeter = Math.max(m.startMeter, 50); } },
+    { id: 'thorns', rar: 'rare', name: 'THORNS', icon: 'thorns', col: '#a06bff', max: 1, desc: 'Foes take damage when you block them.', apply: m => { m.thorns += 20; } },
+    { id: 'adren', rar: 'rare', name: 'ADRENALINE', icon: 'flame', col: '#ff6a3d', max: 1, desc: '+35% damage while below 35% health.', apply: m => { m.adren += 0.35; } },
+    { id: 'feather', rar: 'rare', name: 'FEATHERWEIGHT', icon: 'feathers', col: '#e9f4ff', max: 1, desc: 'Jump 25% higher and float back down.', apply: m => { m.jump *= 1.25; m.fall *= 0.55; } },
+    // epic: changes the shape of a fight
+    { id: 'wind', rar: 'epic', name: 'SECOND WIND', icon: 'up', col: '#45e08a', max: 1, desc: 'Once per floor, survive a knockout blow.', apply: m => { m.secondWind += 1; } },
+    { id: 'glass', rar: 'epic', name: 'GLASS CANNON', icon: 'glass', col: '#9ff4ff', max: 1, desc: '+50% damage, but take 30% more.', apply: m => { m.dmg *= 1.5; m.taken *= 1.3; } },
+    { id: 'momentum', rar: 'epic', name: 'MOMENTUM', icon: 'dash', col: '#ff9a3d', max: 1, desc: 'Every hit in a combo adds 5% damage, up to +50%.', apply: m => { m.momentum += 0.05; } },
+    { id: 'after', rar: 'epic', name: 'AFTERSHOCK', icon: 'quake', col: '#ffcf6a', max: 1, desc: 'Heavies and finishers echo with a second shockwave.', apply: m => { m.after += 0.4; } },
+    { id: 'echo', rar: 'epic', name: 'DOUBLE TAP', icon: 'rewind', col: '#7fb6ff', max: 1, desc: 'Your super refunds 40% of the meter.', apply: m => { m.superRefund = Math.max(m.superRefund, 40); } },
+    // legendary: run-defining, loud
+    { id: 'phoenix', rar: 'legendary', name: 'PHOENIX', icon: 'firebird', col: '#ff8a3d', max: 1, desc: 'Once per run, rise from a knockout with 60% health in a burst of fire.', apply: m => { m.phoenix += 1; } },
+    { id: 'midas', rar: 'legendary', name: 'MIDAS TOUCH', icon: 'goldtouch', col: '#ffd34d', max: 1, desc: 'Every hit you land throws out a coin, and floor rewards double.', apply: m => { m.midas = 1; }, now: r => { r.coinMul = (r.coinMul || 1) + 1; } },
+    { id: 'giant', rar: 'legendary', name: 'GIANT FORM', icon: 'crush', col: '#ffb13d', max: 1, desc: 'Grow 25% bigger: +30% health and damage, a little slower.', apply: m => { m.scale *= 1.25; m.hp *= 1.3; m.dmg *= 1.3; m.speed *= 0.92; } },
+    { id: 'storm', rar: 'legendary', name: 'CHAIN LIGHTNING', icon: 'storm', col: '#8fe8ff', max: 1, desc: 'Every 4th hit of a combo calls down lightning.', apply: m => { m.storm = 1; } },
+    { id: 'infinite', rar: 'legendary', name: 'INFINITE KI', icon: 'infinity', col: '#ff5ad6', max: 1, desc: 'Your super meter fills on its own.', apply: m => { m.kiRegen += 5; } },
   ];
-  const BOON = Object.fromEntries(BOONS.map(b => [b.id, b]));
-  // three different boons the run can still take
-  function offer(owned, rnd = Math.random) {
-    const pool = BOONS.filter(b => (owned[b.id] || 0) < b.max);
+  const CARD = Object.fromEntries(CARDS.map(c => [c.id, c]));
+  // three different cards the run can still take, drawn by rarity weight.
+  // Deeper floors and boss rewards tilt the odds toward rarer cards.
+  function offer(owned, opt = {}, rnd = Math.random) {
+    const fl = opt.floor || 1, boss = !!opt.boss;
+    const w = c => {
+      const R = RARITY[c.rar];
+      let k = R.w;
+      if (c.rar === 'legendary') k += fl * 0.35 + (boss ? 12 : 0);
+      if (c.rar === 'epic') k += fl * 0.4 + (boss ? 10 : 0);
+      if (boss && c.rar === 'common') k *= 0.25;
+      return k;
+    };
+    const pool = CARDS.filter(c => (owned[c.id] || 0) < c.max);
     const out = [];
-    while (out.length < 3 && pool.length) out.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
+    while (out.length < 3 && pool.length) {
+      const tot = pool.reduce((a, c) => a + w(c), 0);
+      let x = rnd() * tot, i = 0;
+      while (i < pool.length - 1 && (x -= w(pool[i])) > 0) i++;
+      out.push(pool.splice(i, 1)[0]);
+    }
     return out;
   }
 
   /* ---------------------------------------------------------------- mods */
-  const base = () => ({ dmg: 1, taken: 1, meter: 1, cd: 1, speed: 1, hp: 1, bf: 0, lifesteal: 0, exec: 0, guard: 1, chipImmune: false, secondWind: 0, thorns: 0, startMeter: 0 });
-  // the mods a fighter brings into a fight: upgrades (if allowed) and boons
+  const base = () => ({ dmg: 1, taken: 1, meter: 1, cd: 1, speed: 1, hp: 1, bf: 0, lifesteal: 0, exec: 0, guard: 1, chipImmune: false, secondWind: 0, thorns: 0, startMeter: 0,
+    regen: 0, adren: 0, jump: 1, fall: 1, momentum: 0, after: 0, superRefund: 0, phoenix: 0, midas: 0, scale: 1, storm: 0, kiRegen: 0 });
+  // the mods a fighter brings into a fight: upgrades (if allowed) and cards
   function modsFor(id, opt = {}) {
     const m = base();
     if (opt.upgrades) { const r = ranks(id); for (const U of UPGRADES) if (r[U.id]) U.apply(m, r[U.id]); }
-    for (const [bid, n] of Object.entries(opt.boons || {})) for (let k = 0; k < n; k++) if (BOON[bid]) BOON[bid].apply(m);
+    for (const [cid, n] of Object.entries(opt.cards || {})) for (let k = 0; k < n; k++) if (CARD[cid] && CARD[cid].apply) CARD[cid].apply(m);
     return m;
   }
 
@@ -76,7 +118,7 @@ const Meta = (() => {
   const TRIALS = [
     { id: 'ender', name: 'FINISHER', desc: 'Land your combo finisher: light, light, heavy.', check: h => h.key === 'hEnd' },
     { id: 'cancel', name: 'CANCEL', desc: 'Cancel a light or heavy that hits into a special.', check: h => h.kind === 'special' && h.combo >= 2 && h.usedNormal },
-    { id: 'air', name: 'AIR COMBO', desc: 'Hit a juggled foe with an air heavy.', check: h => h.key === 'airH' && h.juggled },
+    { id: 'air', name: 'AIR COMBO', desc: 'Launch a foe, then hit them in the air with an air heavy.', check: h => h.key === 'airH' && h.juggled },
     { id: 'five', name: '5 HITS', desc: 'Land a combo of 5 hits or more.', check: h => h.combo >= 5 },
     { id: 'super', name: 'SUPER COMBO', desc: 'Land your super as part of a combo.', check: h => h.kind === 'super' && h.combo >= 2 },
   ];
@@ -90,5 +132,5 @@ const Meta = (() => {
     return true;
   }
 
-  return { UPGRADES, MAX_RANK, COST, ranks, totalRank, nextCost, buyRank, BOONS, BOON, offer, base, modsFor, TRIALS, TRIAL_PAY, trialsDone, clearTrial };
+  return { UPGRADES, MAX_RANK, COST, ranks, totalRank, nextCost, buyRank, RARITY, CARDS, CARD, offer, base, modsFor, TRIALS, TRIAL_PAY, trialsDone, clearTrial };
 })();

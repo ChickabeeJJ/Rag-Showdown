@@ -10,7 +10,7 @@
   Save.load();
   // phones and tablets start with the touch controls (and touch wording in the guide)
   if (window.matchMedia && matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
-  try { await Promise.all([document.fonts.load('900 20px Rubik'), document.fonts.load('600 20px Rubik')]); } catch (e) { /* fonts are optional */ }
+  try { await Promise.all([document.fonts.load('900 20px Rubik'), document.fonts.load('600 20px Rubik'), document.fonts.load('20px RSJP', 'ラ')]); } catch (e) { /* fonts are optional */ }
   const q = new URLSearchParams(location.search);
   if (q.has('speed')) UI.testSpeed = clamp(+q.get('speed') || 1, 1, 16);
   Game.init(canvas);

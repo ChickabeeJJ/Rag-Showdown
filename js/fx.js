@@ -150,6 +150,12 @@ class FX {
         ctx.strokeStyle = p.color; ctx.lineWidth = 4;
         ctx.beginPath(); ctx.arc(0, 18, 36, -Math.PI * 0.8, -Math.PI * 0.2); ctx.stroke();
         ctx.restore();
+      } else if (p.kind === 'coin') {
+        // a spinning gold coin: squashes edge-on and back as it turns
+        const w = Math.abs(Math.cos(p.life * 14)) * p.size + 1;
+        ctx.fillStyle = '#a8740e'; ctx.beginPath(); ctx.ellipse(p.x, p.y, w + 1.4, p.size + 1.4, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = p.color; ctx.beginPath(); ctx.ellipse(p.x, p.y, w, p.size, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#fff3b0'; ctx.fillRect(p.x - w * 0.3, p.y - p.size * 0.55, Math.max(1, w * 0.25), p.size * 0.5);
       } else if (p.kind === 'pixel') {
         ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
       } else if (p.kind === 'cinder') {
@@ -264,7 +270,7 @@ class FX {
       const a = clamp(t.life * 2.5, 0, 1);
       const pop = t.life > 0.85 ? easeOutBack((1 - t.life) / 0.15) : 1;
       ctx.globalAlpha = a;
-      ctx.font = `900 ${Math.round(t.size * pop * 0.9)}px Rubik, Impact, sans-serif`;
+      ctx.font = `900 ${Math.round(t.size * pop * 0.9)}px Rubik, RSJP, "Hiragino Sans", "Noto Sans JP", Impact, sans-serif`;
       ctx.lineWidth = Math.max(3, t.size * 0.2); ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(40,40,40,0.9)';
       ctx.strokeText(t.str, t.x, t.y);
       ctx.fillStyle = t.color;

@@ -154,7 +154,7 @@ class Rag {
     this.input = { x: 0 };
     this.action = null;
     this.cds = { sp1: 0, sp2: 0 };
-    this.mods = Meta.base();     // upgrades and boons (meta.js); plain stats by default
+    this.mods = Meta.base();     // upgrades and cards (meta.js); plain stats by default
     this.meter = 0;
     this.guard = 100;           // guard gauge; empties from blocking
     this.guardT = 0;            // time since last block (regen delay)
@@ -509,7 +509,7 @@ class Rag {
     }
     if (r.hover) { r.vy = this.action && this.action.vy != null ? this.action.vy : 0; }
     else if (this.action && this.action.vy != null) r.vy = this.action.vy;
-    else r.vy += GRAV * WORLD_G * this.s * dt * (r.vy > 0 ? 1.15 : 1);
+    else r.vy += GRAV * WORLD_G * this.s * dt * (r.vy > 0 ? 1.15 * (this.mods.fall || 1) : 1);
     r.x += r.vx * dt;
     r.y += r.vy * dt;
     const wasGrounded = r.grounded;
@@ -1149,13 +1149,31 @@ class Rag {
       if (kind === 'ponytail') { const [x, y] = P(-2.55, 0); ctx.beginPath(); ctx.arc(x, y, 3.6 * s, 0, TAU); ctx.fill(); }
     }
     if (L.horns) {
-      // two curved horns, each rooted in the scalp
-      ctx.fillStyle = mono || '#d9cbb2';
-      for (const a of [-1.05, -2.15]) {
-        const b0 = P(a - 0.3, -4 * s), b1 = P(a + 0.3, -4 * s), t = P(a + (a > -1.6 ? 0.25 : -0.25), 18 * s);
-        const c = P(a + (a > -1.6 ? -0.2 : 0.2), 14 * s);
-        ctx.beginPath(); ctx.moveTo(b0[0], b0[1]); ctx.quadraticCurveTo(c[0], c[1], t[0], t[1]);
-        ctx.quadraticCurveTo(lerp(b1[0], c[0], 0.6), lerp(b1[1], c[1], 0.6), b1[0], b1[1]); ctx.closePath(); ctx.fill();
+      // two curved horns. Each is built around a spine (a curve rising out of
+      // the scalp, then sweeping outward into a point) and given a tapering
+      // width along the spine's normal, so its two edges can never cross.
+      const bone = mono || '#d9cbb2', ring = mono || '#b3a487';
+      for (const [a, dir] of [[-1.08, 1], [-2.06, -1]]) {
+        const r0 = P(a, -5 * s), m = P(a, 9 * s), t0 = P(a + dir * 0.5, 19 * s);
+        const t = [t0[0], t0[1] - 5 * s];
+        const N = 12, Lft = [], Rgt = [];
+        for (let i = 0; i <= N; i++) {
+          const u = i / N, v = 1 - u;
+          const x = v * v * r0[0] + 2 * v * u * m[0] + u * u * t[0], y = v * v * r0[1] + 2 * v * u * m[1] + u * u * t[1];
+          let dx = 2 * v * (m[0] - r0[0]) + 2 * u * (t[0] - m[0]), dy = 2 * v * (m[1] - r0[1]) + 2 * u * (t[1] - m[1]);
+          const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
+          const w = (4.6 * Math.pow(v, 0.85) + 0.35) * s;
+          Lft.push([x - dy * w, y + dx * w]); Rgt.push([x + dy * w, y - dx * w]);
+        }
+        const shape = (k0, k1) => {
+          ctx.beginPath(); ctx.moveTo(Lft[k0][0], Lft[k0][1]);
+          for (let i = k0 + 1; i <= k1; i++) ctx.lineTo(Lft[i][0], Lft[i][1]);
+          for (let i = k1; i >= k0; i--) ctx.lineTo(Rgt[i][0], Rgt[i][1]);
+          ctx.closePath(); ctx.fill();
+        };
+        ctx.fillStyle = bone; shape(0, N);
+        // a darker ring at the root, where the horn breaks the skin
+        ctx.fillStyle = ring; shape(0, 3);
       }
     }
   }

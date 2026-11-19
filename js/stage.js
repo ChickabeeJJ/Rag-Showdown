@@ -152,17 +152,42 @@ const Stage = (() => {
     }
     ctx.restore();
   }
-  // made-up glyphs for signs: stroke clusters that read as lettering without being any real script
-  function glyph(g, x, y, s, rnd) {
-    g.beginPath();
-    const n = 2 + Math.floor(rnd() * 3);
-    for (let i = 0; i < n; i++) {
-      const t = rnd();
-      if (t < 0.4) { const yy = y + (rnd() - 0.5) * s; g.moveTo(x - s * 0.45, yy); g.lineTo(x + s * 0.45, yy); }
-      else if (t < 0.7) { const xx = x + (rnd() - 0.5) * s * 0.8; g.moveTo(xx, y - s * 0.5); g.lineTo(xx + (rnd() - 0.5) * s * 0.3, y + s * 0.5); }
-      else { g.moveTo(x - s * 0.4, y - s * 0.4); g.quadraticCurveTo(x + s * 0.4, y - s * 0.3, x + (rnd() - 0.5) * s * 0.4, y + s * 0.5); }
+  // neon sign lettering: real Japanese shop words, picked to fit the board
+  // (ラーメン ramen, カラオケ karaoke, ゲーム games, ホテル hotel, コーヒー coffee,
+  // ネオン neon, 寿司 sushi, バー bar, 酒 sake). Drawn as a lit tube: a thick
+  // stroke in the sign colour with a white-hot core.
+  const SIGN_WORDS = ['ラーメン', 'カラオケ', 'コーヒー', 'ゲーム', 'ホテル', 'ネオン', '寿司', 'バー', 'スシ', '酒'];
+  const JP_FONT = 'RSJP, "Hiragino Sans", "Yu Gothic", "Noto Sans JP", "Noto Sans CJK JP", sans-serif';
+  function signWord(n) {
+    const step = n.vert ? 26 : 24;
+    const slots = Math.max(1, Math.floor((n.vert ? n.h - 16 : n.w - 18) / step));
+    const fit = SIGN_WORDS.filter(w => [...w].length <= slots);
+    const best = fit.filter(w => [...w].length >= Math.min(slots, 3));
+    const pool = best.length ? best : fit.length ? fit : ['酒'];
+    return pool[n.seed % pool.length];
+  }
+  function signText(ctx, n, x, color, flick) {
+    const word = n.word || (n.word = signWord(n));
+    const chars = [...word];
+    ctx.save();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+    ctx.globalAlpha = 0.95 * flick + 0.05;
+    const tube = (ch, cx, cy, sz, rot) => {
+      ctx.font = `${sz}px ${JP_FONT}`;
+      if (rot) { ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.PI / 2); ctx.translate(-cx, -cy); }
+      ctx.strokeStyle = color; ctx.lineWidth = 4.5; ctx.strokeText(ch, cx, cy);
+      ctx.fillStyle = '#fff6fb'; ctx.fillText(ch, cx, cy);
+      if (rot) ctx.restore();
+    };
+    if (n.vert) {
+      const step = 26, top = n.y + (n.h - chars.length * step) / 2 + step / 2;
+      chars.forEach((ch, k) => tube(ch, x + n.w / 2, top + k * step + 1, 20, ch === 'ー'));
+    } else {
+      const sz = Math.min(21, n.h - 12);
+      ctx.font = `${sz}px ${JP_FONT}`;
+      tube(word, x + n.w / 2, n.y + n.h / 2 + 1, sz, false);
     }
-    g.stroke();
+    ctx.restore();
   }
   function cloudBank(g, y, rnd, col, n, rmin, rmax) {
     g.fillStyle = col;
@@ -321,7 +346,7 @@ const Stage = (() => {
           if (rnd() < 0.45) { const tx = x + w * (0.25 + rnd() * 0.5); g.fillStyle = '#0d0b1e'; g.fillRect(tx - 18, top - 46, 36, 30); g.beginPath(); g.moveTo(tx - 21, top - 45); g.lineTo(tx, top - 60); g.lineTo(tx + 21, top - 45); g.fill(); g.fillRect(tx - 15, top - 16, 4, 16); g.fillRect(tx + 11, top - 16, 4, 16); }
           if (rnd() < 0.5) { g.fillStyle = '#0d0b1e'; g.fillRect(x + 10, top - 12, 26, 12); g.fillRect(x + 42, top - 9, 18, 9); }
           if (rnd() < 0.4) { g.fillStyle = '#0d0b1e'; g.fillRect(x + w * 0.8, top - 70, 2, 70); d.mastsMid.push([x + w * 0.8 + 1, top - 70]); }
-          // signs: tall vertical boards with glyph rows, or wide boards across the facade
+          // signs: tall vertical boards or wide boards across the facade, lettered in katakana
           if (rnd() < 0.75) {
             const vert = rnd() < 0.6, c = pick(['#ff4fa3', '#4fd8ff', '#ffd34d', '#b06bff', '#ff6a3d']);
             const sx = vert ? x + (rnd() < 0.5 ? -6 : w - 26) : x + w * 0.15, sy = top + 40 + rnd() * 160;
@@ -398,7 +423,7 @@ const Stage = (() => {
       for (let i = 0; i < 4; i++) { const w = 40 + ((Math.sin(time * 2 + i) + 1) * 0.5) * 140; ctx.fillRect(sx + 20, s.y + 22 + i * 26, w, 10); }
       ctx.fillStyle = 'rgba(0,0,0,0.25)'; for (let y = s.y; y < s.y + s.h; y += 4) ctx.fillRect(sx, y, s.w, 1);
       glowDisc(ctx, sx + s.w / 2, s.y + s.h / 2, 260, `hsl(${hue},90%,60%)`, 0.25);
-      // neon signs: glowing tubes, glyph rows, occasional flicker
+      // neon signs: glowing tubes, real lettering, occasional flicker
       for (const n of d.signs) {
         const flick = Math.sin(time * 11 + n.ph) > -0.95 && !(Math.sin(time * 0.7 + n.ph) > 0.97) ? 1 : 0.15;
         const x = n.x + off;
@@ -408,11 +433,8 @@ const Stage = (() => {
         ctx.globalCompositeOperation = 'source-over';
         ctx.fillStyle = rgba(n.c, 0.22 * flick + 0.05); ctx.fillRect(x, n.y, n.w, n.h);
         ctx.strokeStyle = n.c; ctx.globalAlpha = 0.95 * flick + 0.05; ctx.lineWidth = 2.5; ctx.strokeRect(x + 2, n.y + 2, n.w - 4, n.h - 4);
-        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
-        const rnd = mulberry32(n.seed);
-        if (n.vert) for (let k = 0; k < Math.floor(n.h / 30); k++) glyph(ctx, x + n.w / 2, n.y + 18 + k * 30, 16, rnd);
-        else for (let k = 0; k < Math.floor(n.w / 28); k++) glyph(ctx, x + 18 + k * 28, n.y + n.h / 2, 16, rnd);
         ctx.globalAlpha = 1;
+        signText(ctx, n, x, n.c, flick);
       }
     },
     afterRail(ctx, d, time, vr, cam) {

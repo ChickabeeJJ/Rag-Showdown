@@ -16,6 +16,27 @@ const UI = (() => {
   const KEYS = { sp1: 'Q', sp2: 'E', super: 'F' };
   const MOUSE = side => `<svg class="mouse-ic ${side}" viewBox="0 0 26 36" aria-hidden="true"><rect x="2" y="2" width="22" height="32" rx="11" fill="none" stroke="currentColor" stroke-width="2.4"/><path class="btnL" d="M13 2.6V15H2.6v-2A10.4 10.4 0 0 1 13 2.6z"/><path class="btnR" d="M13 2.6V15h10.4v-2A10.4 10.4 0 0 0 13 2.6z"/><path d="M13 3v12M2.5 15h21" stroke="currentColor" stroke-width="2"/></svg>`;
   const isTouch = () => document.body.classList.contains('touch');
+  // the control for an action, drawn the way this device presses it: mouse
+  // buttons and keys on desktop, small copies of the on-screen buttons on touch
+  const TB = (icon, c, lbl) => `<span class="tb" style="--c:${c};--d:${shade(c)}" title="${lbl}">${Icons.svg(icon)}</span>`;
+  function keyFor(k, def) {
+    const m = def ? def.moves : null, c = def ? def.color : '#ffffff';
+    if (isTouch()) {
+      switch (k) {
+        case 'l': return TB('fist', '#ffc933', 'LIGHT');
+        case 'h': return TB('burst', '#ff8a4a', 'HEAVY');
+        case 'sp1': return TB(m.sp1.icon, c, 'SP 1');
+        case 'sp2': return TB(m.sp2.icon, c, 'SP 2');
+        case 'super': return TB(m.super.icon, c, 'SUPER');
+      }
+    }
+    switch (k) {
+      case 'l': return MOUSE('l');
+      case 'h': return MOUSE('r');
+      default: return `<kbd>${KEYS[k]}</kbd>`;
+    }
+  }
+  const seqFor = (keys, def) => keys.map(k => keyFor(k, def)).join('');
 
   /* ------------------------------------------------------------ helpers */
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -171,7 +192,7 @@ const UI = (() => {
   function openSelect(mode) {
     const last = Save.owned(Save.data.lastPick) ? Save.data.lastPick : 'kaze';
     const others = ROSTER.filter(f => f.id !== last && !f.boss);
-    U.sel = { mode, p1: last, p2: mode === 'training' ? 'kaze' : pick(others).id, view: last, dummy: 'stand' };
+    U.sel = { mode, p1: last, p2: mode === 'training' ? 'kaze' : pick(others).id, view: last, dummy: 'stand', tab: 'moves' };
     $('selTitle').textContent = { ascent: 'ASCENT · CHOOSE YOUR FIGHTER', survival: 'SURVIVAL · CHOOSE YOUR FIGHTER', training: 'TRAINING · CHOOSE YOUR FIGHTER', roster: 'FIGHTERS' }[mode];
     show('select');
     renderSelect();
@@ -186,7 +207,7 @@ const UI = (() => {
       if (s.p1 === f.id && s.mode !== 'roster') tags.push('<span>P1</span>');
       const right = !own ? `<span class="price${f.coinOnly ? ' excl' : ''}">${ic('coins', 'coin') + fmt(f.price)}</span>` : Save.data.clears[f.id] != null ? `<span class="clear ic" data-icon="trophy"></span>` : '';
       const rk = own ? Meta.totalRank(f.id) : 0;
-      return `<button class="ftile ${s.view === f.id ? 'on' : ''}" data-id="${f.id}" style="--c:${f.color}">${pt(f, own ? '' : 'locked')}<span class="tagc">${tags.join('')}</span>${right}${rk ? `<span class="rank">R${rk}</span>` : ''}<b>${f.name}</b><small>${f.title}</small></button>`;
+      return `<button class="ftile ${s.view === f.id ? 'on' : ''} ${own ? '' : 'lock'}" data-id="${f.id}" style="--c:${f.color}">${pt(f, own ? '' : 'locked')}<span class="tagc">${tags.join('')}</span>${right}${rk ? `<span class="rank">R${rk}</span>` : ''}${own ? '' : '<span class="lk ic" data-icon="lock"></span>'}<b>${f.name}</b><small>${ROLE[f.ai.style] || 'ALL-ROUNDER'}</small></button>`;
     }).join('');
     grid.querySelectorAll('.ftile').forEach(b => {
       b.onclick = () => {
@@ -208,55 +229,81 @@ const UI = (() => {
     const pk = { sp1: 's1', sp2: 's2', super: 'sup', hEnd: 'combo' };
     const row = (k, mv, keys, sub, cls = '') => `<div class="mv ${cls}" data-k="${pk[k]}" style="--c:${def.color};--d:${shade(def.color)}"><span class="move-ic">${Icons.svg(mv.icon || 'fist')}</span><div><b>${esc(mv.name)}</b><small>${sub}</small></div><span class="keys2">${keys}</span></div>`;
     const m = def.moves;
-    return row('hEnd', m.hEnd, `${MOUSE('l')}${MOUSE('l')}${MOUSE('r')}`, 'COMBO FINISHER · LIGHT, LIGHT, HEAVY') +
-      row('sp1', m.sp1, '<kbd>Q</kbd>', `SPECIAL · ${m.sp1.cd || 2}S COOLDOWN`) +
-      row('sp2', m.sp2, '<kbd>E</kbd>', `SPECIAL · ${m.sp2.cd || 2}S COOLDOWN`) +
-      row('super', m.super, '<kbd>F</kbd>', 'SUPER · FULL METER · FINISHER', 'super');
+    const reach = m.hEnd.far ? '<em class="tag far">RANGED</em>' : '<em class="tag close">CLOSE</em>';
+    return row('hEnd', m.hEnd, seqFor(['l', 'l', 'h'], def), `${reach} COMBO FINISHER · LIGHT, LIGHT, HEAVY`) +
+      row('sp1', m.sp1, keyFor('sp1', def), `SPECIAL · ${m.sp1.cd || 2}S COOLDOWN`) +
+      row('sp2', m.sp2, keyFor('sp2', def), `SPECIAL · ${m.sp2.cd || 2}S COOLDOWN`) +
+      row('super', m.super, keyFor('super', def), 'SUPER · FULL METER · FINISHER', 'super');
   }
 
   // the upgrade panel: four tracks, five ranks each, bought with coins
   function upgradeRows(def) {
     const r = Meta.ranks(def.id);
-    return `<div class="upg"><div class="upg-head"><b>UPGRADES</b><small>RANK ${Meta.totalRank(def.id)} / ${Meta.UPGRADES.length * Meta.MAX_RANK} · LEVELS, SURVIVAL AND ASCENT</small></div>${Meta.UPGRADES.map(U => {
+    return `<div class="upg"><div class="upg-head"><b>RANK ${Meta.totalRank(def.id)} / ${Meta.UPGRADES.length * Meta.MAX_RANK}</b><small>APPLIES IN LEVELS, SURVIVAL AND ASCENT</small></div>${Meta.UPGRADES.map(U => {
       const n = r[U.id], cost = Meta.nextCost(def.id, U.id);
       return `<div class="upg-row" data-u="${U.id}" style="--c:${def.color}"><span class="upg-ic">${ic(U.icon)}</span><div class="upg-mid"><b>${U.name}</b><small>${n ? U.desc(n) : 'No bonus yet'}</small></div><span class="pips">${[0, 1, 2, 3, 4].map(k => `<i class="${k < n ? 'on' : ''}"></i>`).join('')}</span>${cost == null ? '<span class="upg-max">MAX</span>' : `<button class="btn small upg-buy" data-u="${U.id}" ${Save.data.coins < cost ? 'disabled' : ''}><b>${ic('coins', 'coin')}${fmt(cost)}</b></button>`}</div>`;
     }).join('')}</div>`;
   }
 
+  // how each fighter plays, in two words
+  const ROLE = { rush: 'RUSHDOWN', zoner: 'ZONER', balanced: 'ALL-ROUNDER' };
+  const STYLE = { karate: 'KARATE', ninja: 'NINJUTSU', mystic: 'SORCERY', sword: 'IAIDO', reaper: 'SCYTHE', loose: 'RUBBER BRAWL', boxer: 'BOXING', monk: 'SPIRIT ARTS',
+    casual: 'STREET', feral: 'CHAINSAW', regal: 'SHADOW ARTS', giant: 'TITAN', kungfu: 'KUNG FU', soldier: 'FIRE KICKS', dual: 'THREE SWORDS', calm: 'PSYCHIC' };
+
   function renderDetail() {
     const s = U.sel, def = BY_ID[s.view];
     const own = Save.owned(def.id);
     const st = def.stats;
-    const meter = (n) => `<span class="meter">${[0, 1, 2, 3, 4].map(i => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
+    const tab = s.tab || 'moves';
+    const bar = (lbl, n) => `<div class="st"><small>${lbl}</small><span class="meter">${[0, 1, 2, 3, 4].map(i => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span></div>`;
     let foot = '';
     if (!own) {
       const can = Save.data.coins >= def.price;
       const rec = Campaign.levels.find(L => L.recruit === def.id);
-      foot = `<div class="lock-note">${ic(def.coinOnly ? 'coins' : 'lock', 'coin')}${def.coinOnly ? `<span><b>COIN EXCLUSIVE.</b> ${def.name} never joins through levels: unlock for ${fmt(def.price)} coins.</span>` : rec ? `Beat ${def.name} in LEVEL ${rec.label} to recruit them, or unlock now for ${fmt(def.price)} coins.` : `Unlock for ${fmt(def.price)} coins. Win fights to earn coins.`}</div>
-        <div class="sd-foot"><button class="btn primary" id="sdBuy" ${can ? '' : 'disabled'}><b>UNLOCK · ${fmt(def.price)}</b></button></div>`;
+      foot = `<div class="lock-note">${ic(def.coinOnly ? 'coins' : 'lock', 'coin')}${def.coinOnly ? `<span><b>COIN EXCLUSIVE.</b> ${def.name} never joins through levels: unlock for ${fmt(def.price)} coins.</span>` : rec ? `<span>Beat ${def.name} in <b>LEVEL ${rec.label}</b> to recruit them, or unlock now.</span>` : `<span>Unlock for ${fmt(def.price)} coins. Win fights to earn coins.</span>`}</div>
+        <div class="sd-foot"><button class="btn primary" id="sdBuy" ${can ? '' : 'disabled'}><b>${ic('coins', 'coin')} UNLOCK · ${fmt(def.price)}</b></button></div>`;
     } else if (s.mode === 'roster') {
       foot = `<div class="sd-foot"><button class="btn primary" id="sdMain" ${Save.data.lastPick === def.id ? 'disabled' : ''}><b>${Save.data.lastPick === def.id ? 'YOUR FIGHTER' : 'SET AS YOUR FIGHTER'}</b></button><button class="btn" id="sdTry"><b>TRY IN TRAINING</b></button></div>`;
     } else {
       let opts = '';
       if (s.mode === 'ascent') {
-        opts = `<div class="sd-note">${ic('up')}<span>Climb floor after floor. After each win, pick <b>1 of 3 boons</b>. Every fifth floor is a <b>boss</b>. Best: <b>FLOOR ${Save.data.ascentBest}</b>.</span></div>`;
+        opts = `<div class="sd-note">${ic('up')}<span>Climb floor after floor. After each win, pick <b>1 of 3 cards</b>: common, rare, epic or legendary. Every fifth floor is a <b>boss</b>. Best: <b>FLOOR ${Save.data.ascentBest}</b>.</span></div>`;
       } else if (s.mode === 'training') {
         opts = `<div class="sd-opts"><div class="row"><small>DUMMY</small><nav class="seg" id="optDummy">${['kaze', 'ryo', 'homura', 'mugi'].map(id => `<button data-v="${id}" class="${s.p2 === id ? 'active' : ''}">${BY_ID[id].name}</button>`).join('')}</nav></div></div>`;
       }
       const label = { ascent: 'START ASCENT', survival: 'START SURVIVAL', training: 'ENTER TRAINING' }[s.mode];
       foot = `${opts}<div class="sd-foot"><button class="btn primary big" id="sdGo"><b>${label}</b></button></div>`;
     }
+    const rk = own ? Meta.totalRank(def.id) : 0, maxRk = Meta.UPGRADES.length * Meta.MAX_RANK;
+    const body = {
+      moves: `<div class="sd-moves">${moveRows(def)}</div>`,
+      upg: own ? upgradeRows(def) : `<div class="sd-note">${ic('lock')}<span>Unlock <b>${def.name}</b> to buy upgrades: Power, Vitality, Focus and Recovery, five ranks each.</span></div>`,
+      info: `<p class="sd-blurb">${esc(def.blurb)}</p>
+        <div class="sd-facts">
+          <div><small>ROLE</small><b>${ROLE[def.ai.style] || 'ALL-ROUNDER'}</b></div>
+          <div><small>STYLE</small><b>${STYLE[def.look.stance] || '—'}</b></div>
+          <div><small>FINISHER</small><b>${def.moves.hEnd.far ? 'RANGED' : 'CLOSE'}</b></div>
+          <div><small>HOME STAGE</small><b>${(STAGES[def.stage] || STAGES.dojo).name}</b></div>
+          <div><small>HEALTH</small><b>${fmt(Math.round(def.hp * HP_SCALE))}</b></div>
+          <div><small>RANK</small><b>${rk} / ${maxRk}</b></div>
+        </div>`,
+    }[tab];
     $('selDetail').innerHTML = `
-      <div class="sd-head" style="--c:${def.color}">${pt(def, own ? '' : 'locked')}<div><h3>${def.name}</h3><small>${def.title}</small></div></div>
-      <div class="sd-prev" style="--c:${def.color}"><canvas id="sdPrev"></canvas><span class="prev-tag">${ic('play')} PREVIEW</span><span class="prev-hint">TAP A MOVE TO SEE IT</span></div>
-      <p class="sd-blurb">${esc(def.blurb)}</p>
-      <div class="sd-stats" style="--c:${def.color}"><div><small>POWER</small>${meter(st[0])}</div><div><small>SPEED</small>${meter(st[1])}</div><div><small>RANGE</small>${meter(st[2])}</div></div>
-      <div class="sd-moves">${moveRows(def)}</div>
-      ${own ? upgradeRows(def) : ''}
-      ${foot}`;
+      <div class="sd-hero" style="--c:${def.color}">
+        <div class="sd-prev" style="--c:${def.color}"><canvas id="sdPrev"></canvas>
+          <span class="prev-tag">${ic('play')} PREVIEW</span><span class="prev-hint">TAP A MOVE TO SEE IT</span>
+          <div class="sd-id"><span class="role">${ROLE[def.ai.style] || 'ALL-ROUNDER'} · ${STYLE[def.look.stance] || ''}</span><h3>${def.name}</h3><small>${def.title}</small></div>
+          ${rk ? `<span class="sd-rank">${ic('ranks')}RANK ${rk}</span>` : own ? '' : `<span class="sd-rank lock">${ic('lock')}LOCKED</span>`}
+        </div>
+        <div class="sd-stats" style="--c:${def.color}">${bar('POWER', st[0])}${bar('SPEED', st[1])}${bar('RANGE', st[2])}</div>
+      </div>
+      <nav class="sd-tabs" style="--c:${def.color}">${[['moves', 'MOVES', 'fist'], ['upg', 'UPGRADES', 'up'], ['info', 'PROFILE', 'user']].map(([k, l, icn]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${ic(icn)}<b>${l}</b>${k === 'upg' && own ? `<i>${rk}</i>` : ''}</button>`).join('')}</nav>
+      <div class="sd-body">${body}</div>
+      <div class="sd-dock">${foot}</div>`;
     const D = $('selDetail');
     hydrate(D);
     startPreview(def.id);
+    D.querySelectorAll('.sd-tabs button').forEach(b => { b.onclick = () => { if (s.tab === b.dataset.t) return; Sfx.play('ui'); s.tab = b.dataset.t; renderDetail(); }; });
     D.querySelectorAll('.mv[data-k]').forEach(r => { r.onclick = () => { Sfx.play('ui'); const k = r.dataset.k; if (U.previewCtrl) U.previewCtrl.play(k === 'combo' ? ['l', 'l', 'h'] : [k]); }; });
     const on = (id, f) => { const e = $(id); if (e) e.onclick = f; };
     on('sdBuy', () => {
@@ -501,9 +548,9 @@ const UI = (() => {
   const TUT = [
     { label: 'MOVE', hint: 'Walk left and right.', key: () => cap('A') + cap('D'), touch: 'MOVE', thint: 'Slide the stick left or right.', focus: '.joy', done: t => t.moved },
     { label: 'JUMP', hint: 'Hop over attacks and projectiles.', key: () => cap('W'), touch: 'JUMP', thint: 'Flick the stick up, or tap JUMP.', focus: '.orb-j', done: t => t.jumped },
-    { label: 'LIGHT ATTACK', hint: 'Left click. Quick, and hard to punish.', key: () => MOUSE('l'), touch: 'LIGHT ATTACK', thint: 'Tap LIGHT.', focus: '.orb-l', done: t => t.light >= 1 },
-    { label: 'HEAVY ATTACK', hint: 'Right click. Slower, but hits harder.', key: () => MOUSE('r'), touch: 'HEAVY ATTACK', thint: 'Tap HEAVY.', focus: '.orb-h', done: t => t.heavy >= 1 },
-    { label: 'COMBO', hint: 'Left, left, right. It ends in your fighter\'s own finisher.', key: () => MOUSE('l') + MOUSE('l') + MOUSE('r'), touch: 'COMBO', thint: 'LIGHT, LIGHT, then HEAVY.', focus: '.orb-l, .orb-h', done: t => t.ender >= 1 },
+    { label: 'LIGHT ATTACK', hint: 'Left click. Quick, and hard to punish.', key: () => MOUSE('l'), touch: 'LIGHT ATTACK', thint: 'Tap LIGHT.', tkey: () => keyFor('l'), focus: '.orb-l', done: t => t.light >= 1 },
+    { label: 'HEAVY ATTACK', hint: 'Right click. Slower, but hits harder.', key: () => MOUSE('r'), touch: 'HEAVY ATTACK', thint: 'Tap HEAVY.', tkey: () => keyFor('h'), focus: '.orb-h', done: t => t.heavy >= 1 },
+    { label: 'COMBO', hint: 'Left, left, right. It ends in your fighter\'s own finisher.', key: () => MOUSE('l') + MOUSE('l') + MOUSE('r'), touch: 'COMBO', thint: 'LIGHT, LIGHT, then HEAVY.', tkey: () => seqFor(['l', 'l', 'h']), focus: '.orb-l, .orb-h', done: t => t.ender >= 1 },
     { label: 'SPECIAL MOVE', hint: 'Q or E. Each one recharges after use.', key: () => cap('Q') + '<span class="plus">/</span>' + cap('E'), touch: 'SPECIAL MOVE', thint: 'Tap one of the SPECIAL buttons.', focus: '.orb-s1, .orb-s2', done: t => t.special >= 1 },
     { label: 'GUARD', hint: 'They\'re attacking! Hold the key pointing away from them to block.', key: () => cap(awayKey()), dynamic: () => awayKey(), touch: 'GUARD', thint: 'Hold the stick away from them to block.', tkey: () => cap(awayArrow()), focus: '.joy', done: t => t.blocked >= 1 || t.guardHeld > 1.2, start: () => { Game.ctrls[1] = new TutAttacker(); } },
     { label: 'SUPER', hint: 'Your super meter is full. Press F to unleash it.', key: () => cap('F'), touch: 'SUPER', thint: 'Your meter is full. Tap SUPER.', focus: '.orb-sup', done: t => t.superUsed, start: () => { Game.ctrls[1] = new DummyCtrl('stand'); Game.fighters[0].meter = 100; } },
@@ -585,7 +632,7 @@ const UI = (() => {
     const t = U.tut;
     if (t && def.side === 0 && r === 'block') t.blocked++;
     // tips the first time something matters
-    if (att.side === 0 && r === 'hit' && att.action && att.action.key === 'hEnd' && def.mode === 'tumble') tip('air', isTouch() ? '<b>LAUNCHED!</b> Tap JUMP right away to chase them and keep the combo going.' : '<b>LAUNCHED!</b> Press <kbd>W</kbd> right away to jump after them, then click, click, right-click in the air.');
+    if (att.side === 0 && r === 'hit' && att.action && att.action.key === 'hEnd' && !att.action.move.far && def.mode === 'tumble') tip('air', isTouch() ? '<b>LAUNCHED!</b> Tap JUMP right away to chase them and keep the combo going.' : '<b>LAUNCHED!</b> Press <kbd>W</kbd> right away to jump after them, then click, click, right-click in the air.');
     if (att.side === 0 && r === 'hit' && def.lastHit && def.lastHit.bf) tip('bf', '<b>BLACK SPARK!</b> Heavy hits can crit for double damage.');
     if (att.side === 0 && r === 'block') { U.blocks = (U.blocks || []).filter(x => performance.now() - x < 4000); U.blocks.push(performance.now()); if (U.blocks.length >= 3) tip('throw', isTouch() ? 'They keep guarding. <b>Throws</b> beat guard: get close and tap LIGHT + HEAVY.' : 'They keep guarding. <b>Throw</b> them: click <b>both mouse buttons</b> together up close.'); }
   }
@@ -643,14 +690,17 @@ const UI = (() => {
   }
   /* ------------------------------------------------------------ ascent
      A roguelite climb: one-round floors against the CPU, health and meter
-     carry over, a boon choice after every win, a boss every fifth floor. */
+     carry over, a card choice after every win, a boss every fifth floor.
+     Healing: 25% after each floor, 50% after a boss, plus the healing cards. */
   const isBossFloor = fl => fl % 5 === 0;
   function startAscent(id) {
-    U.run = { mode: 'ascent', p1: id, floor: 1, hp: 1, meter: 0, coins: 0, boons: {} };
+    U.run = { mode: 'ascent', p1: id, floor: 1, hp: 1, meter: 0, coins: 0, cards: {}, coinMul: 1, phoenixSpent: false };
     Save.data.ascentRuns = (Save.data.ascentRuns || 0) + 1; Save.save();
     ascentFloor();
   }
-  function boonCount(r) { return Object.values(r.boons).reduce((a, b) => a + b, 0); }
+  function cardCount(r) { return Object.values(r.cards).reduce((a, b) => a + b, 0); }
+  // the cards that still act in a fight (a spent Phoenix stays in the deck, burnt)
+  function liveCards(r) { const c = Object.assign({}, r.cards); if (r.phoenixSpent) delete c.phoenix; return c; }
   function ascentFloor() {
     const r = U.run, fl = r.floor, boss = isBossFloor(fl);
     const pool = ROSTER.filter(f => f.id !== r.p1).map(f => f.id);
@@ -660,44 +710,77 @@ const UI = (() => {
     foe.hp = boss ? 1.45 + fl * 0.02 : 1 + Math.min(0.4, fl * 0.025);
     foe.dmg = 1 + Math.min(0.3, fl * 0.015);
     r.cur = { id: oid, lv, boss };
-    const mods = Meta.modsFor(r.p1, { upgrades: true, boons: r.boons });
+    const mods = Meta.modsFor(r.p1, { upgrades: true, cards: liveCards(r) });
     versusSheet(r.p1, oid, `${boss ? 'BOSS · ' : ''}FLOOR ${fl}`, () => beginFight({ p1: r.p1, p2: oid, ctrls: [human(0), cpu(lv)], stage: pick(STAGE_IDS), mode: 'ascent', toWin: 1,
       hpStart: [r.hp, 1], meter0: r.meter, mods: [mods, foe], scale: boss ? [1, 1.1] : null, fastIntro: fl > 1, roundSub: boss ? 'BOSS FLOOR' : 'FLOOR ' + fl,
-      chip: `ASCENT · FLOOR ${fl}${boss ? ' · BOSS' : ''} · ${boonCount(r)} BOONS`, onEnd: res => setTimeout(() => ascentEnd(res), 700) }), null, 1.4);
+      chip: `ASCENT · FLOOR ${fl}${boss ? ' · BOSS' : ''} · ${cardCount(r)} ${cardCount(r) === 1 ? 'CARD' : 'CARDS'}`, onEnd: res => setTimeout(() => ascentEnd(res), 700) }), null, 1.4);
   }
-  function boonChips(r) {
-    const list = Object.entries(r.boons).filter(([, n]) => n > 0);
-    return list.length ? `<div class="boon-chips">${list.map(([id, n]) => { const B = Meta.BOON[id]; return `<span style="--c:${B.col}">${ic(B.icon)}${B.name}${n > 1 ? ' ×' + n : ''}</span>`; }).join('')}</div>` : '';
+  // the run's deck as small chips, edged in each card's rarity colour
+  function cardChips(r) {
+    const list = Object.entries(r.cards).filter(([, n]) => n > 0);
+    return list.length ? `<div class="card-chips">${list.map(([id, n]) => { const C = Meta.CARD[id], R = Meta.RARITY[C.rar]; return `<span class="r-${C.rar}${id === 'phoenix' && r.phoenixSpent ? ' spent' : ''}" style="--c:${C.col};--rc:${R.col}">${ic(C.icon)}${C.name}${n > 1 ? ' ×' + n : ''}</span>`; }).join('')}</div>` : '';
+  }
+  // one card: rarity banner with pips, art, name, rules text, stack note, key
+  function cardHtml(C, r, k) {
+    const R = Meta.RARITY[C.rar], have = r.cards[C.id] || 0;
+    const note = C.now && !C.apply ? 'INSTANT' : have ? `STACK ${have + 1} / ${C.max}` : C.max > 1 ? `STACKS ×${C.max}` : 'UNIQUE';
+    return `<button class="rcard r-${C.rar}" data-b="${C.id}" style="--c:${C.col};--rc:${R.col};--i:${k}">
+      <span class="rc-edge"></span>
+      <span class="rc-rar">${'<i></i>'.repeat(R.pips)}<b>${R.name}</b></span>
+      <span class="rc-art"><span class="rc-rays"></span><span class="rc-ic">${ic(C.icon)}</span></span>
+      <b class="rc-name">${C.name}</b><small class="rc-desc">${C.desc}</small>
+      <em class="rc-note">${note}</em><kbd>${k + 1}</kbd>
+      <span class="rc-foil"></span><span class="rc-shine"></span><span class="rc-spark"></span>
+    </button>`;
   }
   function ascentEnd(res) {
     const r = U.run;
+    const me = Game.fighters[0];
+    if (me && me.phoenixUsed) r.phoenixSpent = true;
+    // Midas Touch: the coins knocked out of the foe this floor
+    const midas = me && me.midasCoins ? me.midasCoins : 0;
+    if (midas) { Save.addCoins(midas); r.coins += midas; }
     if (res.winner === 0) {
       const fl = r.floor, boss = isBossFloor(fl);
-      const c = 15 + fl * 4 + (boss ? 60 : 0) + res.stats.finishers * 15;
+      const c = Math.round((15 + fl * 4 + (boss ? 60 : 0) + res.stats.finishers * 15) * (r.coinMul || 1));
       Save.addCoins(c); r.coins += c;
       if (fl > Save.data.ascentBest) { Save.data.ascentBest = fl; Save.save(); }
       if (Save.dailyReady()) { Save.data.daily = Save.today(); Save.addCoins(100); r.coins += 100; toast('FIRST WIN TODAY +100 COINS'); }
       recordMatch(res, r.p1);
-      r.hp = Math.min(1, res.hp[0] + 0.25);
-      r.meter = Game.fighters[0] ? Game.fighters[0].meter : 0;
+      const heal = boss ? 0.5 : 0.25;
+      r.hp = Math.min(1, res.hp[0] + heal);
+      r.meter = me ? me.meter : 0;
       r.floor++;
       Sfx.play(boss ? 'perfect' : 'coin');
-      // the decision: one of three boons
-      const offer = Meta.offer(r.boons);
+      // the decision: one of three cards, rarer after a boss
+      const offer = Meta.offer(r.cards, { floor: fl, boss });
       if (!offer.length) { ascentFloor(); return; }
-      openSheet(`<h2 class="win">FLOOR ${fl} CLEARED</h2><p class="sub">+${c} COINS${boss ? ' · BOSS BONUS' : ''} · HEALTH +25%</p>
-        <p class="tip">Choose a boon for the rest of the run</p>
-        <div class="boons">${offer.map((B, k) => `<button class="boon" data-b="${B.id}" style="--c:${B.col}"><span class="boon-ic">${ic(B.icon)}</span><b>${B.name}</b><small>${B.desc}</small><em>${(r.boons[B.id] || 0) ? 'STACK ' + ((r.boons[B.id] || 0) + 1) + '/' + B.max : 'NEW'}</em><kbd>${k + 1}</kbd></button>`).join('')}</div>
-        ${boonChips(r)}`, 'result wide');
-      const choose = id => { Sfx.play('unlock'); r.boons[id] = (r.boons[id] || 0) + 1; window.removeEventListener('keydown', keys, true); ascentFloor(); };
+      const legend = offer.some(C => C.rar === 'legendary');
+      openSheet(`<h2 class="win">FLOOR ${fl} CLEARED</h2><p class="sub">+${c + midas} COINS${boss ? ' · BOSS BONUS' : ''} · ${ic('heal')} HEALTH +${Math.round(heal * 100)}%</p>
+        <p class="tip">${boss ? 'Boss reward: rarer cards. ' : ''}Pick a card for the rest of the run</p>
+        <div class="rcards">${offer.map((C, k) => cardHtml(C, r, k)).join('')}</div>
+        ${cardChips(r)}`, 'result wide cards' + (legend ? ' legend' : ''));
+      if (legend) setTimeout(() => Sfx.play('perfect'), 350);
+      let picked = false;
+      const choose = id => {
+        if (picked) return; picked = true;
+        const C = Meta.CARD[id];
+        Sfx.play(C.rar === 'legendary' || C.rar === 'epic' ? 'unlock' : 'ui');
+        r.cards[id] = (r.cards[id] || 0) + 1;
+        if (C.now) C.now(r);
+        window.removeEventListener('keydown', keys, true);
+        const el = $('sheet').querySelector(`.rcard[data-b="${id}"]`);
+        if (el) { el.classList.add('chosen'); $('sheet').classList.add('picking'); }
+        setTimeout(ascentFloor, 420);
+      };
       const keys = e => { const k = +e.key; if (k >= 1 && k <= offer.length) { e.preventDefault(); choose(offer[k - 1].id); } };
       window.addEventListener('keydown', keys, true);
-      $('sheet').querySelectorAll('.boon').forEach(b => { b.onclick = () => choose(b.dataset.b); });
+      $('sheet').querySelectorAll('.rcard').forEach(b => { b.onclick = () => choose(b.dataset.b); });
     } else {
       const cleared = r.floor - 1, best = cleared >= Save.data.ascentBest && cleared > 0;
       openSheet(`<h2 class="lose">RUN OVER</h2><p class="sub">${BY_ID[r.p1].name} · ASCENT</p>
         <div class="big-count">${cleared}</div><p class="sub">${cleared === 1 ? 'FLOOR' : 'FLOORS'} CLEARED · ${best ? 'NEW BEST!' : 'BEST ' + Save.data.ascentBest}</p>
-        ${boonChips(r)}
+        ${cardChips(r)}
         <div class="payout">${ic('coins', 'coin')}${fmt(r.coins)}<small>COINS THIS RUN</small></div>
         <p class="hint">Spend coins on upgrades in FIGHTERS to climb higher.</p>
         <div class="actions"><button class="btn" id="rMenu"><b>MENU</b></button><button class="btn" id="rUpg"><b>UPGRADES</b></button><button class="btn primary" id="rRetry"><b>CLIMB AGAIN</b></button></div>`, 'result');
@@ -724,13 +807,16 @@ const UI = (() => {
     const r = U.run;
     if (res.winner === 0) {
       r.streak++;
-      r.hp = Math.min(1, res.hp[0] + 0.35);
+      // healing between fights: 35%, +10% for a super finish, and a full
+      // breather every fifth win
+      const breather = r.streak % 5 === 0;
+      r.hp = breather ? 1 : Math.min(1, res.hp[0] + 0.35 + (res.stats.finishers ? 0.1 : 0));
       r.meter = Game.fighters[0] ? Game.fighters[0].meter : 0;
       const c = 20 + Math.min(40, r.streak * 4) + res.stats.finishers * 15;
       Save.addCoins(c); r.coins += c;
       if (Save.dailyReady()) { Save.data.daily = Save.today(); Save.addCoins(100); r.coins += 100; toast('FIRST WIN TODAY +100 COINS'); }
       recordMatch(res, r.p1);
-      toast(`STREAK ${r.streak} · +${c} COINS · HEALTH RESTORED`);
+      toast(`STREAK ${r.streak} · +${c} COINS · ${breather ? 'BREATHER: FULL HEALTH' : 'HEALTH +' + (res.stats.finishers ? 45 : 35) + '%'}`);
       Sfx.play('coin');
       survivalFight();
     } else {
@@ -763,7 +849,9 @@ const UI = (() => {
   function trialHit(att, def, spec, act) {
     const cm = Game.combo[att.side] || { n: 1, uses: {} };
     const uses = cm.uses || {};
-    const h = { key: act && act.key, kind: spec.kind || 'light', combo: cm.n || 1, juggled: def.mode === 'tumble', usedNormal: ['l1', 'l2', 'h', 'hEnd'].some(k => uses[k]) };
+    // a ranged finisher lands through its projectile (no action): match it by name
+    const key = act ? act.key : (spec.name && spec.name === att.def.moves.hEnd.name ? 'hEnd' : null);
+    const h = { key, kind: spec.kind || 'light', combo: cm.n || 1, juggled: def.mode === 'tumble', usedNormal: ['l1', 'l2', 'h', 'hEnd'].some(k => uses[k]) };
     for (const T of Meta.TRIALS) {
       if (Meta.trialsDone(att.def.id).includes(T.id) || !T.check(h)) continue;
       if (Meta.clearTrial(att.def.id, T.id)) {
@@ -912,7 +1000,7 @@ const UI = (() => {
       ${training ? `<div class="sd-opts"><div class="row"><small>DUMMY</small><nav class="seg" id="pDummy">${[['stand', 'STAND'], ['guard', 'GUARD'], ['jump', 'JUMP'], ['cpu', 'CPU']].map(([v, l]) => `<button data-v="${v}" class="${r.dmode === v ? 'active' : ''}">${l}</button>`).join('')}</nav></div>
       <div class="row"><small>METER</small><nav class="seg" id="pMeter"><button data-v="1" class="${r.meter ? 'active' : ''}">INFINITE</button><button data-v="0" class="${!r.meter ? 'active' : ''}">NORMAL</button></nav></div></div>` : ''}
       <div class="pause-stack">
-        ${r.mode === 'ascent' ? boonChips(r) : ''}
+        ${r.mode === 'ascent' ? cardChips(r) : ''}
         <button class="btn primary" id="pRes"><b>RESUME</b></button>
         <button class="btn" id="pMoves"><b>MOVE LIST</b></button>
         ${r.mode === 'survival' || r.mode === 'ascent' ? '' : `<button class="btn" id="pRestart"><b>${r.mode === 'level' ? 'RETRY LEVEL' : 'RESTART'}</b></button>`}
@@ -945,9 +1033,9 @@ const UI = (() => {
     const m = def.moves;
     openSheet(`<h2 style="color:${def.color}">${def.name} · MOVES</h2>
       <div class="sd-moves">
-        ${['l1', 'l2', 'hEnd'].map((k, i) => `<div class="mv"><span class="move-ic" style="--c:#ffc933;--d:#8a6a10">${Icons.svg(i < 2 ? 'fist' : 'up')}</span><div><b>${esc(m[k].name)}</b><small>${i === 0 ? 'LIGHT' : i === 1 ? 'LIGHT, LIGHT' : 'LIGHT, LIGHT, HEAVY: LAUNCHER'}</small></div><span class="keys2">${[MOUSE('l'), MOUSE('l') + MOUSE('l'), MOUSE('l') + MOUSE('l') + MOUSE('r')][i]}</span></div>`).join('')}
-        <div class="mv"><span class="move-ic" style="--c:#ff8a4a;--d:#7a3a1a">${Icons.svg('burst')}</span><div><b>${esc(m.h.name)}</b><small>HEAVY · CAN BLACK SPARK</small></div><span class="keys2">${MOUSE('r')}</span></div>
-        <div class="mv"><span class="move-ic" style="--c:#8fd6ff;--d:#2a5a7a">${Icons.svg('swords')}</span><div><b>Throw</b><small>CLOSE · BEATS GUARD</small></div><span class="keys2">${MOUSE('l')}+${MOUSE('r')}</span></div>
+        ${['l1', 'l2', 'hEnd'].map((k, i) => `<div class="mv"><span class="move-ic" style="--c:#ffc933;--d:#8a6a10">${Icons.svg(i < 2 ? 'fist' : 'up')}</span><div><b>${esc(m[k].name)}</b><small>${i === 0 ? 'LIGHT' : i === 1 ? 'LIGHT, LIGHT' : 'LIGHT, LIGHT, HEAVY: LAUNCHER'}</small></div><span class="keys2">${seqFor([['l'], ['l', 'l'], ['l', 'l', 'h']][i], def)}</span></div>`).join('')}
+        <div class="mv"><span class="move-ic" style="--c:#ff8a4a;--d:#7a3a1a">${Icons.svg('burst')}</span><div><b>${esc(m.h.name)}</b><small>HEAVY · CAN BLACK SPARK</small></div><span class="keys2">${keyFor('h', def)}</span></div>
+        <div class="mv"><span class="move-ic" style="--c:#8fd6ff;--d:#2a5a7a">${Icons.svg('swords')}</span><div><b>Throw</b><small>CLOSE · BEATS GUARD</small></div><span class="keys2">${keyFor('l', def)}+${keyFor('h', def)}</span></div>
         ${moveRows(def)}
       </div>
       <p class="hint">Cancel any light or heavy that connects into a special, and any of them into the super.</p>
@@ -1072,6 +1160,7 @@ const UI = (() => {
 
   // exposed for tests
   U._tutStep = () => (U.tut ? U.tut.i : 99);
+  U._cardHtml = cardHtml;   // tests render a chosen hand
   U._start = { level: i => playLevel(Campaign.levels[i]), levels: () => openLevels(), ascent: startAscent, survival: startSurvival, training: startTraining, select: openSelect };
   return U;
 })();

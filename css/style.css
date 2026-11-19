@@ -7,6 +7,7 @@
    glossy skill badges. Rubik throughout.
    ========================================================================= */
 @font-face { font-family: 'Rubik'; src: url('../assets/fonts/rubik.woff2') format('woff2'); font-weight: 500 900; font-display: swap; }
+@font-face { font-family: 'RSJP'; src: url('../assets/fonts/jp.woff2') format('woff2'); font-weight: 400 900; font-display: swap; }
 
 /* Register theme colours so the browser can interpolate them instead of snapping. */
 @property --acc {
@@ -808,20 +809,101 @@ body.short.touch .tut, body.touch .tut { top: calc(98px + var(--safe-t)) !import
 .upg-buy .ic { width: 13px; height: 13px; }
 .upg-max { font-weight: 900; font-size: 11px; letter-spacing: 0.1em; color: var(--acc); padding: 0 8px; }
 
-.boons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-@media (max-width: 560px) { .boons { grid-template-columns: 1fr; } }
-.boon { --cc: 10px; position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px 10px 12px; clip-path: var(--cut-m); background: color-mix(in srgb, var(--c) 14%, var(--ink-2)); text-align: center; transition: transform 0.12s, background 0.12s; }
-.boon:hover { transform: translateY(-3px); background: color-mix(in srgb, var(--c) 24%, var(--ink-2)); }
-.boon-ic { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 12px; background: var(--c); color: #0d1018; }
-.boon-ic .ic { width: 24px; height: 24px; }
-.boon b { font-weight: 900; font-size: 14px; letter-spacing: 0.06em; }
-.boon small { font-weight: 600; font-size: 12px; line-height: 1.35; color: var(--muted); }
-.boon em { font-style: normal; font-weight: 900; font-size: 10px; letter-spacing: 0.1em; color: var(--c); }
-.boon kbd { position: absolute; top: 8px; right: 8px; }
-body.touch .boon kbd { display: none; }
-.boon-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
-.boon-chips span { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; background: color-mix(in srgb, var(--c) 18%, var(--ink-2)); color: var(--c); font-weight: 900; font-size: 10px; letter-spacing: 0.06em; }
-.boon-chips .ic { width: 12px; height: 12px; }
+/* ------------------------------------------------------------ Ascent cards
+   A pick of three after every floor. Rarity escalates the finish:
+   common is matte, rare catches the light, epic glows and turns, legendary
+   is gold foil with a spinning edge, a holographic sheen and sparkles. */
+@property --ang { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.sheet.cards { width: min(840px, 100%); }
+.rcards { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; perspective: 900px; padding: 8px 4px 4px; }
+@media (max-width: 560px) { .rcards { grid-template-columns: 1fr; } }
+.rcard { --rc: #a9b3c6; --c: #fff; position: relative; isolation: isolate; display: flex; flex-direction: column; align-items: center; gap: 7px;
+  min-height: 272px; padding: 12px 12px 14px; border-radius: 14px; overflow: hidden; text-align: center; cursor: pointer;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--rc) 14%, #171b26), #0e1119 72%);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--rc) 65%, transparent), 0 10px 24px rgba(0, 0, 0, 0.45);
+  animation: cardIn 0.55s cubic-bezier(0.2, 1.2, 0.35, 1) calc(var(--i, 0) * 0.11s) backwards;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.25s, filter 0.25s; }
+.rcard:hover, .rcard:focus-visible { transform: translateY(-8px) rotateX(6deg); box-shadow: inset 0 0 0 2px var(--rc), 0 18px 34px rgba(0, 0, 0, 0.55), 0 0 26px color-mix(in srgb, var(--rc) 45%, transparent); }
+@keyframes cardIn { from { opacity: 0; transform: translateY(46px) rotateY(-80deg) scale(0.9); } to { opacity: 1; transform: none; } }
+
+/* rarity banner: a row of diamond pips (one per tier) and the tier's name */
+.rc-rar { display: flex; align-items: center; justify-content: center; gap: 3px; align-self: stretch; margin: -12px -12px 2px; padding: 5px 0;
+  background: color-mix(in srgb, var(--rc) 82%, #000); color: #0d1018; font-weight: 900; font-size: 10px; letter-spacing: 0.18em; }
+.rc-rar i { width: 6px; height: 6px; transform: rotate(45deg); background: currentColor; margin: 0 1px; }
+.rc-rar b { margin-left: 6px; }
+.rc-art { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1.5; border-radius: 10px; overflow: hidden;
+  background: radial-gradient(circle at 50% 46%, color-mix(in srgb, var(--c) 40%, #1b2030) 0%, #10131b 74%); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06); }
+.rc-rays { position: absolute; inset: -60%; background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--c) 24%, transparent) 0 9deg, transparent 9deg 18deg); opacity: 0; }
+.rc-ic { position: relative; display: grid; place-items: center; width: 58px; height: 58px; border-radius: 16px; color: #0d1018;
+  background: linear-gradient(180deg, var(--c), color-mix(in srgb, var(--c) 62%, #000)); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2), 0 6px 16px rgba(0, 0, 0, 0.45); }
+.rc-ic .ic { width: 30px; height: 30px; }
+.rc-name { font-weight: 900; font-size: 15px; letter-spacing: 0.06em; color: #fff; margin-top: 2px; }
+.rc-desc { flex: 1; font-weight: 600; font-size: 12px; line-height: 1.35; color: var(--muted); }
+.rc-note { font-style: normal; font-weight: 900; font-size: 10px; letter-spacing: 0.12em; color: var(--rc); }
+.rcard kbd { position: absolute; bottom: 9px; right: 9px; z-index: 4; }
+body.touch .rcard kbd { display: none; }
+.rc-edge, .rc-foil, .rc-shine, .rc-spark { position: absolute; inset: 0; pointer-events: none; border-radius: inherit; }
+
+/* rare: a sweep of light now and then */
+.r-rare .rc-rays { opacity: 0.45; }
+.r-rare .rc-shine, .r-epic .rc-shine { background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.2) 48%, transparent 58%); background-size: 280% 100%; mix-blend-mode: screen; animation: cardShine 3.8s ease-in-out infinite; z-index: 2; }
+@keyframes cardShine { 0%, 55% { background-position: 140% 0; } 100% { background-position: -140% 0; } }
+
+/* epic: turning rays, a moving banner and a violet glow */
+.r-epic { box-shadow: inset 0 0 0 2px var(--rc), 0 10px 26px rgba(0, 0, 0, 0.5), 0 0 24px color-mix(in srgb, var(--rc) 45%, transparent); }
+.r-epic .rc-rays { opacity: 0.9; animation: cardSpin 16s linear infinite; }
+.r-epic .rc-shine { animation-duration: 2.8s; }
+.r-epic .rc-rar { background: linear-gradient(90deg, #7a2be2, #ff4fd8, #b45bff, #7a2be2); background-size: 300% 100%; color: #fff; animation: cardSlide 3s linear infinite; }
+.r-epic .rc-ic { box-shadow: 0 0 22px color-mix(in srgb, var(--c) 60%, transparent), inset 0 -3px 0 rgba(0, 0, 0, 0.2); }
+
+/* legendary: gold foil, a spinning edge, a holographic sheen and sparkles */
+.r-legendary { background: linear-gradient(180deg, #3d2b09, #140e05 76%);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6), 0 0 34px rgba(255, 197, 61, 0.45);
+  animation: cardIn 0.6s cubic-bezier(0.2, 1.2, 0.35, 1) calc(var(--i, 0) * 0.11s) backwards, legendGlow 2.2s ease-in-out infinite; }
+.r-legendary .rc-edge { padding: 3px; z-index: 3;
+  background: conic-gradient(from var(--ang), #ffe9a8, #ffb13d, #fff8e0, #ff7a2a, #ffe9a8, #ffd34d, #fff8e0, #ffe9a8);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: edgeSpin 2.6s linear infinite; }
+.r-legendary .rc-foil { z-index: 2; opacity: 0.55; mix-blend-mode: screen;
+  background: linear-gradient(125deg, transparent 22%, rgba(255, 120, 150, 0.16) 32%, rgba(255, 230, 140, 0.2) 40%, rgba(150, 255, 200, 0.12) 48%, rgba(140, 210, 255, 0.16) 56%, rgba(210, 150, 255, 0.16) 64%, transparent 76%);
+  background-size: 300% 300%; animation: cardFoil 4.5s ease-in-out infinite alternate; }
+.r-legendary .rc-spark { z-index: 3; animation: twinkle 1.4s ease-in-out infinite alternate;
+  background: radial-gradient(circle at 16% 20%, #fff 0 1.6px, transparent 2.8px), radial-gradient(circle at 84% 26%, #fff6d0 0 1.4px, transparent 2.6px),
+    radial-gradient(circle at 72% 80%, #fff 0 1.8px, transparent 3px), radial-gradient(circle at 24% 68%, #ffe9a8 0 1.3px, transparent 2.5px),
+    radial-gradient(circle at 52% 10%, #fff 0 1.2px, transparent 2.4px), radial-gradient(circle at 90% 58%, #fff 0 1.2px, transparent 2.4px); }
+.r-legendary .rc-shine { z-index: 2; background: linear-gradient(115deg, transparent 40%, rgba(255, 248, 220, 0.4) 50%, transparent 60%); background-size: 280% 100%; mix-blend-mode: screen; animation: cardShine 2.4s ease-in-out infinite; }
+.r-legendary .rc-art { background: radial-gradient(circle at 50% 46%, #ffd36a 0%, #9a5512 44%, #1a1006 82%); }
+.r-legendary .rc-rays { opacity: 1; background: repeating-conic-gradient(from 0deg, rgba(255, 220, 120, 0.4) 0 7deg, transparent 7deg 14deg); animation: cardSpin 9s linear infinite; }
+.r-legendary .rc-ic { background: linear-gradient(180deg, #fff6d0, #ffc53d 55%, #c2740f); box-shadow: 0 0 26px rgba(255, 197, 61, 0.85), inset 0 -3px 0 rgba(0, 0, 0, 0.2); animation: cardFloat 2.4s ease-in-out infinite; }
+.r-legendary .rc-rar { background: linear-gradient(90deg, #b8680c, #ffe9a8, #ffc53d, #fff8e0, #b8680c); background-size: 250% 100%; color: #2a1804; animation: cardSlide 2.2s linear infinite; }
+.r-legendary .rc-name { font-size: 16px; background: linear-gradient(180deg, #fffaf0, #ffc53d 70%, #e08a1a); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.r-legendary .rc-desc { color: #e8d9b4; }
+@keyframes edgeSpin { to { --ang: 360deg; } }
+@keyframes cardFoil { from { background-position: 0% 0%; } to { background-position: 100% 100%; } }
+@keyframes twinkle { from { opacity: 0.25; } to { opacity: 1; } }
+@keyframes cardSpin { to { transform: rotate(360deg); } }
+@keyframes cardSlide { to { background-position: -300% 0; } }
+@keyframes cardFloat { 50% { transform: translateY(-4px) scale(1.04); } }
+@keyframes legendGlow { 50% { box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6), 0 0 56px rgba(255, 197, 61, 0.75); } }
+/* a gold flare behind the hand when a legendary is in it */
+.sheet.legend .rcards::before { content: ''; position: absolute; inset: -30px -10px; z-index: -1; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 50%, rgba(255, 197, 61, 0.35), transparent 65%); animation: legendFlare 1.4s ease-out 0.3s both; }
+@keyframes legendFlare { from { opacity: 0; transform: scale(0.6); } 40% { opacity: 1; } to { opacity: 0.45; transform: scale(1); } }
+
+/* the pick: the chosen card rises, the others fall away */
+.rcard.chosen { transform: translateY(-14px) scale(1.06); box-shadow: 0 0 0 3px #fff, 0 0 44px var(--rc); }
+.sheet.picking .rcard:not(.chosen) { opacity: 0.2; transform: scale(0.92); filter: grayscale(1); }
+.sheet.picking .rcard { pointer-events: none; }
+
+/* the run's deck as small chips */
+.card-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
+.card-chips span { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; background: color-mix(in srgb, var(--c) 12%, var(--ink-2)); color: #e9ecf4;
+  box-shadow: inset 0 0 0 1.5px var(--rc); font-weight: 900; font-size: 10px; letter-spacing: 0.06em; }
+.card-chips .ic { width: 12px; height: 12px; color: var(--c); }
+.card-chips .r-legendary { background: linear-gradient(90deg, #3a2a0a, #5a3f10); color: #ffe9a8; }
+.card-chips .r-epic { background: linear-gradient(90deg, #2a1440, #3a1a52); }
+.card-chips .spent { opacity: 0.45; text-decoration: line-through; }
+@media (prefers-reduced-motion: reduce) { .rcard, .rcard * { animation: none !important; } }
 
 .trials { position: absolute; right: calc(14px + var(--safe-r)); top: calc(118px + var(--safe-t)); width: 250px; display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; clip-path: var(--cut-m); background: var(--panel); }
 .trials > b { font-weight: 900; font-size: 11px; letter-spacing: 0.12em; color: var(--acc); margin-bottom: 2px; }
@@ -838,3 +920,87 @@ body.touch .trials { top: calc(120px + var(--safe-t)); width: 200px; }
 .pips i.pop { animation: pipPop .45s cubic-bezier(.2,1.6,.4,1); }
 @keyframes upgFlash { 0% { box-shadow: inset 0 0 0 2px var(--c), 0 0 18px color-mix(in srgb, var(--c) 60%, transparent); } 100% { box-shadow: inset 0 0 0 0 transparent, 0 0 0 transparent; } }
 @keyframes pipPop { 0% { transform: scale(1.9); } 100% { transform: scale(1); } }
+
+/* touch: the move list shows matte copies of the on-screen buttons, not mice */
+.tb { --c: #ffc933; --d: #8a6a10; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; flex: none; vertical-align: middle;
+  background: linear-gradient(180deg, var(--c), color-mix(in srgb, var(--c) 70%, var(--d))); color: #0d1018;
+  box-shadow: 0 0 0 2px rgba(10, 12, 18, 0.9), 0 0 0 3px rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.18); }
+.tb svg { width: 58%; height: 58%; }
+.mv .keys2 { align-items: center; }
+#tutVis .tb { width: 44px; height: 44px; margin: 0 3px; }
+/* finisher reach tag */
+.mv small .tag { font-style: normal; font-weight: 900; font-size: 0.92em; padding: 1px 5px; margin-right: 4px; border-radius: 3px; letter-spacing: 0.06em; }
+.mv small .tag.far { background: #4fd8ff; color: #06202a; }
+.mv small .tag.close { background: #ff8a4a; color: #2a1206; }
+
+/* ------------------------------------------------------- FIGHTERS screen
+   The roster fits on one screen (4 x 4); the right side is a hero panel:
+   the live preview with the fighter's name over it, stat bars, then
+   MOVES / UPGRADES / PROFILE tabs, and the action pinned at the bottom. */
+#select .sel { height: calc((100dvh - var(--safe-t) - var(--safe-b)) / var(--ui) - 104px); align-items: stretch; grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr); gap: 14px; }
+#select .sel-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 8px; padding: 12px; overflow-y: auto; align-content: stretch; }
+#select .ftile { min-height: 0; }
+#select .ftile .pt { flex: 1; min-height: 0; aspect-ratio: auto; }
+#select .ftile b { font-size: 13px; padding: 5px 8px 0; }
+#select .ftile small { font-size: 9px; padding: 1px 8px 7px; color: color-mix(in srgb, var(--c) 55%, #c9cedb); }
+#select .ftile.lock b { color: #9aa1b4; }
+#select .ftile .lk { position: absolute; left: 50%; top: 40%; width: 22px; height: 22px; transform: translate(-50%, -50%); color: rgba(255, 255, 255, 0.75); filter: drop-shadow(0 2px 3px #000); }
+#select .ftile .rank { top: 6px; bottom: auto; left: 6px; }
+#select .ftile.on { transform: translateY(-2px); background: color-mix(in srgb, var(--c) 28%, var(--ink-2)); }
+#select .ftile.on .pt img { transform: scale(1.06); }
+#select .ftile .pt img { transition: transform 0.2s; }
+
+#select .sel-detail { padding: 0; gap: 0; overflow: hidden; display: flex; flex-direction: column; }
+.sd-hero { position: relative; flex: none; }
+#select .sd-prev { aspect-ratio: 16 / 7.4; }
+.sd-id { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 30px 16px 12px; pointer-events: none; background: linear-gradient(0deg, rgba(6, 7, 12, 0.94), rgba(6, 7, 12, 0)); }
+.sd-id .role { display: block; font-weight: 900; font-size: 10px; letter-spacing: 0.18em; color: color-mix(in srgb, var(--c) 70%, #fff); }
+.sd-id h3 { font-weight: 900; font-style: italic; font-size: 46px; line-height: 0.95; letter-spacing: 0.02em; color: #fff;
+  text-shadow: 3px 3px 0 color-mix(in srgb, var(--c) 70%, #000), 0 0 26px color-mix(in srgb, var(--c) 45%, transparent); }
+.sd-id small { display: inline-block; margin-top: 6px; padding: 3px 10px; background: var(--c); color: #0d1018; font-weight: 900; font-size: 10px; letter-spacing: 0.12em; clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%); }
+.sd-rank { position: absolute; top: 8px; right: 10px; z-index: 2; display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 4px; background: rgba(8, 10, 16, 0.82); color: var(--acc); font-weight: 900; font-size: 10px; letter-spacing: 0.1em; }
+.sd-rank .ic { width: 12px; height: 12px; }
+.sd-rank.lock { color: #c9cedb; }
+.sd-hero .prev-hint { top: 34px; bottom: auto; left: 12px; right: auto; z-index: 2; }
+/* stat bars sit on the preview, opposite the name */
+#select .sd-stats { position: absolute; right: 14px; bottom: 14px; z-index: 3; width: 46%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 0; background: none; }
+.sd-stats .st { display: flex; flex-direction: column; gap: 5px; }
+.sd-stats .st small { font-weight: 800; font-size: 9px; letter-spacing: 0.14em; color: rgba(255, 255, 255, 0.7); text-shadow: 0 1px 2px #000; }
+.sd-tabs { display: flex; gap: 4px; padding: 10px 14px 0; flex: none; border-bottom: 2px solid rgba(255, 255, 255, 0.06); }
+.sd-tabs button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 6px; margin-bottom: -2px; border-radius: 8px 8px 0 0; background: rgba(255, 255, 255, 0.035); color: var(--muted);
+  font-weight: 900; font-size: 12px; letter-spacing: 0.1em; border-bottom: 2px solid transparent; transition: background 0.15s, color 0.15s; }
+.sd-tabs button:hover { color: #fff; }
+.sd-tabs button .ic { width: 14px; height: 14px; }
+.sd-tabs button.on { background: color-mix(in srgb, var(--c) 20%, var(--ink-2)); color: #fff; border-bottom-color: var(--c); }
+.sd-tabs button.on .ic { color: var(--c); }
+.sd-tabs i { font-style: normal; min-width: 18px; padding: 1px 6px; border-radius: 9px; background: var(--c); color: #0d1018; font-size: 10px; }
+.sd-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; animation: tabIn 0.18s ease; }
+@keyframes tabIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.sd-body .sd-blurb { display: block; }
+.sd-dock { flex: none; display: flex; flex-direction: column; gap: 8px; padding: 10px 14px 14px; border-top: 1px solid rgba(255, 255, 255, 0.06); background: rgba(0, 0, 0, 0.2); }
+.sd-dock:empty { display: none; }
+.sd-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.sd-facts div { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border-radius: 8px; background: rgba(255, 255, 255, 0.04); min-width: 0; }
+.sd-facts small { font-weight: 800; font-size: 9px; letter-spacing: 0.14em; color: var(--muted); }
+.sd-facts b { font-weight: 900; font-size: 13px; letter-spacing: 0.04em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+@media (max-width: 820px), (max-height: 560px) {
+  .sd-id h3 { font-size: 34px; }
+  #select .ftile small { display: none; }
+}
+@media (max-height: 460px) {
+  #select .sel { height: calc((100dvh - var(--safe-t) - var(--safe-b)) / var(--ui) - 58px); gap: 8px; }
+  #select .sel-grid { padding: 6px; gap: 5px; }
+  #select .ftile b { font-size: 10px; padding: 3px 6px 4px; }
+  #select .sel-detail { overflow: hidden; padding: 0; }
+  #select .sd-prev { aspect-ratio: 16 / 6.4; }
+  .sd-id { padding: 16px 10px 6px; } .sd-id h3 { font-size: 24px; } .sd-id .role { font-size: 8px; letter-spacing: 0.14em; } .sd-id small { display: none; }
+  .sd-hero .prev-hint { display: none; }
+  #select .sd-stats { display: none; }
+  .sd-tabs { padding: 5px 8px 0; } .sd-tabs button { padding: 5px 4px; font-size: 10px; gap: 4px; } .sd-tabs button .ic { width: 12px; height: 12px; }
+  .sd-body { padding: 6px 8px; gap: 5px; }
+  .sd-dock { padding: 6px 8px 8px; gap: 6px; }
+  .sd-dock .lock-note { font-size: 11px; }
+  .sd-facts div { padding: 5px 7px; } .sd-facts b { font-size: 11px; }
+  .upg-row { padding: 4px 6px 4px 4px; } .upg-ic { width: 24px; height: 24px; } .upg-mid small { display: none; }
+}
