@@ -275,7 +275,7 @@ NODE_PATH=$(npm root -g) node tools/exploit.js
   5. It checks that PLAY goes straight into the fight.
   6. It plays Ascent (a floor, a boon pick by key, the boon applied to the fighter, the run-over sheet, CLIMB AGAIN), plays Survival, clears a trial in Training and uses every pause option, then buys a coin-exclusive fighter and an upgrade rank.
 
-Latest results: mashing light tops out at 2 hits for every fighter, against a dummy or a CPU. Light, light, heavy combos for all 16. The fuzz found no issues. The soak ran 256 matches (631 rounds) across all stages and twists with no issues. All flow checks passed, including Ascent, upgrades and trials. The UI was checked at desktop, iPhone and Android landscape, and iPad sizes.
+Latest results: mashing light tops out at 2 hits for every fighter, against a dummy or a CPU. Light, light, heavy combos for all 16. The fuzz found no issues. The soak ran 256 matches (602 rounds) across all stages and twists with no issues. All flow checks passed, including Ascent, upgrades and trials. The UI was checked at desktop, iPhone and Android landscape, and iPad sizes.
 
 ## Project layout
 

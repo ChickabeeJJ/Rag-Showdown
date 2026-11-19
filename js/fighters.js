@@ -1726,13 +1726,13 @@ const STYLE_SETS = {
     h: { name: 'Overhand', pose: PZ({ fh: [-4, -32], lean: -8, crouch: 6 }, { fh: [50, -4], lean: 20, crouch: 14, ff: [36, 0] }), box: [70, -110, 30], kb: [460, -40] },
   },
   kungfu: {
-    l1: { name: 'Finger Strike', pose: PZ({ fh: [14, 0] }, { fh: [52, -10], lean: 6 }), box: [66, -118, 22] },
+    l1: { name: 'Finger Strike', pose: PZ({ fh: [14, 0] }, { fh: [52, -6], lean: 6 }), box: [68, -110, 26] },
     l2: { name: 'Twin Palms', pose: PZ({ fh: [6, 14], bh: [2, 18], lean: -4 }, { fh: [46, 4], bh: [44, 12], lean: 12, ff: [30, 0] }) },
     h: { name: 'Crane Kick', pose: PZ({ ff: [10, -50], crouch: 4, fh: [20, -32], bh: [-22, -28] }, { ff: [66, -98], lean: -14, fh: [12, -38], bh: [-30, -32] }), box: [74, -104, 30] },
   },
   loose: {
     l2: { name: 'Rubber Hook', pose: PZ({ bh: [-16, 6], lean: -4 }, { bh: [54, 0], lean: 13 }), box: [72, -108, 26] },
-    h: { name: 'Stomp Kick', pose: PZ({ ff: [14, -52], crouch: 6, lean: -4 }, { ff: [62, -24], lean: 10, crouch: 14 }), box: [72, -44, 32], kb: [480, -120] },
+    h: { name: 'Stomp Kick', pose: PZ({ ff: [14, -60], crouch: 6, lean: -4 }, { ff: [66, -40], lean: 10, crouch: 12 }), box: [74, -58, 34], kb: [480, -120] },
   },
   feral: {
     l1: { name: 'Claw', pose: PZ({ fh: [20, -32], lean: 4 }, { fh: [46, 30], lean: 16, crouch: 8 }), box: [64, -96, 28] },
