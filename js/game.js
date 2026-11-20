@@ -287,13 +287,9 @@ const Game = (() => {
       ctx.globalAlpha = Math.min(1, a * 1.1);
       ctx.drawImage(borderSheet(bot - top, col, (time * 70) % 64, side), x - W / 2, top, W, bot - top);
       ctx.restore();
-      // the edge itself: a bright flickering line with a soft glow
+      // a soft glow where the sheet meets the floor
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      const flick = 0.75 + Math.sin(time * 23 + side) * 0.12 + Math.sin(time * 7.3) * 0.13;
-      const eg = ctx.createLinearGradient(0, top, 0, bot);
-      eg.addColorStop(0, rgba(col, 0)); eg.addColorStop(0.45, rgba('#ffffff', 0.55 * a * flick)); eg.addColorStop(1, rgba('#ffffff', 0.95 * a * flick));
-      ctx.fillStyle = eg; ctx.fillRect(x - 1.5, top, 3, bot - top);
       Glow.draw(ctx, col, x, GROUND - 40, 120, 0.35 * a);
       // runes drifting up the sheet
       const rnd = mulberry32(side < 0 ? 7 : 11);
@@ -548,7 +544,8 @@ const Game = (() => {
     const k = clamp(dmg / 120, 0.15, 1);
     G.fx.hit(x, y, spec.color || att.def.color, k, dir > 0 ? 0 : Math.PI);
     // each fighter's normals carry their own signature spark
-    if ((kind === 'light' || kind === 'heavy') && typeof HIT_STYLE !== 'undefined' && HIT_FX[HIT_STYLE[att.def.id]]) HIT_FX[HIT_STYLE[att.def.id]](G, x, y, dir);
+    const hitStyle = att.def.skinHit || (typeof HIT_STYLE !== 'undefined' && HIT_STYLE[att.def.id]);
+    if ((kind === 'light' || kind === 'heavy') && hitStyle && HIT_FX[hitStyle]) HIT_FX[hitStyle](G, x, y, dir);
     if (spec.slash || (act && act.move && act.move.slash)) G.fx.slash(x - dir * 30, y, 60, dir > 0 ? -1.2 : 1.9, dir > 0 ? 1.2 : 4.3, '#ffffff', 10, 0.14);
     Sfx.play(spec.sfx || (kind === 'light' ? 'hitL' : 'hitH'), k);
     if (bf) {
@@ -1086,6 +1083,8 @@ const Game = (() => {
     for (const b of G.border) b.t += dt;
     G.border = G.border.filter(b => b.t < 0.6);
     for (const f of G.fighters) {
+      // skins breathe their own effects: petals, frost, neon trails
+      if (f.def.skinTick && f.alive && f.stopT <= 0) f.def.skinTick(G, f, dt);
       f.borderT = Math.max(0, (f.borderT || 0) - dt);
       const lo = WALL_L + 24 * f.s, hi = WALL_R - 24 * f.s;
       if (f.borderT <= 0 && ((f.root.x <= lo + 2 && f.root.vx < -140) || (f.root.x >= hi - 2 && f.root.vx > 140))) { f.borderT = 0.3; borderHit(f.root.x < 800 ? -1 : 1, f.center().y, 0.6); }
@@ -1872,7 +1871,7 @@ const Game = (() => {
       ctx.save();
       ctx.globalAlpha = a;
       const shift = G.mode === 'demo' ? (G.viewShift || 0) * dpr : 0, vis = G.mode === 'demo' ? G.viewFrac || 1 : 1;
-      ctx.translate(cw / 2 + shift, ch * (c.style === 'round' ? 0.36 : 0.42));
+      ctx.translate(cw / 2 + shift, ch * (c.style === 'round' ? 0.42 : 0.42));
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       const base = Math.min(cw * vis, ch * 1.7);
       if (c.style === 'win') {

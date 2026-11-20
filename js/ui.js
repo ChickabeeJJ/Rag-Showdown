@@ -374,7 +374,7 @@ const UI = (() => {
     const B = Events.battle(p1), n = Events.state().battles + 1;
     U.run = { mode: 'event', p1, cur: { id: B.foe, lv: B.lv, boss: B.boss, skin: B.skin, label: B.boss ? 'CHALLENGER' : 'EVENT CPU' } };
     versusSheet(p1, B.foe, `${E.name} · BATTLE ${n}${B.boss ? ' · CHALLENGER' : ''}`, () => beginFight({ p1, p2: B.foe, skins: [Skins.equipped(p1), B.skin], ctrls: [human(0), cpu(B.lv)], stage: B.stage, mode: 'event', toWin: 1,
-      fastIntro: true, roundSub: B.boss ? `CHALLENGER: ${BY_ID[B.foe].name}` : E.name, chip: `${E.name} · EVENT BATTLE ${n} · 2× ${E.token}`, onEnd: res => setTimeout(() => eventEnd(res), 700) }), null, 1.6);
+      fastIntro: true, roundSub: B.boss ? `CHALLENGER: ${BY_ID[B.foe].name}` : E.name, chip: `${E.name} · EVENT BATTLE ${n} · 2× ${E.token}`, onEnd: res => setTimeout(() => eventEnd(res), 700) }, true), null, 1.6);
   }
   function eventEnd(res) {
     const E = Events.current(), r = U.run, won = res.winner === 0;
@@ -477,6 +477,28 @@ const UI = (() => {
       return card(S.id, Skins.def(def.id, S.id), S.name, sub, has ? (eq === S.id ? 'on' : 'own') : 'locked');
     }).join('')}</div>${own ? '' : `<p class="hint">Unlock ${def.name} to wear skins.</p>`}`;
   }
+  // buying a rank updates the panel in place: the rows, the rank badges and the
+  // coins change, nothing else is rebuilt (so the preview never flickers)
+  function bindUpgrades(def) {
+    const D = $('selDetail');
+    D.querySelectorAll('.upg-buy').forEach(b => {
+      b.onclick = () => {
+        const u = b.dataset.u;
+        if (!Meta.buyRank(def.id, u)) { Sfx.play('uiBack'); toast('NOT ENOUGH COINS'); return; }
+        Sfx.play('unlock'); coinsUI();
+        const old = D.querySelector('.upg');
+        if (old) { const tmp = document.createElement('div'); tmp.innerHTML = upgradeRows(def); const fresh = tmp.firstElementChild; old.replaceWith(fresh); hydrate(fresh); }
+        const rk = Meta.totalRank(def.id), mst = Meta.mastery(def.id);
+        const badge = D.querySelector('.sd-tabs button[data-t="upg"] i'); if (badge) badge.textContent = rk;
+        const chip = D.querySelector('.sd-rank'); if (chip) { chip.innerHTML = `${ic('ranks')}MASTERY ${mst.lv} · RANK ${rk}`; hydrate(chip); }
+        const tile = document.querySelector(`#selGrid .ftile[data-id="${def.id}"]`);
+        if (tile) { let rb = tile.querySelector('.rank'); if (!rb) { rb = document.createElement('span'); rb.className = 'rank'; tile.appendChild(rb); } rb.textContent = 'R' + rk; }
+        const el = D.querySelector(`.upg-row[data-u="${u}"]`);
+        if (el) { el.classList.add('flash'); const on = el.querySelectorAll('.pips i.on'); if (on.length) on[on.length - 1].classList.add('pop'); }
+        bindUpgrades(def);
+      };
+    });
+  }
   // the upgrade panel: four tracks, five ranks each, bought with coins
   function upgradeRows(def) {
     const r = Meta.ranks(def.id);
@@ -546,12 +568,13 @@ const UI = (() => {
         <div class="sd-stats" style="--c:${def.color}">${bar('POWER', st[0])}${bar('SPEED', st[1])}${bar('RANGE', st[2])}</div>
       </div>
       <nav class="sd-tabs" style="--c:${def.color}">${[['moves', 'MOVES', 'fist'], ['upg', 'UPGRADES', 'up'], ['skins', 'SKINS', 'star'], ['info', 'PROFILE', 'user']].map(([k, l, icn]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${ic(icn)}<b>${l}</b>${k === 'upg' && own ? `<i>${rk}</i>` : ''}</button>`).join('')}</nav>
-      <div class="sd-body">${body}</div>
+      <div class="sd-body${s.tabAnim ? ' anim' : ''}">${body}</div>
       <div class="sd-dock">${foot}</div>`;
     const D = $('selDetail');
     hydrate(D);
     startPreview(def.id);
-    D.querySelectorAll('.sd-tabs button').forEach(b => { b.onclick = () => { if (s.tab === b.dataset.t) return; Sfx.play('ui'); s.tab = b.dataset.t; renderDetail(); }; });
+    s.tabAnim = false;
+    D.querySelectorAll('.sd-tabs button').forEach(b => { b.onclick = () => { if (s.tab === b.dataset.t) return; Sfx.play('ui'); s.tab = b.dataset.t; s.tabAnim = true; renderDetail(); }; });
     D.querySelectorAll('.mv[data-k]').forEach(r => { r.onclick = () => { Sfx.play('ui'); const k = r.dataset.k; if (U.previewCtrl) U.previewCtrl.play(k === 'combo' ? ['l', 'l', 'h'] : [k]); }; });
     const on = (id, f) => { const e = $(id); if (e) e.onclick = f; };
     on('sdBuy', () => {
@@ -568,12 +591,7 @@ const UI = (() => {
     on('sdGo', () => { Sfx.play('fight'); confirmSelect(); });
     const segs = (id, f) => { const e = $(id); if (e) e.querySelectorAll('button').forEach(b => { b.onclick = () => { Sfx.play('ui'); f(b.dataset.v); renderSelect(); }; }); };
     segs('optDummy', v => { s.p2 = v; });
-    D.querySelectorAll('.upg-buy').forEach(b => {
-      b.onclick = () => {
-        if (Meta.buyRank(def.id, b.dataset.u)) { Sfx.play('unlock'); coinsUI(); renderSelect(); /* feedback in place: the bought row glows, no toast over the preview */ const el = document.querySelector(`#select .upg-row[data-u="${b.dataset.u}"]`); if (el) { el.classList.add('flash'); const on = el.querySelectorAll('.pips i.on'); if (on.length) on[on.length - 1].classList.add('pop'); } }
-        else { Sfx.play('uiBack'); toast('NOT ENOUGH COINS'); }
-      };
-    });
+    bindUpgrades(def);
   }
 
   // the live preview: the main canvas runs a showcase for the viewed fighter,
@@ -612,6 +630,7 @@ const UI = (() => {
 
   /* ------------------------------------------------------------ fights */
   function beginFight(cfg, instant, fast) {
+    U.lastCfg = cfg;
     closeSheet();
     if (U.tut) { U.tut = null; $('tut').classList.add('hidden'); }
     $('coach').classList.add('hidden');
@@ -1327,7 +1346,13 @@ const UI = (() => {
     $('pSet').onclick = () => openSettings(() => U.openPauseAgain());
     $('pQuit').onclick = () => { Game.paused = false; quitToMenu(); };
     const rs = $('pRestart');
-    if (rs) rs.onclick = () => { Game.paused = false; if (training) beginFight(trainingCfg()); else if (r.mode === 'level') playLevel(r.L); };
+    if (rs) rs.onclick = () => {
+      Game.paused = false;
+      if (training) beginFight(trainingCfg(), true);
+      else if (r.mode === 'level') playLevel(r.L, true);
+      else if (U.lastCfg) beginFight(Object.assign({}, U.lastCfg, { healFrom: null }), true);
+      else U.resume();
+    };
     if (training) {
       sh.querySelectorAll('#pDummy button').forEach(b => { b.onclick = () => { r.dmode = b.dataset.v; Game.ctrls[1] = new DummyCtrl(r.dmode); Game.ctrls[1].reset(Game.fighters[1]); U.openPauseAgain(); }; });
       sh.querySelectorAll('#pMeter button').forEach(b => { b.onclick = () => { r.meter = b.dataset.v === '1'; Game.cfg.trainingMeter = r.meter; U.openPauseAgain(); }; });

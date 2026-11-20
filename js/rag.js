@@ -194,7 +194,7 @@ class Rag {
     const L = this.def.look, x = this.root.x;
     this.chains = [];
     const add = (kind, n, len, w0, w1, color, o) => this.chains.push(Object.assign({ kind, n, len, w0, w1, color, drag: 0.93, grav: 1400, pts: Array.from({ length: n }, () => ({ x, y: GROUND - 200, px: x, py: GROUND - 200 })) }, o || {}));
-    if (L.cape) add('cape', 7, 9, 6, 3.6, 'acc', { push: 0.05 });
+    if (L.cape) add('cape', 7, 9, 6, 3.6, L.capeC || 'acc', { push: 0.05 });
     if (L.hair === 'ponytail') add('hair', 5, 7, 5.5, 2.4, L.hairC || '#2a2630', { drag: 0.9, push: 0.03, grav: 1700 });
     if (L.hair === 'long') add('hair', 4, 7.5, 10, 7, L.hairC || '#3a2c24', { drag: 0.88, push: 0.02, grav: 2000, long: true });
     if (L.coat) add('coat', 4, 9, 11, 13, L.coat, { drag: 0.88, grav: 1700, push: 0.03 });
@@ -267,7 +267,7 @@ class Rag {
 
   celebrate() {
     this.pose = null;
-    this.cele = { t: 0, kind: CELE_BY_STANCE[this.def.look.stance] || 'pump' };
+    this.cele = { t: 0, kind: this.def.look.cele || CELE_BY_STANCE[this.def.look.stance] || 'pump' };
   }
   // confetti in the fighter's colour, white and gold
   confetti(x, y, n, up = 900) {
@@ -982,6 +982,8 @@ class Rag {
       }
       ctx.globalCompositeOperation = 'source-over';
     }
+    // a skin's own accessories and glow (events.js)
+    if (!mono && this.def.skinDraw) this.def.skinDraw(ctx, this, time);
     if (!mono && this.mode === 'block' && this.stunT > 0) {
       const c = this.chest();
       ctx.globalCompositeOperation = 'lighter';

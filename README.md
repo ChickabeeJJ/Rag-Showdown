@@ -110,8 +110,11 @@ A new limited-time event starts every Monday (00:00 UTC) and runs for a week, ro
 - **Challenges:** five per event, such as "Win 3 Event Battles", "Land 15 combo finishers" and "Win 3 fights on Sakura Shrine", for bonus tokens.
 - **Daily check-in:** tokens every day, growing with your streak (20, then up to 50).
 - **Coming back:** the home screen shows the live event with its countdown, progress and a badge when something is waiting. The event screen teases the next event and its fighter as a silhouette. Exclusive fighters can't be bought; one you missed returns when its event comes back around (every three weeks), and FIGHTERS shows when.
-- **Skins:** a SKINS tab in FIGHTERS shows every outfit for a fighter: wear it, or see which event it comes from. Fighters wear their equipped skin in fights, previews, portraits and the versus card.
-- **The UI:** a themed hero banner (drifting petals, falling snow or a neon grid) with the exclusive fighter. Reward tiers are connected by a progress line, and the top tier has a spinning edge. Every panel has an outline that follows its slanted corners. Skin and fighter rewards get their own reveal.
+- **Skins:** a SKINS tab in FIGHTERS shows every outfit for a fighter: wear it, or see which event it comes from. Fighters wear their equipped skin in fights, previews, portraits and the versus card. Each event's skins have their own effects, hit sparks and victory routine:
+  - **Sakura:** a sakura hairpin, petals circling and drifting off the shoulders (a shower when celebrating), and petal hit bursts.
+  - **Frost:** ice crystals grown on the shoulders, frost-glowing fists, cold breath, snow kicked up at the feet, and ice-shard hits.
+  - **Neon:** LED strips glowing along every limb, a visor light, neon afterimage trails on fast moves, and pink and cyan ring hits.
+- **The UI:** a live event card in the bottom-right of the home screen; Event Battles cut straight into the fight. On the event screen, a themed hero banner (drifting petals, falling snow or a neon grid) with the exclusive fighter. Reward tiers are connected by a progress line, and the top tier has a spinning edge. Every panel has an outline that follows its slanted corners. Skin and fighter rewards get their own reveal.
 
 **The event fighters**
 
@@ -249,7 +252,7 @@ Each fighter's light-light-heavy **combo ender**:
 ## Stages
 
 The arena is about 2,300 units wide, half again as wide as before. Its edges are not walls but a **supernatural border**, like the edge of a world:
-- a sheet of light with scrolling diagonal bands and drifting runes, tinted to each stage, with a haze beyond it;
+- a sheet of light with scrolling diagonal bands and drifting runes, tinted to each stage, with a haze beyond it (no hard line down its middle);
 - it is faint from afar and wakes up as a fighter nears it;
 - it ripples and throws sparks where a fighter presses on it, a body splats into it, or a projectile fizzles out against it. The camera pans across it and zooms out a little as the fighters separate. As in Street Fighter, the screen is the leash: fighters on their feet can't walk further apart than the camera can frame.
 
