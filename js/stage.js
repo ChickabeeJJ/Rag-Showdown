@@ -1108,7 +1108,6 @@ const Stage = (() => {
         for (let x = X0; x < X1; x += 80) { g.moveTo(x, 0); g.lineTo(x, 800); }
         for (let y = 0; y < 800; y += 80) { g.moveTo(X0, y); g.lineTo(X1, y); }
         g.stroke();
-        g.fillStyle = 'rgba(255,201,51,0.5)'; g.fillRect(WALL_L - 6, 300, 6, 500); g.fillRect(WALL_R, 300, 6, 500);
       });
       d.floor = 'tile';
     },
@@ -1159,7 +1158,7 @@ const Stage = (() => {
         g.stroke();
       }
       if (kind === 'snow') { g.fillStyle = 'rgba(255,255,255,0.8)'; for (let i = 0; i < 300; i++) g.fillRect(X0 + rnd() * SPAN, top + rnd() * 200, 2, 2); g.fillStyle = vgrad(g, top, top + 40, 'rgba(90,120,170,0.25)', 'rgba(90,120,170,0)'); g.fillRect(X0, top, SPAN, 40); }
-      if (kind === 'ring') { g.fillStyle = '#e8d8b0'; g.fillRect(X0, top + 6, SPAN, 5); g.fillRect(WALL_L - 10, top, 12, 260); g.fillRect(WALL_R, top, 12, 260); }
+      if (kind === 'ring') { g.fillStyle = '#e8d8b0'; g.fillRect(X0, top + 6, SPAN, 5); }
       g.fillStyle = 'rgba(255,255,255,0.12)'; g.fillRect(X0, top, SPAN, 3);
       g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(X0, top + 3, SPAN, 6);
     }, GROUND + 270);
@@ -1395,13 +1394,7 @@ const Stage = (() => {
     const d = prepare(id);
     if (d.art.amb === 'rain') rainDraw(ctx, d, [2]);
     drawAmb(ctx, d, d.art.amb);
-    const fc = { dojo: '#24130c', city: '#07060e', temple: '#3a1418', void: '#0a0618', crater: '#120605', forest: '#16301a', snow: '#1c2e52', arena: '#120a18' }[id];
-    if (fc) {
-      const off = (cam.x - 800) * -0.25;
-      ctx.fillStyle = fc; ctx.globalAlpha = 0.92;
-      for (const x of [WALL_L - 200, WALL_R + 130]) ctx.fillRect(x + off, vr.y0 - 20, 70, vr.y1 - vr.y0 + 40);
-      ctx.globalAlpha = 1;
-    }
+    // the arena's edges are not walls: game.js draws the supernatural border
   }
 
   // screen space: a colour grade and vignette over everything except the HUD
@@ -1434,13 +1427,14 @@ const Stage = (() => {
 const Portraits = (() => {
   const rags = {}, urls = {};
   function rag(def) {
-    if (rags[def.id]) return rags[def.id];
+    const rk = def.skin ? def.id + ':' + def.skin : def.id;
+    if (rags[rk]) return rags[rk];
     const r = new Rag(def, { x: 0, facing: 1 });
     r.root.y = GROUND; r.t = 0;
     r.pose = { fh: [20, 26], bh: [8, 30], lean: 0, crouch: 0, ff: [16, 0], bf: [-16, 0] };
     r.computeTargets(); r.snapToPose();
     r.settleCloth();
-    rags[def.id] = r;
+    rags[rk] = r;
     return r;
   }
   // draw head and shoulders centred at (x, y) filling roughly `size` px tall
@@ -1459,7 +1453,7 @@ const Portraits = (() => {
     ctx.restore();
   }
   function url(def, w = 160, h = 160) {
-    const key = def.id + w + 'x' + h;
+    const key = (def.skin ? def.id + ':' + def.skin : def.id) + w + 'x' + h;
     if (urls[key]) return urls[key];
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     const g = c.getContext('2d');

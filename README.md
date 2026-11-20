@@ -1,6 +1,6 @@
 # Rag Showdown
 
-A 1v1 ragdoll fighting game in the style of classic arcade fighters. All 16 fighters are Element Rag's plain, faceless stickmen, with the same floppy active-ragdoll body and the same UI. What sets each one apart is a set of powers based on the kinds of techniques battle anime is famous for. Every super opens with a comic-panel cut-in. A super that lands the knockout plays a **FINISHER**: impact frames (stark black, white and red frames), slow motion and a letterboxed stamp.
+A 1v1 ragdoll fighting game in the style of classic arcade fighters. All 19 fighters are Element Rag's plain, faceless stickmen, with the same floppy active-ragdoll body and the same UI. What sets each one apart is a set of powers based on the kinds of techniques battle anime is famous for. Every super opens with a comic-panel cut-in. A super that lands the knockout plays a **FINISHER**: impact frames (stark black, white and red frames), slow motion and a letterboxed stamp.
 
 It's pure HTML5 and vanilla JS, with no build step and no dependencies. All art is procedural and every sound is synthesized.
 
@@ -94,6 +94,34 @@ Upgrades apply in levels, Survival and Ascent, but not in Training. A fighter's 
   - Every fight earns XP: more for a win, and extra for finishers, long combos and Black Sparks.
   - Each level pays coins, and levels 5, 10, 15 and 20 earn a title: Adept, Expert, Master, Grandmaster.
   - Mastery shows on the home screen, on result sheets and in the fighter's profile.
+
+## Events
+
+A new limited-time event starts every Monday (00:00 UTC) and runs for a week, rotating through three. Each has its own exclusive fighter, three skins and its own token.
+
+| Event | Stage | Token | Exclusive fighter | Skins |
+| --- | --- | --- | --- | --- |
+| Sakura Festival | Sakura Shrine | Petals | **HANA**, Petal Dancer | Kaze Blossom Gi, Mugi Festival Yukata, Homura Blossom Haori |
+| Frost Moon | Frost Peak | Snowflakes | **KORI**, Frost Warden | Ryo Snow Shinobi, Aoi Glacier Robe, Goro Mountain Yeti |
+| Neon Nights | Neon Rooftop | Neon Chips | **RAVE**, Neon DJ | Jin Neon Reaper, Kohei Synthwave, Saibo Chrome Cape |
+
+- **Tokens:** every fight in Levels, Ascent and Survival pays tokens (more for wins, finishers and long combos). **Event Battles** on the event's stage pay double. Every third Event Battle is against the exclusive fighter, as a challenger. The other foes often wear the event's skins.
+- **Reward track:** seven tiers up to 700 tokens: coins, the three skins, and the **exclusive fighter** at the top. Claimed skins are equipped at once.
+- **Challenges:** five per event, such as "Win 3 Event Battles", "Land 15 combo finishers" and "Win 3 fights on Sakura Shrine", for bonus tokens.
+- **Daily check-in:** tokens every day, growing with your streak (20, then up to 50).
+- **Coming back:** the home screen shows the live event with its countdown, progress and a badge when something is waiting. The event screen teases the next event and its fighter as a silhouette. Exclusive fighters can't be bought; one you missed returns when its event comes back around (every three weeks), and FIGHTERS shows when.
+- **Skins:** a SKINS tab in FIGHTERS shows every outfit for a fighter: wear it, or see which event it comes from. Fighters wear their equipped skin in fights, previews, portraits and the versus card.
+- **The UI:** a themed hero banner (drifting petals, falling snow or a neon grid) with the exclusive fighter. Reward tiers are connected by a progress line, and the top tier has a spinning edge. Every panel has an outline that follows its slanted corners. Skin and fighter rewards get their own reveal.
+
+**The event fighters**
+
+| Fighter | Specials | Super | Finisher |
+| --- | --- | --- | --- |
+| HANA | Petal Fan (five cutting petals); Blossom Veil (a counter stance: strike her inside it and she vanishes behind you with a rising kick) | Thousand Petal Storm: a pulling petal vortex, then a burst | Spring Gale (close) |
+| KORI | Icicle Lance (freezes on hit); Frost Pillar (frost marks the ground under the foe, then an ice pillar erupts) | Absolute Zero: freezes the foe in a block of ice, then shatters it | Glacier Upper (close) |
+| RAVE | Bass Drop (a wave rolling along the floor); Beat Dash (three hits on the beat) | Drop The Beat: speaker stacks, a floor equaliser and four bass pulses, the last one the drop | Sonic Boom (ranged) |
+
+Each has their own stance, normals (fan dance, frost fists, beat boxing) and hit sparks.
 
 ## Controls
 
@@ -220,7 +248,10 @@ Each fighter's light-light-heavy **combo ender**:
 
 ## Stages
 
-The arena is about 2,300 units wide, half again as wide as before. The camera pans across it and zooms out a little as the fighters separate. As in Street Fighter, the screen is the leash: fighters on their feet can't walk further apart than the camera can frame.
+The arena is about 2,300 units wide, half again as wide as before. Its edges are not walls but a **supernatural border**, like the edge of a world:
+- a sheet of light with scrolling diagonal bands and drifting runes, tinted to each stage, with a haze beyond it;
+- it is faint from afar and wakes up as a fighter nears it;
+- it ripples and throws sparks where a fighter presses on it, a body splats into it, or a projectile fizzles out against it. The camera pans across it and zooms out a little as the fighters separate. As in Street Fighter, the screen is the leash: fighters on their feet can't walk further apart than the camera can frame.
 
 
 Eight stages, built like Element Rag's backdrops. Each has far, mid and near layers pre-rendered with haze between them, and the far layers are softer, like depth of field. Buildings, trees and rocks are shaded and catch a rim of light, and props have soft contact shadows, so nothing floats. On top of that, each frame adds:
@@ -259,7 +290,7 @@ Eight stages, built like Element Rag's backdrops. Each has far, mid and near lay
 
 ## UI on every screen
 
-- **FIGHTERS screen:** all 16 fighters fit on one screen (4 by 4), arranged by colour from red to pink, each tile showing their role, rank, price or lock. The right side is a hero panel: the live preview with the fighter's name, role and style over it, stat bars, and MOVES / UPGRADES / PROFILE tabs. The action button is always visible.
+- **FIGHTERS screen:** all 19 fighters fit on one screen (4 across), arranged by colour from red to pink, each tile showing their role, rank, price or lock. The right side is a hero panel: the live preview with the fighter's name, role and style over it, stat bars, and MOVES / UPGRADES / PROFILE tabs. The action button is always visible.
 - **Fighter preview:** the select screen shows a live preview of the fighter you're looking at, on their home stage, running through their combo finisher, both specials and their super against a dummy. Tap any move in the list to watch it next. It works for locked fighters too, so you can see what you're buying.
 
 - The whole interface is laid out for 1280x720 and scaled to the window, so it looks the same on a phone, a tablet, a laptop or a 4K monitor. Phones get a little extra size (19%) so text stays readable.
@@ -278,17 +309,20 @@ Eight stages, built like Element Rag's backdrops. Each has far, mid and near lay
 
 ## CrazyGames SDK
 
-`js/platform.js` wraps the CrazyGames HTML5 SDK v3. Every call is guarded, so the game runs exactly the same offline, on other sites, or with the SDK blocked. In that case no ad buttons appear.
+`js/platform.js` wraps the CrazyGames HTML5 SDK v3. **Rag Showdown shows no ads of any kind**: the game never calls the ad module, and the flow test fails if it ever does. Every call is guarded, so the game runs exactly the same offline, on other sites, or with the SDK blocked.
 
 - **Lifecycle:** init (with a 4-second timeout, so it never holds up boot), then loading start and stop around boot.
-- **Gameplay events:** gameplay start and stop whenever a real fight is live and not paused or behind a panel. The events are sent only on changes, so they never double up.
-- **Happytime:** a 3-star or chapter clear, a new Ascent or Survival best, a legendary card, a mastery level-up, and opening the daily chest.
+- **Gameplay events:** gameplay start and stop whenever a real fight is live and not paused or behind a panel. The events are sent only on changes, never during loading, so they never double up.
+- **Happytime:** a 3-star or chapter clear, a new Ascent or Survival best, a legendary card, a mastery level-up, the daily chest, and event rewards.
 - **Saves:** go through the SDK data module, so progress follows the player's CrazyGames account. Elsewhere, saves use localStorage.
 - **Mute:** the platform's mute setting is honoured live.
-- **Ads:**
-  - A midgame ad only at a natural break before a fight starts. It is never during a fight, never in the first 2 minutes, and at most every 3 minutes.
-  - Two opt-in rewarded ads: **REVIVE AT 50% HEALTH** once per Ascent run, and **DOUBLE YOUR COINS** at the end of a Survival run.
-  - Game audio is muted while an ad plays.
+- **User:** a signed-in player's name shows on the home screen and stays up to date through the auth listener. An account is never needed to play.
+
+**Trailers:** `crazygames/trailer-landscape-1920x1080.mp4` and `crazygames/trailer-portrait-1080x1920.mp4`, each 17.3 seconds, H.264, 30 fps and under 20 MB.
+- **Made from the game:** they are rendered from the real game, frame by frame and deterministically, by `tools/trailer.js`.
+- **Shots:** fast jump cuts through a title slam, a combo, Aoi's Violet Void, Kensei's line, Jin's eclipse, a legendary card hand, the three event fighters' supers, Kaze's Wave Cannon finish and an end card.
+- **Portrait:** frames the fight with its own tall-screen camera.
+- **Re-rendering:** serve the repo, then run `NODE_PATH=$(npm root -g) node tools/trailer.js landscape` (or `portrait`).
 
 ## Testing
 
@@ -310,7 +344,7 @@ NODE_PATH=$(npm root -g) node tools/flow.js
 NODE_PATH=$(npm root -g) node tools/exploit.js
 ```
 
-- `tools/soak.js` runs CPU-vs-CPU matches for every pairing of the 16 fighters, at 16x speed, across all stages and every twist. It fails on:
+- `tools/soak.js` runs CPU-vs-CPU matches for every pairing of the 19 fighters, at 16x speed, across all stages and every twist. It fails on:
   - errors;
   - NaN positions or bodies escaping the arena;
   - stuck rounds or matches that never finish;
@@ -328,9 +362,10 @@ NODE_PATH=$(npm root -g) node tools/exploit.js
   4. It checks the level map, including that locked levels give a message.
   5. It checks that PLAY goes straight into the fight.
   6. It plays Ascent (a floor, a card pick by key, the card applied to the fighter, the run-over sheet, CLIMB AGAIN), plays Survival, clears a trial in Training and uses every pause option, then buys a coin-exclusive fighter and an upgrade rank.
-  7. It checks the CrazyGames SDK against a recording mock (`tools/crazygames-mock.js`): init, loading, gameplay start and stop (never doubled), happytime, data-module saves and the mute listener.
+  7. It plays the event: check-in, an Event Battle on the event stage (double tokens), every reward tier (the exclusive fighter unlocks, skins are equipped), and no tier can be claimed twice.
+  8. It checks the CrazyGames SDK against a recording mock (`tools/crazygames-mock.js`): init, loading, gameplay start and stop (never doubled), happytime, data-module saves, the user module and the mute listener, and that no ad is ever requested.
 
-Latest results: mashing light tops out at 2 hits for every fighter, against a dummy or a CPU. Light, light, heavy combos for all 16. The fuzz found no issues. The soak ran 256 matches (595 rounds) across all stages and twists with no issues and no page errors; a card stress test ran every gimmick card at once with no errors. All flow checks passed, including Ascent, upgrades and trials. The UI was checked at desktop, iPhone and Android landscape, and iPad sizes.
+Latest results: mashing light tops out at 2 hits for every fighter, against a dummy or a CPU. Light, light, heavy combos for all 19. The fuzz found no issues. The soak ran 361 matches (842 rounds) across all stages and twists with no issues and no page errors; a card stress test ran every gimmick card at once with no errors. All flow checks passed, including Ascent, upgrades and trials. The UI was checked at desktop, iPhone and Android landscape, and iPad sizes.
 
 ## Project layout
 
@@ -343,10 +378,12 @@ js/audio.js       synthesized SFX and a step-sequencer fight soundtrack
 js/rag.js         Element Rag's active ragdoll and stickman drawing, pose library with IK,
                   whole-body spins, hitstun, knockdowns, getting up, hurtboxes, blades
 js/fx.js          particles, rings, arcs, slash trails, hit stars (from Element Rag, extended)
-js/fighters.js    16 fighters: normals, keyframed specials and scripted supers; stage list
+js/fighters.js    19 fighters (3 event exclusives): normals, keyframed specials and scripted supers; stage list
+js/events.js      weekly events: schedule, tokens, reward track, challenges, check-in, Event Battles; skins
 js/campaign.js    chapters, levels, twists, recruits, stars
 js/meta.js        upgrades, Ascent cards and rarities, training trials, daily missions, fighter mastery
-js/platform.js    CrazyGames SDK v3 wrapper: events, happytime, cloud saves, mute, ads
+js/platform.js    CrazyGames SDK v3 wrapper: events, happytime, cloud saves, mute, user (no ads)
+tools/trailer.js  renders the CrazyGames trailers (landscape and portrait) from the game
 js/game.js        rounds, move runtime, hits / guard / juggles / Black Spark, projectiles, beams,
                   fields, minions, marks, barriers, cut-ins, impact frames, finishers, camera
 js/stage.js       layered parallax stages, weather, portraits

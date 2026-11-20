@@ -1,26 +1,24 @@
 'use strict';
 /* =========================================================================
-   Platform layer: the CrazyGames HTML5 SDK v3, wrapped.
+   Platform layer: the CrazyGames HTML5 SDK v3, wrapped. Rag Showdown shows
+   NO ads of any kind: this file never requests an ad or a banner.
    - init (with a timeout, so a slow or blocked SDK never holds up boot)
    - loading start / stop, gameplay start / stop, happytime
    - data module for saves (synced to the player's account on CrazyGames;
      plain localStorage everywhere else)
    - the platform's mute setting, live
-   - ads: a midgame ad only at natural breaks between fights (rate limited),
-     and opt-in rewarded ads; game audio is muted while an ad plays
+   - the user module: a signed-in player's name, kept up to date
    Every call is guarded: off CrazyGames, offline or with the SDK blocked,
-   the game runs exactly the same and simply shows no ad buttons.
+   the game runs exactly the same.
    ========================================================================= */
 
 const Platform = (() => {
   let sdk = null;
   let env = 'standalone';
   let inGameplay = false;
-  let adBusy = false;
-  const bootAt = Date.now();
-  let lastAdAt = 0;
-  const MIDGAME_GAP = 180 * 1000;     // at most one midgame ad every 3 minutes
-  const MIDGAME_GRACE = 120 * 1000;   // and never in the first 2 minutes
+  let loading = false;
+  let user = null;
+  const userListeners = [];
 
   const safe = (fn, fallback) => { try { return fn(); } catch (e) { return fallback; } };
 
@@ -37,10 +35,20 @@ const Platform = (() => {
     if (!sdk) return;
     // the platform's audio setting wins over the in-game toggles
     safe(() => { applySettings(sdk.game.settings); sdk.game.addSettingsChangeListener(applySettings); });
+    // the player's account (optional; never needed to play)
+    safe(() => sdk.user.addAuthListener(u => setUser(u)));
+    if (safe(() => sdk.user.isUserAccountAvailable, false)) {
+      try { setUser(await Promise.race([sdk.user.getUser(), new Promise(r => setTimeout(() => r(null), 3000))])); } catch (e) { setUser(null); }
+    }
   }
   function applySettings(s) {
     if (s && typeof Sfx !== 'undefined' && Sfx.setPlatformMute) Sfx.setPlatformMute(!!s.muteAudio);
   }
+  function setUser(u) {
+    user = u && u.username ? { name: String(u.username).slice(0, 24), avatar: u.profilePictureUrl || '' } : null;
+    for (const fn of userListeners) safe(() => fn(user));
+  }
+  const onUser = fn => { userListeners.push(fn); fn(user); };
 
   /* ----------------------------------------------------------- storage */
   // the data module has the localStorage API and syncs to the account
@@ -54,44 +62,22 @@ const Platform = (() => {
   function setItem(k, v) { const s = store(); try { if (s) s.setItem(k, v); else memory[k] = v; } catch (e) { memory[k] = v; } }
 
   /* ------------------------------------------------------------ events */
-  function loadingStart() { safe(() => sdk && sdk.game.loadingStart()); }
-  function loadingStop() { safe(() => sdk && sdk.game.loadingStop()); }
-  // called every frame with "is a real fight live right now?"; only changes are sent
+  function loadingStart() { if (loading) return; loading = true; safe(() => sdk && sdk.game.loadingStart()); }
+  function loadingStop() { if (!loading) return; loading = false; safe(() => sdk && sdk.game.loadingStop()); }
+  // called every frame with "is a real fight live right now?"; only changes are sent,
+  // and never while loading
   function gameplay(on) {
-    on = !!on && !adBusy;
+    on = !!on && !loading;
     if (on === inGameplay) return;
     inGameplay = on;
     safe(() => sdk && (on ? sdk.game.gameplayStart() : sdk.game.gameplayStop()));
   }
-  // a short celebration moment: a 3-star clear, a new best, a legendary card
+  // a short celebration moment: a 3-star clear, a new best, a legendary card,
+  // an event reward
   function happytime() { safe(() => sdk && sdk.game.happytime()); }
 
-  /* --------------------------------------------------------------- ads */
-  const adsReady = () => !!sdk && !adBusy && !!safe(() => sdk.ad, null);
-  function play(type) {
-    return new Promise(resolve => {
-      if (!adsReady()) { resolve(false); return; }
-      adBusy = true; lastAdAt = Date.now();
-      gameplay(false);
-      let done = false;
-      const finish = ok => { if (done) return; done = true; adBusy = false; if (typeof Sfx !== 'undefined') Sfx.suspend(false); resolve(ok); };
-      try {
-        sdk.ad.requestAd(type, {
-          adStarted: () => { if (typeof Sfx !== 'undefined') Sfx.suspend(true); },
-          adFinished: () => finish(true),
-          adError: () => finish(false),
-        });
-      } catch (e) { finish(false); }
-      // never leave the game stuck if the SDK goes quiet
-      setTimeout(() => finish(false), 60000);
-    });
-  }
-  const midgameDue = () => adsReady() && Date.now() - bootAt > MIDGAME_GRACE && Date.now() - lastAdAt > MIDGAME_GAP;
-  const midgame = () => play('midgame');
-  const rewarded = () => play('rewarded');
-
   return {
-    init, getItem, setItem, loadingStart, loadingStop, gameplay, happytime, adsReady, midgameDue, midgame, rewarded,
-    get hasSdk() { return !!sdk; }, get env() { return env; }, get inGameplay() { return inGameplay; },
+    init, getItem, setItem, loadingStart, loadingStop, gameplay, happytime, onUser,
+    get hasSdk() { return !!sdk; }, get env() { return env; }, get inGameplay() { return inGameplay; }, get user() { return user; },
   };
 })();

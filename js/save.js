@@ -26,6 +26,8 @@ const Save = (() => {
     ascentRuns: 0,
     missions: null,      // { day, list: [{ id, n, goal, pay, claimed, fid? }], bonus }
     mxp: {},             // fighter id -> mastery XP
+    event: null,         // this week's event progress (events.js)
+    skins: { owned: [], equip: {} },   // event skins earned, and which one each fighter wears
     arcadeDiff: 1,       // 0 easy, 1 normal, 2 hard
     settings: { sfx: true, music: true, shake: true, flashes: true },
   });
@@ -48,6 +50,9 @@ const Save = (() => {
         if (!S.data.trials || typeof S.data.trials !== 'object') S.data.trials = {};
         if (!Number.isFinite(S.data.ascentBest)) S.data.ascentBest = 0;
         if (!S.data.mxp || typeof S.data.mxp !== 'object') S.data.mxp = {};
+        if (!S.data.skins || typeof S.data.skins !== 'object' || !Array.isArray(S.data.skins.owned)) S.data.skins = { owned: [], equip: {} };
+        if (!S.data.skins.equip || typeof S.data.skins.equip !== 'object') S.data.skins.equip = {};
+        if (S.data.event && (typeof S.data.event.key !== 'string' || !Number.isFinite(S.data.event.tokens) || !Array.isArray(S.data.event.claimed))) S.data.event = null;
         if (S.data.missions && (!Array.isArray(S.data.missions.list) || typeof S.data.missions.day !== 'string')) S.data.missions = null;
       }
     } catch (e) { S.data = fresh(); }
@@ -57,7 +62,7 @@ const Save = (() => {
   S.unlock = function (id) { if (!S.owned(id)) { S.data.unlocked.push(id); S.save(); return true; } return false; };
   S.buy = function (id) {
     const d = BY_ID[id];
-    if (!d || S.owned(id) || S.data.coins < d.price) return false;
+    if (!d || d.eventOnly || S.owned(id) || S.data.coins < d.price) return false;   // event fighters are earned, never bought
     S.data.coins -= d.price; S.unlock(id); S.save();
     return true;
   };

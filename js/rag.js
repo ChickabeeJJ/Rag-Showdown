@@ -98,6 +98,10 @@ const STANCES = {
   soldier: ST({ fh: [26, 8], bh: [14, 14], ff: [22, 0], bf: [-32, 0], lean: 8, crouch: 11 }, { bounce: 2, bounceF: 4.4, hop: true, handA: 1.2 }),
   dual:    ST({ fh: [32, 12], bh: [-28, 10], ff: [32, 0], bf: [-40, 0], lean: 6, crouch: 18 }, { bounce: 1.2, bounceF: 2, handA: 1.2 }),
   calm:    ST({ fh: [14, 32], bh: [-10, 34], ff: [14, 0], bf: [-15, 0], lean: 0, crouch: 1 }, { breathe: 1.1, sway: 0.3, swayA: 0.6, handA: 0.8, stride: 20, walkLean: 1 }),
+  // event fighters: a fan dancer's poised guard, a warden's heavy frost stance, a DJ bouncing on the beat
+  dancer:  ST({ fh: [26, -16], bh: [-22, -12], ff: [22, 0], bf: [-26, 0], lean: 3, crouch: 7 }, { breathe: 1.2, sway: 0.8, swayA: 2, hand: 2, handA: 3, stride: 26, walkLean: 4 }),
+  frost:   ST({ fh: [34, 4], bh: [10, 14], ff: [30, 0], bf: [-36, 0], lean: 8, crouch: 16 }, { breathe: 1, bounce: 1.4, bounceF: 1.6, handA: 1, stride: 28, step: 6 }),
+  beat:    ST({ fh: [20, 10], bh: [-14, 14], ff: [24, 0], bf: [-28, 0], lean: 4, crouch: 9 }, { bounce: 3.8, bounceF: 4, hop: true, hand: 4, handA: 3, sway: 1.2, swayA: 2.4 }),
 };
 // reactions: snapped back by a head hit, doubled over by a body hit, buckled by a low one
 const HURT = {
@@ -115,6 +119,7 @@ const CELE_BY_STANCE = {
   ninja: 'flip', kungfu: 'flip', sword: 'flip', dual: 'flip',
   mystic: 'aura', calm: 'aura', regal: 'aura', monk: 'aura', reaper: 'aura',
   giant: 'roar', feral: 'roar', casual: 'wave',
+  dancer: 'flip', frost: 'roar', beat: 'wave',
 };
 const CROSSED = { fh: [16, 22], bh: [-6, 22], lean: -2, crouch: 0, ff: [14, 0], bf: [-14, 0] };
 

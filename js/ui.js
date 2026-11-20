@@ -106,7 +106,7 @@ const UI = (() => {
   U.homeShift = homeShift;
   function show(name) {
     U.screen = name;
-    for (const id of ['home', 'select', 'levels']) $(id).classList.toggle('hidden', id !== name);
+    for (const id of ['home', 'select', 'levels', 'event']) $(id).classList.toggle('hidden', id !== name);
     $('hud').classList.toggle('hidden', name !== null || !U.fightOn);
     document.body.classList.toggle('playing', name === null);
     if (name === 'home') renderHome();
@@ -130,7 +130,10 @@ const UI = (() => {
   U.init = function () {
     hydrate();
     $('btnPlay').onclick = () => { Sfx.play('fight'); playLevel(Campaign.next(), true); };   // PLAY cuts straight in, no bars
+    // a signed-in CrazyGames player sees their name on the home screen
+    Platform.onUser(u => { const el = $('homeUser'); if (!el) return; el.classList.toggle('hidden', !u); el.querySelector('b').textContent = u ? u.name : ''; });
     $('btnLevels').onclick = () => { Sfx.play('ui'); openLevels(); };
+    $('btnEvent').onclick = () => { Sfx.play('ui'); openEvent(); };
     $('btnAscent').onclick = () => { Sfx.play('ui'); openSelect('ascent'); };
     $('btnSurvival').onclick = () => { Sfx.play('ui'); openSelect('survival'); };
     $('btnTraining').onclick = () => { Sfx.play('ui'); openSelect('training'); };
@@ -178,9 +181,10 @@ const UI = (() => {
     $('survSub').textContent = `BEST ${d.survivalBest}`;
     $('ascSub').textContent = d.ascentBest ? `BEST FLOOR ${d.ascentBest}` : 'ROGUELITE CLIMB';
     const ms0 = Meta.mastery(def.id);
-    $('homePick').innerHTML = `${pt(def)}<div class="hp-mid"><small>YOUR FIGHTER</small><b>${def.name}</b><span class="hp-xp"><em style="color:${def.color}">LV ${ms0.lv}</em>${xpBar(ms0, def.color)}</span></div><button class="btn small" id="homeChange"><b>CHANGE</b></button>`;
+    renderEventCard();
+    $('homePick').innerHTML = `${pt(Skins.def(def.id, Skins.equipped(def.id)))}<div class="hp-mid"><small>YOUR FIGHTER</small><b>${def.name}</b><span class="hp-xp"><em style="color:${def.color}">LV ${ms0.lv}</em>${xpBar(ms0, def.color)}</span></div><button class="btn small" id="homeChange"><b>CHANGE</b></button>`;
     $('homeChange').onclick = () => { Sfx.play('ui'); openSelect('roster'); };
-    const canBuy = ROSTER.some(f => !Save.owned(f.id) && d.coins >= f.price);
+    const canBuy = ROSTER.some(f => !Save.owned(f.id) && !f.eventOnly && d.coins >= f.price);
     $('rosterNote').classList.toggle('hidden', !canBuy);
     // daily missions: three goals and their progress, one tap to open
     const ms = Meta.missions(), cl = Meta.claimable(), doneN = ms.list.filter(m => m.n >= m.goal).length;
@@ -224,6 +228,186 @@ const UI = (() => {
     for (const m of Meta.track(ev, amt, ctx)) { Sfx.play('unlock'); toast(`MISSION COMPLETE · ${Meta.missionText(m).toUpperCase()}`); }
   }
 
+  /* ------------------------------------------------------------ events
+     The weekly event: a card on the home screen, the event screen (hero,
+     reward track, challenges, daily check-in, Event Battles, next event),
+     reward reveals, and Event Battle results. */
+  // a full-body render of a fighter (optionally as a silhouette), cached
+  const ART = {};
+  function fullBody(def, w = 300, h = 380, mono) {
+    const key = (def.skin ? def.id + ':' + def.skin : def.id) + ':' + w + 'x' + h + (mono || '');
+    if (ART[key]) return ART[key];
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d');
+    const r = new Rag(def, { side: 0, x: 0, facing: 1 });
+    for (let k = 0; k < 240; k++) { r.update(1 / 120); r.root.x = 0; }
+    let top = Infinity, l = Infinity, rt = -Infinity;
+    for (const p of r.pts) { top = Math.min(top, p.y); l = Math.min(l, p.x); rt = Math.max(rt, p.x); }
+    top -= HEAD_R * r.s * 1.6;
+    const k = Math.min((h * 0.94) / (GROUND - top), (w * 0.86) / (rt - l + 80 * r.s / 2));
+    g.save(); g.translate(w / 2, h * 0.985); g.scale(k, k); g.translate(-(l + rt) / 2, -GROUND);
+    r.draw(g, 1.3, mono || null);
+    g.restore();
+    return (ART[key] = c.toDataURL());
+  }
+  const tokIc = E => ic(E.tokenIcon, 'tok');
+  function renderEventCard() {
+    const E = Events.current(), s = Events.state(), p = Events.pending(), def = BY_ID[E.fighter];
+    const el = $('btnEvent'); if (!el) return;
+    el.style.cssText = `--ec:${E.col};--ec2:${E.col2};--eink:${E.ink}`;
+    el.className = `event-card ol ev-${E.id}`;
+    el.innerHTML = `<span class="ec-bg"></span><img class="ec-art" alt="" src="${fullBody(def, 140, 170)}">
+      <span class="ec-txt"><small><i class="live"></i>LIVE EVENT · <span class="evLeft">${Events.fmtLeft(Events.left(E.end))}</span> LEFT</small><b>${E.name}</b>
+      <span class="ec-bar"><i style="width:${Math.min(100, s.tokens / Events.MAX * 100)}%"></i></span>
+      <em>${tokIc(E)}${fmt(s.tokens)} / ${fmt(Events.MAX)} ${E.token}${Save.owned(E.fighter) ? '' : ` · EARN ${def.name}`}</em></span>
+      ${p ? `<span class="ec-badge">${p}</span>` : ''}`;
+    hydrate(el);
+  }
+  function openEvent() {
+    show('event');
+    renderEvent();
+    clearInterval(U.evTimer);
+    // the countdowns tick while the event screen or home is up
+    U.evTimer = setInterval(() => { if (U.screen !== 'event' && U.screen !== 'home') return; document.querySelectorAll('.evLeft').forEach(e => { e.textContent = Events.fmtLeft(Events.left(Events.current().end)); }); }, 15000);
+  }
+  // where the progress line fills to: tiers sit at even spacing, tokens interpolate between them
+  function trackFill(tokens) {
+    const T = Events.TRACK, n = T.length, pos = i => (i + 0.5) / n;
+    if (tokens <= 0) return 0;
+    if (tokens < T[0].at) return pos(0) * tokens / T[0].at;
+    for (let i = 0; i < n - 1; i++) if (tokens < T[i + 1].at) return pos(i) + (pos(i + 1) - pos(i)) * (tokens - T[i].at) / (T[i + 1].at - T[i].at);
+    return 1;
+  }
+  function tierArt(R, E) {
+    if (R.kind === 'coins') return `<span class="et-coins">${ic('coins', 'coin')}<b>${fmt(R.n)}</b></span>`;
+    if (R.kind === 'skin') return `<img alt="" src="${fullBody(Skins.def(R.fighter, R.id), 120, 150)}">`;
+    return `<img alt="" src="${fullBody(BY_ID[R.id], 140, 170)}">`;
+  }
+  function renderEvent() {
+    const E = Events.current(), s = Events.state(), N = Events.next(), def = BY_ID[E.fighter];
+    $('evTok').innerHTML = `${tokIc(E)}<b>${fmt(s.tokens)}</b>`;
+    $('evTitle').textContent = 'EVENTS';
+    const tiers = Events.TRACK.map((T, i) => {
+      const R = Events.reward(i), got = s.claimed.includes(i), ready = !got && s.tokens >= T.at, fin = R.kind === 'fighter';
+      const lbl = R.kind === 'coins' ? 'COINS' : R.kind === 'skin' ? `SKIN · ${BY_ID[R.fighter].name}` : R.already ? 'ALREADY YOURS · +1,000 COINS' : 'EXCLUSIVE FIGHTER';
+      return `<div class="ev-tier ol ${got ? 'got' : ready ? 'ready' : 'locked'} ${fin ? 'final' : ''} k-${R.kind}" style="--i:${i}">
+        <span class="et-at">${tokIc(E)}${T.at}</span>
+        <div class="et-art">${tierArt(R, E)}</div>
+        <b class="et-name">${R.name}</b><small>${lbl}</small>
+        ${got ? `<span class="et-ok">${ic('check')}CLAIMED</span>` : ready ? `<button class="btn small primary" data-claim="${i}"><b>CLAIM</b></button>` : `<span class="et-need">${ic('lock')}${fmt(T.at - s.tokens)} MORE</span>`}
+      </div>`;
+    }).join('');
+    const ch = Events.challenges().map(C => `<div class="ev-chal ${C.claimed ? 'claimed' : C.n >= C.goal ? 'done' : ''}"><span class="mi-ic">${ic(C.icon)}</span>
+      <div class="mi-mid"><b>${esc(C.text)}</b><span class="mi-bar"><i style="width:${Math.round(C.n / C.goal * 100)}%"></i></span><small>${C.n} / ${C.goal}</small></div>
+      ${C.claimed ? `<span class="mi-ok">${ic('check')}DONE</span>` : `<button class="btn small ${C.n >= C.goal ? 'primary' : ''}" data-ch="${C.id}" ${C.n >= C.goal ? '' : 'disabled'}><b>${tokIc(E)}${C.pay}</b></button>`}</div>`).join('');
+    const ready = Events.checkinReady(), streak = s.streak || 0;
+    const nextStreak = ready ? (s.checkin === new Date(Date.now() + Events._offset - 86400000).toISOString().slice(0, 10) ? streak + 1 : 1) : streak;
+    const dots = [1, 2, 3, 4, 5, 6, 7].map(d => `<i class="${d <= (ready ? nextStreak - 1 : streak) ? 'on' : ''} ${ready && d === nextStreak ? 'now' : ''}"><b>+${Events.checkinPay(d)}</b></i>`).join('');
+    const nb = Events.battle(Save.data.lastPick);
+    const me = BY_ID[Save.owned(Save.data.lastPick) ? Save.data.lastPick : 'kaze'];
+    $('evWrap').innerHTML = `
+      <div class="ev-hero ol ev-${E.id}" style="--ec:${E.col};--ec2:${E.col2};--eink:${E.ink}">
+        <span class="ev-bg"></span><span class="ev-fx"></span>
+        <div class="ev-info">
+          <span class="ev-live"><i></i>LIVE EVENT · ENDS IN <span class="evLeft">${Events.fmtLeft(Events.left(E.end))}</span></span>
+          <h3>${E.name}</h3>
+          <p>${esc(E.tag)}</p>
+          <div class="ev-prog"><span>${tokIc(E)}<b>${fmt(s.tokens)}</b> / ${fmt(Events.MAX)} ${E.token}</span><span class="ev-pbar"><i style="width:${Math.min(100, s.tokens / Events.MAX * 100)}%"></i></span></div>
+          <p class="ev-how">Earn ${E.token} from every fight in Levels, Ascent and Survival. Event Battles pay double.</p>
+        </div>
+        <div class="ev-star">
+          <span class="ev-halo"></span>
+          <img alt="" src="${fullBody(def, 300, 380)}">
+          <div class="ev-plate"><small>${Save.owned(E.fighter) ? 'EXCLUSIVE FIGHTER · UNLOCKED' : 'EXCLUSIVE FIGHTER · TOP REWARD'}</small><b>${def.name}</b><span>${def.title}</span></div>
+        </div>
+      </div>
+      <div class="ev-track ol" style="--ec:${E.col}">
+        <div class="ev-head"><b>REWARD TRACK</b><small>CLAIM EACH REWARD AS YOU REACH IT</small></div>
+        <div class="ev-tiers-wrap"><div class="ev-tiers"><span class="ev-line"><i style="width:${(trackFill(s.tokens) * 100).toFixed(1)}%"></i></span>${tiers}</div></div>
+      </div>
+      <div class="ev-bottom" style="--ec:${E.col}">
+        <div class="ev-chals ol"><div class="ev-head"><b>CHALLENGES</b><small>BONUS ${E.token}</small></div>${ch}</div>
+        <div class="ev-side">
+          <button class="btn primary big ev-battle" id="evBattle"><span class="bt"><b>EVENT BATTLE</b><small>${nb.boss ? `CHALLENGER: ${BY_ID[nb.foe].name}` : `${me.name} VS ???`} · 2× ${E.token}</small></span></button>
+          <div class="ev-check ol ${ready ? 'ready' : ''}"><div class="ev-head"><b>DAILY CHECK-IN</b><small>${streak ? `STREAK ${ready ? nextStreak - 1 : streak} DAY${streak === 1 ? '' : 'S'}` : 'COME BACK EVERY DAY'}</small></div>
+            <div class="ev-dots">${dots}</div>
+            ${ready ? `<button class="btn small primary" id="evCheck"><b>${tokIc(E)}CHECK IN · +${Events.checkinPay(nextStreak)}</b></button>` : `<span class="mi-ok">${ic('check')}CHECKED IN · BACK TOMORROW</span>`}</div>
+          <div class="ev-next ol" style="--nc:${N.col}"><img alt="" src="${fullBody(BY_ID[N.fighter], 90, 110, '#0b0d14')}"><div><small>NEXT EVENT · IN <span class="evNext">${Events.fmtLeft(Events.left(N.start))}</span></small><b>${N.name}</b><span>A NEW EXCLUSIVE FIGHTER</span></div></div>
+        </div>
+      </div>`;
+    hydrate($('event'));
+    const W = $('evWrap');
+    W.querySelectorAll('[data-claim]').forEach(b => { b.onclick = () => claimTier(+b.dataset.claim); });
+    W.querySelectorAll('[data-ch]').forEach(b => { b.onclick = () => { const n = Events.claimChallenge(b.dataset.ch); if (n) { Sfx.play('coin'); toast(`+${n} ${E.token}`); renderEvent(); } }; });
+    if ($('evCheck')) $('evCheck').onclick = () => { const n = Events.checkIn(); if (n) { Sfx.play('unlock'); toast(`CHECKED IN · +${n} ${E.token}`); renderEvent(); } };
+    $('evBattle').onclick = () => { Sfx.play('fight'); startEventBattle(); };
+    // keep the next unclaimed tier in view
+    const firstOpen = Math.max(0, Events.TRACK.findIndex((T, i) => !s.claimed.includes(i)));
+    const tw = W.querySelector('.ev-tiers-wrap'), tile = W.querySelectorAll('.ev-tier')[firstOpen];
+    if (tw && tile && tw.scrollWidth > tw.clientWidth) tw.scrollLeft = Math.max(0, tile.offsetLeft - 24);
+  }
+  // claiming a tier: coins quietly, skins and the fighter with a reveal
+  function claimTier(i) {
+    const E = Events.current(), R = Events.claim(i);
+    if (!R) return;
+    coinsUI();
+    if (R.kind === 'coins' || R.already) { Sfx.play('coin'); toast(`+${fmt(R.n)} COINS`); renderEvent(); return; }
+    Sfx.play('perfect'); Platform.happytime();
+    const def = R.kind === 'skin' ? Skins.def(R.fighter, R.id) : BY_ID[R.id];
+    openSheet(`<div class="reveal ev-${E.id}" style="--ec:${E.col};--ec2:${E.col2}">
+        <span class="rv-rays"></span>
+        <small>${R.kind === 'skin' ? 'NEW SKIN UNLOCKED' : 'EXCLUSIVE FIGHTER UNLOCKED'}</small>
+        <img alt="" src="${fullBody(def, 300, 380)}">
+        <h2>${R.kind === 'skin' ? R.name : def.name}</h2>
+        <p class="sub">${R.kind === 'skin' ? `FOR ${BY_ID[R.fighter].name} · EQUIPPED` : `${def.title} · ${E.name} EXCLUSIVE`}</p>
+      </div>
+      <div class="actions"><button class="btn" id="rvOk"><b>NICE!</b></button><button class="btn primary" id="rvGo"><b>${R.kind === 'skin' ? 'VIEW IN FIGHTERS' : `TRY ${def.name}`}</b></button></div>`, 'result reveal-sheet');
+    $('rvOk').onclick = () => { Sfx.play('ui'); closeSheet(); renderEvent(); };
+    $('rvGo').onclick = () => {
+      Sfx.play('ui'); closeSheet();
+      if (R.kind === 'skin') { openSelect('roster'); U.sel.view = R.fighter; U.sel.tab = 'skins'; U.previewId = null; renderSelect(); }
+      else { openSelect('training'); U.sel.p1 = U.sel.view = R.id; confirmSelect(); }
+    };
+  }
+  function startEventBattle() {
+    const E = Events.current(), p1 = Save.owned(Save.data.lastPick) ? Save.data.lastPick : 'kaze';
+    const B = Events.battle(p1), n = Events.state().battles + 1;
+    U.run = { mode: 'event', p1, cur: { id: B.foe, lv: B.lv, boss: B.boss, skin: B.skin, label: B.boss ? 'CHALLENGER' : 'EVENT CPU' } };
+    versusSheet(p1, B.foe, `${E.name} · BATTLE ${n}${B.boss ? ' · CHALLENGER' : ''}`, () => beginFight({ p1, p2: B.foe, skins: [Skins.equipped(p1), B.skin], ctrls: [human(0), cpu(B.lv)], stage: B.stage, mode: 'event', toWin: 1,
+      fastIntro: true, roundSub: B.boss ? `CHALLENGER: ${BY_ID[B.foe].name}` : E.name, chip: `${E.name} · EVENT BATTLE ${n} · 2× ${E.token}`, onEnd: res => setTimeout(() => eventEnd(res), 700) }), null, 1.6);
+  }
+  function eventEnd(res) {
+    const E = Events.current(), r = U.run, won = res.winner === 0;
+    recordMatch(res, r.p1);
+    const n = Events.fightTokens(res, true), ready = Events.addTokens(n);
+    for (const C of Events.battleDone(won)) toast(`EVENT CHALLENGE DONE · ${C.text.toUpperCase()}`);
+    const s = Events.state(), nextT = Events.TRACK.findIndex(T => s.tokens < T.at);
+    const nextR = nextT >= 0 ? Events.reward(nextT) : null;
+    if (won && ready) Platform.happytime();
+    openSheet(`<h2 class="${won ? 'win' : 'lose'}">${won ? 'EVENT BATTLE WON' : 'DEFEATED'}</h2><p class="sub">${E.name} · ${BY_ID[r.p1].name} VS ${BY_ID[r.cur.id].name}</p>
+      <div class="ev-gain" style="--ec:${E.col}">${tokIc(E)}<b>+${n}</b><small>${E.token} · 2× EVENT BATTLE</small></div>
+      <div class="ev-mini" style="--ec:${E.col}"><span class="ev-pbar"><i style="width:${Math.min(100, s.tokens / Events.MAX * 100)}%"></i></span>
+        <small>${fmt(s.tokens)} / ${fmt(Events.MAX)} ${E.token}${nextR ? ` · NEXT: ${nextR.name} AT ${Events.TRACK[nextT].at}` : ' · TRACK COMPLETE'}</small></div>
+      ${Events.reachable() ? `<p class="tip ev-ready">${ic('gift')} A REWARD IS READY TO CLAIM</p>` : ''}
+      ${statTiles(res.stats)}${xpLine()}
+      <div class="actions"><button class="btn" id="rMenu"><b>MENU</b></button><button class="btn" id="rEvent"><b>EVENT</b></button><button class="btn primary" id="rRetry"><b>NEXT BATTLE</b></button></div>`, 'result');
+    $('rRetry').onclick = () => { Sfx.play('fight'); startEventBattle(); };
+    $('rEvent').onclick = () => { Sfx.play('ui'); closeSheet(); endFight(); startDemo(); openEvent(); };
+    $('rMenu').onclick = () => { Sfx.play('uiBack'); quitToMenu(); };
+  }
+  // tokens and challenge progress from a finished fight in any mode but Training
+  function eventFight(res) {
+    if (!U.run || U.run.mode === 'training' || (Game.cfg && Game.cfg.tutorial)) return;
+    const E = Events.current(), won = res.winner === 0;
+    const done = [];
+    if (won) done.push(...Events.track('win'), ...Events.track('stagewin', 1, { stage: Game.stageId }));
+    if (res.stats.supers) done.push(...Events.track('super', res.stats.supers));
+    for (const C of done) toast(`EVENT CHALLENGE DONE · ${C.text.toUpperCase()}`);
+    if (U.run.mode === 'event') return;   // Event Battles add their own (double) tokens
+    const n = Events.fightTokens(res, false), ready = Events.addTokens(n);
+    toast(`+${n} ${E.token}${ready ? ' · EVENT REWARD READY' : ''}`);
+  }
+
   /* ------------------------------------------------------------ select */
   function openSelect(mode) {
     const last = Save.owned(Save.data.lastPick) ? Save.data.lastPick : 'kaze';
@@ -251,9 +435,9 @@ const UI = (() => {
       const own = Save.owned(f.id);
       const tags = [];
       if (s.p1 === f.id && s.mode !== 'roster') tags.push('<span>P1</span>');
-      const right = !own ? `<span class="price${f.coinOnly ? ' excl' : ''}">${ic('coins', 'coin') + fmt(f.price)}</span>` : Save.data.clears[f.id] != null ? `<span class="clear ic" data-icon="trophy"></span>` : '';
+      const right = !own && f.eventOnly ? `<span class="price event" style="--ec:${Events.BY[f.eventOnly].col}">${ic('star')}EVENT</span>` : !own ? `<span class="price${f.coinOnly ? ' excl' : ''}">${ic('coins', 'coin') + fmt(f.price)}</span>` : Save.data.clears[f.id] != null ? `<span class="clear ic" data-icon="trophy"></span>` : '';
       const rk = own ? Meta.totalRank(f.id) : 0;
-      return `<button class="ftile ${s.view === f.id ? 'on' : ''} ${own ? '' : 'lock'}" data-id="${f.id}" style="--c:${f.color}">${pt(f, own ? '' : 'locked')}<span class="tagc">${tags.join('')}</span>${right}${rk ? `<span class="rank">R${rk}</span>` : ''}${own ? '' : '<span class="lk ic" data-icon="lock"></span>'}<b>${f.name}</b><small>${ROLE[f.ai.style] || 'ALL-ROUNDER'}</small></button>`;
+      return `<button class="ftile ${s.view === f.id ? 'on' : ''} ${own ? '' : 'lock'}" data-id="${f.id}" style="--c:${f.color}">${pt(own ? Skins.def(f.id, Skins.equipped(f.id)) : f, own ? '' : 'locked')}<span class="tagc">${tags.join('')}</span>${right}${rk ? `<span class="rank">R${rk}</span>` : ''}${own ? '' : '<span class="lk ic" data-icon="lock"></span>'}<b>${f.name}</b><small>${ROLE[f.ai.style] || 'ALL-ROUNDER'}</small></button>`;
     }).join('');
     grid.querySelectorAll('.ftile').forEach(b => {
       b.onclick = () => {
@@ -282,6 +466,17 @@ const UI = (() => {
       row('super', m.super, keyFor('super', def), 'SUPER · FULL METER · FINISHER', 'super');
   }
 
+  // outfits for a fighter: the default and any event skins (earned in events)
+  function skinRows(def, own) {
+    const list = Skins.forFighter(def.id), eq = Skins.equipped(def.id);
+    if (!list.length) return `<div class="sd-note">${ic('star')}<span>${def.name} has no event skins yet. Skins come from the weekly events.</span></div>`;
+    const card = (id, d, name, sub, state) => `<button class="skin-card ol ${state}" data-skin="${id || ''}" style="--c:${d.color}"><img alt="" src="${fullBody(d, 110, 140)}"><b>${name}</b><small>${sub}</small></button>`;
+    return `<div class="skins">${card('', def, 'DEFAULT', eq ? 'TAP TO WEAR' : 'WEARING', eq ? 'own' : 'on')}${list.map(S => {
+      const has = Skins.owned(S.id), EV = Events.BY[S.ev], at = Events.nextStart(S.ev);
+      const sub = has ? (eq === S.id ? 'WEARING' : 'TAP TO WEAR') : at ? `${EV.name} · IN ${Events.fmtLeft(Events.left(at))}` : `${EV.name} · LIVE NOW`;
+      return card(S.id, Skins.def(def.id, S.id), S.name, sub, has ? (eq === S.id ? 'on' : 'own') : 'locked');
+    }).join('')}</div>${own ? '' : `<p class="hint">Unlock ${def.name} to wear skins.</p>`}`;
+  }
   // the upgrade panel: four tracks, five ranks each, bought with coins
   function upgradeRows(def) {
     const r = Meta.ranks(def.id);
@@ -294,7 +489,8 @@ const UI = (() => {
   // how each fighter plays, in two words
   const ROLE = { rush: 'RUSHDOWN', zoner: 'ZONER', balanced: 'ALL-ROUNDER' };
   const STYLE = { karate: 'KARATE', ninja: 'NINJUTSU', mystic: 'SORCERY', sword: 'IAIDO', reaper: 'SCYTHE', loose: 'RUBBER BRAWL', boxer: 'BOXING', monk: 'SPIRIT ARTS',
-    casual: 'STREET', feral: 'CHAINSAW', regal: 'SHADOW ARTS', giant: 'TITAN', kungfu: 'KUNG FU', soldier: 'FIRE KICKS', dual: 'THREE SWORDS', calm: 'PSYCHIC' };
+    casual: 'STREET', feral: 'CHAINSAW', regal: 'SHADOW ARTS', giant: 'TITAN', kungfu: 'KUNG FU', soldier: 'FIRE KICKS', dual: 'THREE SWORDS', calm: 'PSYCHIC',
+    dancer: 'FAN DANCE', frost: 'FROST FISTS', beat: 'BEAT BOXING' };
 
   function renderDetail() {
     const s = U.sel, def = BY_ID[s.view];
@@ -303,7 +499,11 @@ const UI = (() => {
     const tab = s.tab || 'moves';
     const bar = (lbl, n) => `<div class="st"><small>${lbl}</small><span class="meter">${[0, 1, 2, 3, 4].map(i => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span></div>`;
     let foot = '';
-    if (!own) {
+    if (!own && def.eventOnly) {
+      const EV = Events.BY[def.eventOnly], at = Events.nextStart(def.eventOnly);
+      foot = `<div class="lock-note">${ic('star', 'coin')}<span><b>EVENT EXCLUSIVE.</b> ${def.name} is the top reward of <b>${EV.name}</b>${at ? `, which returns in ${Events.fmtLeft(Events.left(at))}` : ': <b>live now!</b>'}</span></div>
+        <div class="sd-foot"><button class="btn primary" id="sdEvent" ${at ? 'disabled' : ''}><b>${at ? `RETURNS IN ${Events.fmtLeft(Events.left(at))}` : 'OPEN THE EVENT'}</b></button></div>`;
+    } else if (!own) {
       const can = Save.data.coins >= def.price;
       const rec = Campaign.levels.find(L => L.recruit === def.id);
       foot = `<div class="lock-note">${ic(def.coinOnly ? 'coins' : 'lock', 'coin')}${def.coinOnly ? `<span><b>COIN EXCLUSIVE.</b> ${def.name} never joins through levels: unlock for ${fmt(def.price)} coins.</span>` : rec ? `<span>Beat ${def.name} in <b>LEVEL ${rec.label}</b> to recruit them, or unlock now.</span>` : `<span>Unlock for ${fmt(def.price)} coins. Win fights to earn coins.</span>`}</div>
@@ -323,11 +523,12 @@ const UI = (() => {
     const rk = own ? Meta.totalRank(def.id) : 0, maxRk = Meta.UPGRADES.length * Meta.MAX_RANK, mst = Meta.mastery(def.id);
     const body = {
       moves: `<div class="sd-moves">${moveRows(def)}</div>`,
+      skins: skinRows(def, own),
       upg: own ? upgradeRows(def) : `<div class="sd-note">${ic('lock')}<span>Unlock <b>${def.name}</b> to buy upgrades: Power, Vitality, Focus and Recovery, five ranks each.</span></div>`,
       info: `<p class="sd-blurb">${esc(def.blurb)}</p>
         <div class="sd-facts">
           <div><small>ROLE</small><b>${ROLE[def.ai.style] || 'ALL-ROUNDER'}</b></div>
-          <div><small>STYLE</small><b>${STYLE[def.look.stance] || '—'}</b></div>
+          <div><small>STYLE</small><b>${STYLE[def.look.style || def.look.stance] || '—'}</b></div>
           <div><small>FINISHER</small><b>${def.moves.hEnd.far ? 'RANGED' : 'CLOSE'}</b></div>
           <div><small>HOME STAGE</small><b>${(STAGES[def.stage] || STAGES.dojo).name}</b></div>
           <div><small>HEALTH</small><b>${fmt(Math.round(def.hp * HP_SCALE))}</b></div>
@@ -339,12 +540,12 @@ const UI = (() => {
       <div class="sd-hero" style="--c:${def.color}">
         <div class="sd-prev" style="--c:${def.color}"><canvas id="sdPrev"></canvas>
           <span class="prev-tag">${ic('play')} PREVIEW</span><span class="prev-hint">TAP A MOVE TO SEE IT</span>
-          <div class="sd-id"><span class="role">${ROLE[def.ai.style] || 'ALL-ROUNDER'} · ${STYLE[def.look.stance] || ''}</span><h3>${def.name}</h3><small>${def.title}</small></div>
+          <div class="sd-id"><span class="role">${ROLE[def.ai.style] || 'ALL-ROUNDER'} · ${STYLE[def.look.style || def.look.stance] || ''}</span><h3>${def.name}</h3><small>${def.title}</small></div>
           ${own ? `<span class="sd-rank">${ic('ranks')}MASTERY ${mst.lv}${rk ? ` · RANK ${rk}` : ''}</span>` : `<span class="sd-rank lock">${ic('lock')}LOCKED</span>`}
         </div>
         <div class="sd-stats" style="--c:${def.color}">${bar('POWER', st[0])}${bar('SPEED', st[1])}${bar('RANGE', st[2])}</div>
       </div>
-      <nav class="sd-tabs" style="--c:${def.color}">${[['moves', 'MOVES', 'fist'], ['upg', 'UPGRADES', 'up'], ['info', 'PROFILE', 'user']].map(([k, l, icn]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${ic(icn)}<b>${l}</b>${k === 'upg' && own ? `<i>${rk}</i>` : ''}</button>`).join('')}</nav>
+      <nav class="sd-tabs" style="--c:${def.color}">${[['moves', 'MOVES', 'fist'], ['upg', 'UPGRADES', 'up'], ['skins', 'SKINS', 'star'], ['info', 'PROFILE', 'user']].map(([k, l, icn]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${ic(icn)}<b>${l}</b>${k === 'upg' && own ? `<i>${rk}</i>` : ''}</button>`).join('')}</nav>
       <div class="sd-body">${body}</div>
       <div class="sd-dock">${foot}</div>`;
     const D = $('selDetail');
@@ -357,6 +558,12 @@ const UI = (() => {
       if (Save.buy(def.id)) { Sfx.play('unlock'); toast(`${def.name} UNLOCKED`); if (s.mode !== 'roster') s.p1 = def.id; coinsUI(); renderSelect(); }
     });
     on('sdMain', () => { Save.data.lastPick = def.id; Save.save(); Sfx.play('ui'); renderSelect(); });
+    on('sdEvent', () => { Sfx.play('ui'); openEvent(); });
+    D.querySelectorAll('.skin-card[data-skin]').forEach(b => { b.onclick = () => {
+      const id = b.dataset.skin || null;
+      if (id && !Skins.owned(id)) return;
+      Sfx.play('ui'); Skins.equip(def.id, id); U.previewId = null; renderSelect();
+    }; });
     on('sdTry', () => { U.sel.mode = 'training'; U.sel.p1 = def.id; U.sel.p2 = 'kaze'; confirmSelect(); });
     on('sdGo', () => { Sfx.play('fight'); confirmSelect(); });
     const segs = (id, f) => { const e = $(id); if (e) e.querySelectorAll('button').forEach(b => { b.onclick = () => { Sfx.play('ui'); f(b.dataset.v); renderSelect(); }; }); };
@@ -377,7 +584,7 @@ const UI = (() => {
     U.previewCtrl = new PreviewCtrl();
     const def = BY_ID[id];
     Game.speed = U.testSpeed || 1;
-    Game.startMatch({ p1: id, p2: id === 'kaze' ? 'ryo' : 'kaze', ctrls: [U.previewCtrl, new DummyCtrl('stand')], stage: def.stage && STAGES[def.stage] ? def.stage : 'dojo', mode: 'demo', training: true, preview: true, toWin: 99, hpMul: [1, 3] });
+    Game.startMatch({ p1: id, p2: id === 'kaze' ? 'ryo' : 'kaze', skins: [Skins.equipped(id), null], ctrls: [U.previewCtrl, new DummyCtrl('stand')], stage: def.stage && STAGES[def.stage] ? def.stage : 'dojo', mode: 'demo', training: true, preview: true, toWin: 99, hpMul: [1, 3] });
   }
   function previewTick() {
     const pc = $('sdPrev');
@@ -405,8 +612,6 @@ const UI = (() => {
 
   /* ------------------------------------------------------------ fights */
   function beginFight(cfg, instant, fast) {
-    // a natural break: the platform may show a midgame ad first (rate limited)
-    if (!cfg.tutorial && Platform.midgameDue()) { closeSheet(); Platform.midgame().then(() => beginFight(cfg, instant, fast)); return; }
     closeSheet();
     if (U.tut) { U.tut = null; $('tut').classList.add('hidden'); }
     $('coach').classList.add('hidden');
@@ -458,6 +663,7 @@ const UI = (() => {
     if (res.winner === 0) { d.totalWins++; d.wins[id] = (d.wins[id] || 0) + 1; }
     d.finishers += res.stats.finishers; d.blackFlashes += res.stats.bf;
     Save.save();
+    eventFight(res);
     // missions: wins (and wins with a given fighter) and supers
     if (res.winner === 0) mission('win', 1, { fid: id });
     if (res.stats.supers) mission('super', res.stats.supers);
@@ -701,7 +907,7 @@ const UI = (() => {
     // mission events from the player's own hits and blocks
     if (att.side === 0 && r === 'hit') {
       const fin = act ? act.key === 'hEnd' && !act.mFin && (act.mFin = true) : spec.name && spec.name === att.def.moves.hEnd.name;
-      if (fin) mission('finisher');
+      if (fin) { mission('finisher'); if (U.run && U.run.mode !== 'training') for (const C of Events.track('finisher')) toast(`EVENT CHALLENGE DONE · ${C.text.toUpperCase()}`); }
       if (def.lastHit && def.lastHit.bf) mission('bf');
       const c = Game.combo[0];
       if (c && c.n === 6) mission('combo6');
@@ -881,21 +1087,13 @@ const UI = (() => {
     } else {
       recordMatch(res, r.p1);
       const cleared = r.floor - 1, best = cleared >= Save.data.ascentBest && cleared > 0;
-      // one revive per run, for watching an ad (only where ads exist)
-      const canRevive = !r.revived && Platform.adsReady();
       openSheet(`<h2 class="lose">RUN OVER</h2><p class="sub">${BY_ID[r.p1].name} · ASCENT</p>
         <div class="big-count">${cleared}</div><p class="sub">${cleared === 1 ? 'FLOOR' : 'FLOORS'} CLEARED · ${best ? 'NEW BEST!' : 'BEST ' + Save.data.ascentBest}</p>
         ${cardChips(r)}
         ${xpLine()}
         <div class="payout">${ic('coins', 'coin')}${fmt(r.coins)}<small>COINS THIS RUN</small></div>
-        ${canRevive ? `<button class="btn reward" id="rRevive"><b>${ic('video')}REVIVE AT 50% HEALTH</b><small>WATCH AN AD · ONCE PER RUN</small></button>` : '<p class="hint">Spend coins on upgrades in FIGHTERS to climb higher.</p>'}
+        <p class="hint">Spend coins on upgrades in FIGHTERS to climb higher.</p>
         <div class="actions"><button class="btn" id="rMenu"><b>MENU</b></button><button class="btn" id="rUpg"><b>UPGRADES</b></button><button class="btn primary" id="rRetry"><b>CLIMB AGAIN</b></button></div>`, 'result');
-      if (canRevive) $('rRevive').onclick = async () => {
-        $('rRevive').disabled = true;
-        const ok = await Platform.rewarded();
-        if (ok) { r.revived = true; r.hp = 0.5; r.healFrom = null; Sfx.play('rise'); ascentFloor(); }
-        else { toast('NO AD AVAILABLE RIGHT NOW'); $('rRevive').disabled = false; }
-      };
       $('rRetry').onclick = () => { Sfx.play('fight'); startAscent(r.p1); };
       $('rUpg').onclick = () => { Sfx.play('ui'); closeSheet(); endFight(); openSelect('roster'); U.sel.view = r.p1; renderSelect(); };
       $('rMenu').onclick = () => { Sfx.play('uiBack'); quitToMenu(); };
@@ -936,19 +1134,11 @@ const UI = (() => {
       recordMatch(res, r.p1);
       const best = r.streak > Save.data.survivalBest;
       if (best) { Save.data.survivalBest = r.streak; Save.save(); Platform.happytime(); }
-      const canDouble = r.coins > 0 && Platform.adsReady();
       openSheet(`<h2 class="lose">KNOCKED OUT</h2><p class="sub">${BY_ID[r.p1].name} · SURVIVAL</p>
         <div class="big-count">${r.streak}</div><p class="sub">${best ? 'NEW BEST STREAK!' : 'BEST ' + Save.data.survivalBest}</p>
         ${xpLine()}
         <div class="payout">${ic('coins', 'coin')}<span id="rCoins">${fmt(r.coins)}</span><small>COINS THIS RUN</small></div>
-        ${canDouble ? `<button class="btn reward" id="rDouble"><b>${ic('video')}DOUBLE YOUR COINS</b><small>WATCH AN AD · +${fmt(r.coins)}</small></button>` : ''}
         <div class="actions"><button class="btn primary" id="rAgain"><b>AGAIN</b></button><button class="btn" id="rMenu"><b>MENU</b></button></div>`, 'result');
-      if (canDouble) $('rDouble').onclick = async () => {
-        $('rDouble').disabled = true;
-        const ok = await Platform.rewarded();
-        if (ok) { Save.addCoins(r.coins); r.coins *= 2; $('rCoins').textContent = fmt(r.coins); $('rDouble').remove(); Sfx.play('coin'); coinsUI(); }
-        else { toast('NO AD AVAILABLE RIGHT NOW'); $('rDouble').disabled = false; }
-      };
       $('rAgain').onclick = () => { Sfx.play('ui'); startSurvival(r.p1); };
       $('rMenu').onclick = () => { Sfx.play('uiBack'); quitToMenu(); };
     }
@@ -991,9 +1181,10 @@ const UI = (() => {
   }
 
   function versusSheet(a, b, label, go, run, dur = 2.4) {
-    const A = BY_ID[a], B = BY_ID[b];
+    const cur = U.run && U.run.cur;
+    const A = Skins.def(a, Skins.equipped(a)), B = Skins.def(b, cur && cur.id === b ? cur.skin : null);
     const side = (def, cls, who) => `<div class="vs-side ${cls}" style="--c:${def.color}"><small>${who}</small>${pt(def, 'vs-pt')}<b>${def.name}</b><span>${def.title}</span></div>`;
-    const sh = openSheet(`<div class="vs">${side(A, 'you', 'PLAYER 1')}<div class="vs-mid"><b>VS</b><small>${esc(label)}</small></div>${side(B, 'rival', U.run && U.run.cur && U.run.cur.boss ? 'BOSS' : 'CPU')}</div>
+    const sh = openSheet(`<div class="vs">${side(A, 'you', 'PLAYER 1')}<div class="vs-mid"><b>VS</b><small>${esc(label)}</small></div>${side(B, 'rival', cur && cur.label ? cur.label : cur && cur.boss ? 'BOSS' : 'CPU')}</div>
       <p class="hint">${('ontouchstart' in window) ? 'TAP' : 'CLICK'} TO START</p>`, 'versus');
     let started = false;
     const start = () => { if (started) return; started = true; clearTimeout(U.vsT); go(); };
@@ -1284,6 +1475,8 @@ const UI = (() => {
   // exposed for tests
   U._tutStep = () => (U.tut ? U.tut.i : 99);
   U._cardHtml = cardHtml;   // tests render a chosen hand
+  U._openEvent = openEvent;
+  U._renderEvent = () => { if (U.screen === 'event') renderEvent(); renderHome(); };
   U._cardTilt = cardTilt;
   U._start = { level: i => playLevel(Campaign.levels[i]), levels: () => openLevels(), ascent: startAscent, survival: startSurvival, training: startTraining, select: openSelect };
   return U;

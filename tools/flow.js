@@ -139,6 +139,40 @@ const SHOTS = process.argv[3] || null;
   await p.waitForFunction(() => UI.screen === 'home' && !UI.fightOn, null, { timeout: 10000 });
   console.log('ascent ok');
 
+  // ---------------- events: check-in, an Event Battle, rewards, the exclusive fighter, skins
+  await click('#btnEvent');
+  await p.waitForFunction(() => UI.screen === 'event', null, { timeout: 10000 });
+  const ev0 = await ev(() => ({ t: Events.state().tokens, id: Events.current().id, f: Events.current().fighter }));
+  await click('#evCheck');
+  const ev1 = await ev(() => Events.state().tokens);
+  if (ev1 !== ev0.t + 20) fail('event check-in tokens: ' + ev0.t + ' -> ' + ev1);
+  if (await p.$('#evCheck')) fail('check-in still offered after checking in');
+  await click('#evBattle');
+  await p.waitForSelector('.sheet.versus'); await p.click('.sheet.versus');
+  await p.waitForFunction(() => UI.fightOn && Game.cfg.mode === 'event' && Game.state === 'fight', null, { timeout: 15000 });
+  if (await ev(() => Game.stageId !== Events.current().stage)) fail('event battle not on the event stage');
+  h = await finish(true);
+  if (!/EVENT BATTLE WON/.test(h)) fail('event battle result: ' + h);
+  const ev2 = await ev(() => ({ t: Events.state().tokens, b: Events.state().battles }));
+  if (ev2.b !== 1 || ev2.t < ev1 + 24) fail('event battle tokens/battles: ' + JSON.stringify(ev2));
+  await click('#rEvent');
+  await p.waitForFunction(() => UI.screen === 'event' && !UI.fightOn, null, { timeout: 10000 });
+  // the whole track: claim every tier; the last one unlocks the exclusive fighter
+  await ev(() => Events.addTokens(Events.MAX)); await ev(() => UI._renderEvent());
+  for (let i = 0; i < 7; i++) {
+    await click(`[data-claim="${i}"]`);
+    if (await p.$('#rvOk')) await click('#rvOk');
+  }
+  const ev3 = await ev(f => ({ owned: Save.owned(f), claimed: Events.state().claimed.length, skins: Save.data.skins.owned.length }), ev0.f);
+  if (!ev3.owned || ev3.claimed !== 7 || ev3.skins !== 3) fail('event rewards: ' + JSON.stringify(ev3));
+  if (await ev(() => Events.claim(0))) fail('a tier could be claimed twice');
+  // a skin is worn in the next fight
+  const sk = await ev(() => { const S = Skins.LIST[Events.current().skins[0]]; return S; });
+  if (!(await ev(S => Skins.equipped(S.fighter) === S.id, sk))) fail('claimed skin not equipped');
+  await p.click('#event [data-back]');
+  await p.waitForFunction(() => UI.screen === 'home', null, { timeout: 10000 });
+  console.log('event ok');
+
   // ---------------- survival
   await click('#btnSurvival'); await click('#sdGo');
   for (let i = 0; i < 2; i++) {
@@ -196,7 +230,7 @@ const SHOTS = process.argv[3] || null;
 
   // ---------------- platform SDK: every integration point fired
   const calls = await ev(() => window.__sdkCalls || []);
-  for (const need of ['init', 'settingsListener', 'loadingStart', 'loadingStop', 'gameplayStart', 'gameplayStop', 'happytime', 'data.getItem', 'data.setItem'])
+  for (const need of ['init', 'settingsListener', 'user.authListener', 'user.getUser', 'loadingStart', 'loadingStop', 'gameplayStart', 'gameplayStop', 'happytime', 'data.getItem', 'data.setItem'])
     if (!calls.includes(need)) fail('SDK call missing: ' + need);
   if (calls.indexOf('loadingStop') < calls.indexOf('init')) fail('SDK loading events before init');
   // gameplay start/stop alternate, never doubled
@@ -204,7 +238,9 @@ const SHOTS = process.argv[3] || null;
   if (gp.some((c, i) => i && c === gp[i - 1])) fail('gameplay events doubled');
   // a platform mute silences the game
   await ev(() => window.__sdkMute(true));
-  console.log('sdk ok', JSON.stringify({ calls: calls.length, gameplay: gp.length, ads: calls.filter(c => c.startsWith('requestAd')) }));
+  if (calls.some(c => c.startsWith('requestAd'))) fail('the game requested an ad');
+  if (!(await ev(() => Platform.user && Platform.user.name === 'TestPlayer'))) fail('SDK user not picked up');
+  console.log('sdk ok', JSON.stringify({ calls: calls.length, gameplay: gp.length }));
 
   const all = errs.concat(await ev(() => window.__errors));
   console.log(all.length ? 'ERRORS\n' + all.join('\n') : 'ALL FLOWS PASSED');

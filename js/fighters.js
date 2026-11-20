@@ -1590,6 +1590,297 @@ fighter({
       end: (G, f) => { f.root.hover = false; } },
   },
 });
+/* =========================================================================
+   Event-exclusive fighters. Each one is earned only through its event (see
+   events.js) and returns when that event comes back around.
+   ========================================================================= */
+
+// a cherry petal: a soft teardrop with a notch, turning as it flies
+function petalShape(ctx, x, y, s, rot, col) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+  ctx.fillStyle = col;
+  ctx.beginPath(); ctx.moveTo(0, -s); ctx.quadraticCurveTo(s * 0.95, -s * 0.2, 0, s); ctx.quadraticCurveTo(-s * 0.95, -s * 0.2, 0, -s); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.beginPath(); ctx.ellipse(-s * 0.15, -s * 0.2, s * 0.2, s * 0.45, 0.3, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+function petalDraw(ctx, p, time) {
+  ctx.globalCompositeOperation = 'lighter';
+  Glow.draw(ctx, '#ff6fb5', p.x, p.y, 46, 0.5);
+  ctx.globalCompositeOperation = 'source-over';
+  petalShape(ctx, p.x, p.y, 13, p.t * 16 + (p.rot || 0), '#ffb3d6');
+  if (Math.random() < 0.4) Game.fx.add({ x: p.x, y: p.y, vx: -p.vx * 0.1, vy: rand(-40, 40), life: 0.3, size: 2.5, color: '#ffd1e6' });
+}
+// an ice shard in flight: a long crystal with a bright core
+function icicleDraw(ctx, p, time) {
+  const d = Math.sign(p.vx) || 1;
+  ctx.globalCompositeOperation = 'lighter';
+  Glow.draw(ctx, '#7fd8ff', p.x - d * 20, p.y, 110, 0.7);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = '#bfeaff';
+  ctx.beginPath(); ctx.moveTo(p.x + d * 52, p.y); ctx.lineTo(p.x + d * 8, p.y - 14); ctx.lineTo(p.x - d * 60, p.y - 6); ctx.lineTo(p.x - d * 70, p.y); ctx.lineTo(p.x - d * 60, p.y + 6); ctx.lineTo(p.x + d * 8, p.y + 14); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.moveTo(p.x + d * 40, p.y); ctx.lineTo(p.x + d * 4, p.y - 5); ctx.lineTo(p.x - d * 48, p.y); ctx.lineTo(p.x + d * 4, p.y + 5); ctx.closePath(); ctx.fill();
+  if (Math.random() < 0.6) Game.fx.add({ kind: 'shard', x: p.x - d * 50, y: p.y + rand(-10, 10), vx: -d * rand(60, 200), vy: rand(-60, 60), life: 0.3, size: 4, color: '#dff6ff' });
+}
+// a sound wave: nested arcs that open as they travel
+function waveDraw(ctx, p, time) {
+  const d = Math.sign(p.vx) || 1;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+  Glow.draw(ctx, '#ff4fd8', p.x, p.y, p.r * 3, 0.55);
+  for (let i = 0; i < 4; i++) {
+    const r = p.r * (0.8 + i * 0.36) + Math.sin(time * 30 + i) * 4;
+    ctx.globalAlpha = 1 - i * 0.18;
+    ctx.strokeStyle = i % 2 ? '#4fd8ff' : '#ff4fd8'; ctx.lineWidth = 10 - i * 2;
+    ctx.beginPath(); ctx.arc(p.x - d * i * 16, p.y, r, d > 0 ? -1.0 : Math.PI - 1.0, d > 0 ? 1.0 : Math.PI + 1.0); ctx.stroke();
+  }
+  ctx.restore();
+}
+// an ice block around a frozen fighter
+function iceBlock(ctx, f, k) {
+  const c = f.center(), w = 120 * f.s / 2 * 1.1, h = 210 * f.s / 2;
+  ctx.save();
+  ctx.globalAlpha = 0.55 * k; ctx.fillStyle = '#bfeaff';
+  ctx.beginPath(); ctx.moveTo(c.x - w * 0.6, c.y - h * 0.6); ctx.lineTo(c.x + w * 0.4, c.y - h * 0.68); ctx.lineTo(c.x + w * 0.62, c.y - h * 0.1); ctx.lineTo(c.x + w * 0.5, c.y + h * 0.55); ctx.lineTo(c.x - w * 0.45, c.y + h * 0.6); ctx.lineTo(c.x - w * 0.66, c.y); ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 0.9 * k; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.stroke();
+  ctx.globalAlpha = 0.5 * k; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(c.x - w * 0.3, c.y - h * 0.5); ctx.lineTo(c.x - w * 0.05, c.y - h * 0.1); ctx.lineTo(c.x + w * 0.25, c.y - h * 0.2); ctx.moveTo(c.x - w * 0.05, c.y - h * 0.1); ctx.lineTo(c.x - w * 0.15, c.y + h * 0.35); ctx.stroke();
+  ctx.restore();
+}
+
+/* ------------------------------------------------------------- HANA */
+fighter({
+  id: 'hana', name: 'HANA', title: 'PETAL DANCER', color: '#ff6fb5', aura: '#ffd1e6',
+  hp: 930, walk: 322, power: 1, stats: [4, 5, 4], price: 0, eventOnly: 'sakura', stage: 'temple',
+  blurb: 'A festival dancer whose fans whip up storms of cherry blossom. Her petals cut, her veil turns your strikes back on you, and in full bloom a thousand petals tear through the arena.',
+  look: { gear: 'none' },
+  ai: { style: 'balanced', range: 280 },
+  moves: {
+    sp1: { name: 'Petal Fan', icon: 'feathers', kind: 'special', w: 0.14, a: 0.06, r: 0.28, cd: 2, air: true, ai: { range: [160, 900], zone: true },
+      poseFn: phasePose({}, { fh: [-14, -26], bh: [10, 20], lean: -6 }, { fh: [52, -10], bh: [-20, 18], lean: 12, ff: [30, 0] }, {}),
+      tick: (G, f, act) => {
+        if (act.t >= act.w && once(act, 'fired')) {
+          const h = hand(f);
+          for (let i = 0; i < 5; i++) {
+            const sp = (i - 2) * 0.085;
+            G.proj({ owner: f, x: h.x, y: h.y, vx: f.facing * 1150 * Math.cos(sp), vy: 1150 * Math.sin(sp), r: 16, life: 0.62, strength: 1, color: '#ff8fc8', rot: i * 1.3, draw: petalDraw,
+              spec: { dmg: 14, kb: [120, -30], stun: 0.32, bstun: 0.14, hs: 0.025, chip: 0.2, color: '#ff8fc8', kind: 'special', sfx: 'cut', name: 'Petal Fan' } });
+          }
+          G.fx.ring(h.x, h.y, '#ffd1e6', 70, 0.22, 5); Sfx.play('swish');
+        }
+      } },
+    // a counter stance: struck inside the veil, she scatters into petals and
+    // reappears behind the attacker with a rising kick
+    sp2: { name: 'Blossom Veil', icon: 'mirrorshell', kind: 'special', w: 0.06, a: 0.55, r: 0.2, cd: 3.5, ai: { range: [0, 260] },
+      poseFn: phasePose({}, { fh: [10, -30], bh: [-16, -24], lean: -4 }, { fh: [16, -38], bh: [-22, -30], lean: -6, crouch: 6 }, {}),
+      counter: (G, f, att, act) => {
+        act.r = 0.18; act.t = act.w + act.a;
+        const behind = clamp(att.root.x - Math.sign(f.root.x - att.root.x || 1) * 90 * att.s, WALL_L + 50, WALL_R - 50);
+        G.fx.burst(f.center().x, f.center().y, '#ff8fc8', 26, 500);
+        G.teleport(f, behind, GROUND); f.facing = att.root.x >= f.root.x ? 1 : -1;
+        f.invuln = Math.max(f.invuln, 0.35);
+        G.later(0.06, () => {
+          if (!att.alive || !f.alive) return;
+          const c = att.center();
+          G.hit(f, att, { dmg: 72, kb: [260, -1000], stun: 0.95, bstun: 0.26, launch: true, hs: 0.12, color: '#ff6fb5', kind: 'special', sfx: 'hitH', name: 'Blossom Veil', unblockable: true }, c.x, c.y, null);
+          G.fx.ring(c.x, c.y, '#ffd1e6', 160, 0.35, 8);
+        });
+        G.say(f.root.x, f.root.y - 300, 'COUNTER', '#ffd1e6', 36);
+        Sfx.play('counter');
+      },
+      tick: (G, f, act) => { if (phaseOf(act).ph === 1 && Math.random() < 0.5) { const c = f.center(); G.fx.add({ x: c.x + rand(-60, 60), y: c.y + rand(-90, 60), vx: rand(-40, 40), vy: rand(-80, -30), life: 0.5, size: 4, color: '#ffb3d6' }); } },
+      draw: (G, ctx, f, act, time) => {
+        if (phaseOf(act).ph !== 1) return;
+        const c = f.center();
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        Glow.draw(ctx, '#ff6fb5', c.x, c.y, 150, 0.4);
+        for (let i = 0; i < 10; i++) { const a = time * 2.2 + i * TAU / 10, R = 95 * f.s / 2; petalShape(ctx, c.x + Math.cos(a) * R, c.y + Math.sin(a) * R * 1.3, 8, a * 2, '#ffb3d6'); }
+        ctx.restore();
+      } },
+    super: { name: 'Thousand Petal Storm', icon: 'tornado', kind: 'super', w: 0.5, a: 1.4, r: 0.4, pose: 'cast', ai: { range: [0, 1200] },
+      start: (G, f) => { G.cutin(f, 'THOUSAND PETAL STORM', 'FULL BLOOM'); f.invuln = 2.2; f.auraT = 2.2; Sfx.play('wind'); },
+      tick: (G, f, act) => {
+        const o = G.opp(f);
+        if (act.t >= act.w && once(act, 'storm')) {
+          const c = o.center();
+          G.tint('void', 1.4);
+          G.field({ owner: f, x: c.x, y: c.y, r: 130, life: 1.3, every: 0.08, color: '#ff6fb5', pull: 2400,
+            spec: { dmg: 9, kb: [0, -40], stun: 0.3, bstun: 0.1, hs: 0.01, chip: 0.2, unblockable: true, color: '#ffb3d6', kind: 'super', sfx: 'cut' },
+            final: { dmg: 150, kb: [500, -1100], stun: 1.3, launch: true, hs: 0.22, unblockable: true, color: '#ff6fb5', kind: 'super', big: true, sfx: 'hitH', name: 'Thousand Petal Storm' },
+            draw: (ctx, fl, time, k) => {
+              ctx.globalCompositeOperation = 'lighter';
+              Glow.draw(ctx, '#ff6fb5', fl.x, fl.y, 260, 0.5 * k);
+              ctx.globalCompositeOperation = 'source-over';
+              for (let i = 0; i < 46; i++) {
+                const ring = i % 3, a = time * (5 + ring * 1.6) + i * 2.4, R = (60 + ring * 55) * (0.7 + 0.3 * Math.sin(time * 3 + i));
+                petalShape(ctx, fl.x + Math.cos(a) * R, fl.y + Math.sin(a) * R * 0.75 - ring * 20, 9 + ring * 2, a * 3, i % 4 ? '#ffb3d6' : '#ffffff');
+              }
+            } });
+          Sfx.play('wind');
+        }
+        // petals blow across the whole screen while the storm rages
+        if (act.t >= act.w && Math.random() < 0.9) G.fx.add({ kind: 'leaf', x: G.cam.x - 900 + rand(0, 200), y: rand(GROUND - 600, GROUND - 40), vx: rand(900, 1500), vy: rand(-60, 60), vr: rand(-8, 8), life: 1.4, size: rand(5, 9), color: '#ffb3d6', add: false });
+      } },
+  },
+});
+
+/* ------------------------------------------------------------- KORI */
+fighter({
+  id: 'kori', name: 'KORI', title: 'FROST WARDEN', color: '#6fd0ff', aura: '#e6fbff', scale: 1.05,
+  hp: 1040, walk: 285, power: 1.05, stats: [5, 3, 4], price: 0, eventOnly: 'frost', stage: 'snow',
+  blurb: 'A warden of the high peaks with ice for fists. Spears of frost freeze you mid-step, pillars of ice burst from the ground under you, and at absolute zero everything shatters.',
+  look: { gear: 'none' },
+  ai: { style: 'balanced', range: 300 },
+  moves: {
+    sp1: { name: 'Icicle Lance', icon: 'lance', kind: 'special', w: 0.16, a: 0.05, r: 0.3, cd: 2.4, air: true, ai: { range: [200, 1100], zone: true },
+      poseFn: phasePose({}, { fh: [-18, -10], bh: [-10, 6], lean: -8, crouch: 8 }, { fh: [56, -6], bh: [-24, 14], lean: 14, ff: [34, 0], bf: [-36, 0] }, {}),
+      tick: (G, f, act) => {
+        if (act.t >= act.w && once(act, 'fired')) {
+          const m = f.local(70, -108);
+          G.proj({ owner: f, x: m.x, y: m.y, vx: f.facing * 1100, vy: 0, r: 26, life: 1.2, strength: 1, color: '#bfeaff', draw: icicleDraw,
+            spec: { dmg: 56, kb: [300, -60], stun: 0.45, bstun: 0.22, hs: 0.08, chip: 0.2, color: '#bfeaff', kind: 'special', sfx: 'clink', name: 'Icicle Lance' },
+            // a clean hit freezes them for a breath
+            onHit: (G, p, o) => { if (o.alive && !(o.invuln > 0)) { o.frostT = 0.45; o.stopT = Math.max(o.stopT, 0.35); } G.fx.chunks(p.x, p.y, '#dff6ff', 8, 420, 6); } });
+          G.fx.ring(m.x, m.y, '#dff6ff', 70, 0.22, 6); Sfx.play('clink');
+        }
+      } },
+    // marks the ground under the foe; a beat later an ice pillar erupts there
+    sp2: { name: 'Frost Pillar', icon: 'crystal', kind: 'special', w: 0.14, a: 0.1, r: 0.32, cd: 3.2, ai: { range: [120, 900] },
+      poseFn: phasePose({}, { fh: [20, -40], bh: [10, -36], lean: -4 }, { fh: [40, 40], bh: [30, 42], crouch: 24, lean: 14 }, {}),
+      tick: (G, f, act) => {
+        if (act.t >= act.w && once(act, 'mark')) {
+          const o = G.opp(f), x = clamp(o.root.x, WALL_L + 60, WALL_R - 60);
+          G.field({ owner: f, x, y: GROUND - 90, r: 72, life: 0.85, every: 0.42, color: '#bfeaff',
+            spec: { dmg: 74, kb: [80, -1200], stun: 0.95, bstun: 0.26, launch: true, hs: 0.13, chip: 0.2, color: '#bfeaff', kind: 'special', sfx: 'hitH', name: 'Frost Pillar', bf: true },
+            draw: (ctx, fl, time) => {
+              ctx.globalCompositeOperation = 'source-over';
+              if (fl.t < 0.42) {
+                // the warning: frost spreading on the floor
+                const u = fl.t / 0.42;
+                ctx.globalAlpha = 0.4 + u * 0.5; ctx.fillStyle = '#dff6ff';
+                ctx.beginPath(); ctx.ellipse(fl.x, GROUND + 2, 30 + u * 60, 8 + u * 6, 0, 0, TAU); ctx.fill();
+                ctx.globalAlpha = 1;
+                if (once(fl, 'cr') || Math.random() < 0.3) Game.fx.add({ x: fl.x + rand(-60, 60), y: GROUND - 4, vx: 0, vy: -60, life: 0.4, size: 3, color: '#ffffff' });
+              } else {
+                const u = clamp((fl.t - 0.42) / 0.08, 0, 1), fade = clamp((fl.life - fl.t) / 0.25, 0, 1), H = 230 * u;
+                ctx.globalAlpha = fade;
+                for (const [dx, hk, w] of [[-34, 0.65, 26], [30, 0.75, 24], [0, 1, 34]]) {
+                  ctx.fillStyle = '#9fdcff';
+                  ctx.beginPath(); ctx.moveTo(fl.x + dx - w, GROUND); ctx.lineTo(fl.x + dx - w * 0.3, GROUND - H * hk); ctx.lineTo(fl.x + dx + w * 0.4, GROUND - H * hk * 0.92); ctx.lineTo(fl.x + dx + w, GROUND); ctx.closePath(); ctx.fill();
+                  ctx.fillStyle = '#ffffff';
+                  ctx.beginPath(); ctx.moveTo(fl.x + dx - w * 0.3, GROUND - H * hk); ctx.lineTo(fl.x + dx + w * 0.05, GROUND); ctx.lineTo(fl.x + dx - w * 0.5, GROUND); ctx.closePath(); ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+                if (once(fl, 'boom')) { Game.shake(9); Sfx.play('clink'); Game.fx.chunks(fl.x, GROUND - 60, '#dff6ff', 12, 600, 8); }
+              }
+            } });
+          Sfx.play('blue');
+        }
+      } },
+    super: { name: 'Absolute Zero', icon: 'snow', kind: 'super', w: 0.5, a: 1.45, r: 0.45, pose: 'cast', ai: { range: [0, 1300] },
+      start: (G, f) => { G.cutin(f, 'ABSOLUTE ZERO', 'ETERNAL WINTER'); f.invuln = 2.4; f.auraT = 2.3; Sfx.play('domain'); },
+      tick: (G, f, act) => {
+        const o = G.opp(f), k = act.t - act.w;
+        if (k >= 0 && once(act, 'freeze')) {
+          G.tint('void', 1.6); G.flash('#e6fbff', 0.5);
+          if (o.alive && Math.abs(o.root.x - f.root.x) < 1300 && !(o.invuln > 0 && o.mode !== 'rising')) { o.stopT = 1.35; o.frostT = 1.35; o.clearAction(); act.caught = true; G.say(o.root.x, o.root.y - 300, 'FROZEN SOLID', '#e6fbff', 36); }
+          Sfx.play('blue');
+        }
+        if (k >= 0 && Math.random() < 0.9) G.fx.add({ x: G.cam.x + rand(-900, 900), y: rand(GROUND - 700, GROUND - 100), vx: rand(-200, -60), vy: rand(120, 260), life: 1.2, size: rand(2, 4), color: '#ffffff' });
+        if (k >= 1.25 && once(act, 'shatter')) {
+          if (act.caught && o.alive) {
+            const c = o.center();
+            o.stopT = 0; o.frostT = 0;
+            G.hit(f, o, { dmg: 290, kb: [400, -1150], stun: 1.4, launch: true, hs: 0.24, unblockable: true, color: '#bfeaff', kind: 'super', big: true, sfx: 'hitH', name: 'Absolute Zero' }, c.x, c.y, act);
+            G.fx.chunks(c.x, c.y, '#dff6ff', 30, 900, 12); G.fx.ring(c.x, c.y, '#ffffff', 300, 0.5, 14);
+          }
+          G.shake(24); Sfx.play('boom');
+        }
+      } },
+  },
+});
+
+/* ------------------------------------------------------------- RAVE */
+fighter({
+  id: 'rave', name: 'RAVE', title: 'NEON DJ', color: '#ff4fd8', aura: '#4fd8ff',
+  hp: 900, walk: 330, power: 0.98, stats: [4, 5, 5], price: 0, eventOnly: 'neon', stage: 'city',
+  blurb: 'A rooftop DJ who fights on the beat. Bass drops roll along the floor, his dash hits in rhythm, and when the drop lands the whole city shakes with it.',
+  look: { gear: 'none' },
+  ai: { style: 'zoner', range: 320 },
+  moves: {
+    sp1: { name: 'Bass Drop', icon: 'soundwave', kind: 'special', w: 0.16, a: 0.06, r: 0.3, cd: 2.2, ai: { range: [160, 1000], zone: true },
+      poseFn: phasePose({}, { ff: [10, -50], crouch: 4, fh: [10, -30], bh: [-10, -26] }, { ff: [40, 0], crouch: 26, lean: 10, fh: [36, 40], bh: [10, 44] }, {}),
+      tick: (G, f, act) => {
+        if (act.t >= act.w && once(act, 'fired')) {
+          const x = f.root.x + f.facing * 60 * f.s / 2;
+          G.proj({ owner: f, x, y: GROUND - 36, vx: f.facing * 900, vy: 0, r: 44, life: 1.0, strength: 1, color: '#ff4fd8', draw: waveDraw,
+            spec: { dmg: 58, kb: [260, -380], stun: 0.6, bstun: 0.22, hs: 0.08, chip: 0.2, color: '#ff4fd8', kind: 'special', sfx: 'hitH', name: 'Bass Drop' } });
+          G.fx.ring(x, GROUND - 10, '#ff4fd8', 150, 0.3, 8); G.fx.dust(x, GROUND, 8); G.shake(5); Sfx.play('drum');
+        }
+      } },
+    // a dash that lands three hits on the beat
+    sp2: { name: 'Beat Dash', icon: 'rhythm', kind: 'special', w: 0.08, a: 0.36, r: 0.26, cd: 3, ai: { range: [80, 520] },
+      poseFn: phasePose({}, { lean: 18, crouch: 14, fh: [24, 10], bh: [-20, 16] }, { lean: 22, crouch: 12, fh: [48, -4], bh: [-26, 10], ff: [40, 0], bf: [-40, 0] }, {}),
+      tick: (G, f, act) => {
+        const { ph } = phaseOf(act);
+        if (ph === 1) {
+          f.root.vx = f.facing * 1050 * f.s / 2;
+          act.tk = (act.tk || 0) + STEP;
+          if ((act.n || 0) < 3 && act.tk >= 0.11) {
+            act.tk = 0; act.n = (act.n || 0) + 1;
+            const last = act.n === 3;
+            act['b' + act.n] = false;
+            boxHit(G, f, act, [60, -100, 58], last
+              ? { dmg: 40, kb: [620, -420], stun: 0.8, launch: true, hs: 0.1, chip: 0.2, color: '#4fd8ff', kind: 'special', sfx: 'hitH', name: 'Beat Dash' }
+              : { dmg: 16, kb: [120, 0], stun: 0.35, bstun: 0.16, hs: 0.03, chip: 0.2, color: '#ff4fd8', kind: 'special', sfx: 'drum' }, 'b' + act.n);
+            const c = f.center(); G.fx.ring(c.x, c.y, act.n % 2 ? '#ff4fd8' : '#4fd8ff', 90, 0.2, 6);
+          }
+          if (Math.random() < 0.6) G.ghost(f, Math.random() < 0.5 ? '#ff4fd8' : '#4fd8ff', 0.18);
+        }
+      } },
+    super: { name: 'Drop The Beat', icon: 'piano', kind: 'super', w: 0.45, a: 1.3, r: 0.45, pose: 'cast', ai: { range: [0, 1100] },
+      start: (G, f) => { G.cutin(f, 'DROP THE BEAT', 'HEADLINER'); f.invuln = 2; f.auraT = 2; Sfx.play('charge'); },
+      tick: (G, f, act) => {
+        const o = G.opp(f), k = act.t - act.w;
+        // four pulses on the beat; the last one is the drop
+        for (let i = 0; i < 4; i++) {
+          if (k >= i * 0.3 && once(act, 'p' + i)) {
+            const last = i === 3, c = f.center();
+            G.fx.ring(c.x, c.y, i % 2 ? '#4fd8ff' : '#ff4fd8', last ? 900 : 600, 0.45, last ? 20 : 12);
+            G.flash(i % 2 ? '#4fd8ff' : '#ff4fd8', last ? 0.5 : 0.22); G.shake(last ? 22 : 8); Sfx.play(last ? 'boom' : 'drum');
+            if (o.alive && Math.abs(o.root.x - f.root.x) < (last ? 1100 : 900)) {
+              const oc = o.center();
+              G.hit(f, o, last
+                ? { dmg: 170, kb: [900, -1000], stun: 1.4, launch: true, hs: 0.22, unblockable: true, color: '#ff4fd8', kind: 'super', big: true, sfx: 'hitH', name: 'Drop The Beat' }
+                : { dmg: 36, kb: [180, -200], stun: 0.6, hs: 0.05, unblockable: true, color: '#4fd8ff', kind: 'super', sfx: 'drum', noLaunch: true }, oc.x, oc.y, act);
+            }
+          }
+        }
+      },
+      // speaker stacks either side of him and an equaliser on the floor, pumping to the beat
+      draw: (G, ctx, f, act, time) => {
+        const k = act.t - act.w; if (k < -0.2) return;
+        const beat = Math.max(0, 1 - ((k % 0.3) / 0.3)) * (k >= 0 ? 1 : 0.3);
+        ctx.save();
+        for (const side of [-1, 1]) {
+          const x = f.root.x + side * 150, s = 1 + beat * 0.08;
+          ctx.fillStyle = '#14141c'; ctx.fillRect(x - 40 * s, GROUND - 170 * s, 80 * s, 170 * s);
+          ctx.strokeStyle = '#ff4fd8'; ctx.lineWidth = 3; ctx.strokeRect(x - 40 * s, GROUND - 170 * s, 80 * s, 170 * s);
+          for (const [cy, r] of [[GROUND - 120 * s, 26], [GROUND - 50 * s, 32]]) {
+            ctx.fillStyle = '#2a2a38'; ctx.beginPath(); ctx.arc(x, cy, r * s, 0, TAU); ctx.fill();
+            ctx.fillStyle = '#4fd8ff'; ctx.beginPath(); ctx.arc(x, cy, r * s * (0.35 + beat * 0.2), 0, TAU); ctx.fill();
+          }
+        }
+        ctx.globalCompositeOperation = 'lighter';
+        for (let i = -10; i <= 10; i++) {
+          const h = (20 + Math.abs(Math.sin(i * 1.7 + time * 9)) * 70) * (0.4 + beat);
+          ctx.fillStyle = i % 2 ? 'rgba(255,79,216,0.55)' : 'rgba(79,216,255,0.55)';
+          ctx.fillRect(f.root.x + i * 34 - 12, GROUND - h, 24, h);
+        }
+        ctx.restore();
+      } },
+  },
+});
+
 const easeIn2 = t => t * t;
 // a broken slab of floor, held (or thrown) by psychic force
 function drawSlab(ctx, x, y, rot, dir, time, a) {
@@ -1823,6 +2114,17 @@ function drawSlab(ctx, x, y, rot, dir, time, a) {
       if (act.t < act.w + 0.02 && act.t >= act.w - 0.01 && once(act, 'g')) G.ghost(f, '#7dff8a', 0.3);
       if (act.t < act.w + act.a && Math.random() < 0.6) { const h = hand(f); G.fx.arc(h.x, h.y, h.x + rand(-60, 60), h.y + rand(-80, 40), '#7dff8a', 0.12); }
     } });
+  // event fighters
+  E('hana', { name: 'Spring Gale', icon: 'wind', poseFn: withSpin(phasePose({}, { ff: [6, -40], crouch: 10 }, { ff: [60, -100], bf: [-10, 0], lean: -18 }, {}), 1, 26), box: [70, -110, 44], a: 0.16,
+    hit: up(64, [260, -1100], '#ff6fb5'), tick: (G, f, act) => { if (act.t >= act.w && once(act, 'fx')) { const q = f.pts[P.FFOOT]; for (let i = 0; i < 14; i++) G.fx.add({ kind: 'leaf', x: q.x, y: q.y, vx: rand(-420, 420), vy: rand(-620, -120), g: 500, vr: rand(-9, 9), life: 0.9, size: rand(5, 8), color: '#ffb3d6', add: false }); } } });
+  E('kori', { name: 'Glacier Upper', icon: 'crystal', poseFn: UPPER, box: [58, -128, 40], hit: up(68, [200, -1150], '#bfeaff'),
+    tick: (G, f, act) => { if (act.t >= act.w && once(act, 'fx')) { const m = f.local(70, 0); for (let i = 0; i < 5; i++) G.fx.add({ kind: 'shard', x: m.x + (i - 2) * 16, y: GROUND, vx: (i - 2) * 40, vy: -900 - (i % 2) * 260, life: 0.32, size: 10, color: '#dff6ff' }); Sfx.play('clink'); } } });
+  E('rave', Object.assign({ name: 'Sonic Boom', icon: 'sonic', poseFn: phasePose({}, { fh: [-10, 10], bh: [-14, 14], crouch: 8, lean: -6 }, { fh: [54, -2], bh: [50, 6], lean: 14, ff: [34, 0], bf: [-36, 0] }, {}),
+    tick: (G, f, act) => fire(act, f, () => {
+      const m = f.local(70, -104);
+      G.proj({ owner: f, x: m.x, y: m.y, vx: f.facing * 1400, vy: 0, r: 46, life: 0.9, color: '#4fd8ff', draw: waveDraw, spec: blow(50, [1050, -300], '#4fd8ff', 'Sonic Boom') });
+      G.fx.ring(m.x, m.y, '#ff4fd8', 90, 0.25, 6); Sfx.play('blast');
+    }) }, FAR));
   E('saibo', { name: 'Casual Upper', icon: 'goldfist', poseFn: UPPER, box: [52, -128, 36], hit: up(70, [150, -1500], '#ffffff'),
     onHit: (G, f, o) => G.say(f.root.x, f.root.y - 300, '...', '#ffffff', 30) });
 })();
@@ -1938,6 +2240,9 @@ function drawSlab(ctx, x, y, rot, dir, time, a) {
     kensei:   { stance: 'kungfu', gear: 'band', hair: 'part', hairC: '#262028', top: '#7a2633', topKind: 'gi', sleeve: 'short', trim: 'acc', pants: '#2a2228', belt: 'acc', wraps: true, cape: false },
     blaze:    { stance: 'soldier', gear: 'none', hair: 'spikes', hairC: '#3a1e14', face: 'goggles', top: '#b98a4a', topKind: 'jacket', sleeve: 'long', stripes: true, trim: 'acc', pants: '#9a7038', boots: '#2a2018' },
     triblade: { stance: 'dual', gear: 'band', hair: 'mohawk', hairC: '#2f3a22', top: '#4a3a1e', topKind: 'tank', pants: '#2a261c', belt: 'acc', beltTails: true, wraps: true },
+    hana:     { stance: 'dancer', style: 'dancer', gear: 'none', hair: 'long', hairC: '#2a1a26', top: '#ffd1e6', topKind: 'robe', sleeve: 'long', wideSleeve: true, trim: 'acc', sash: true, pants: '#ff8fc8', pantsKind: 'robe', boots: '#f2e6ef', build: { chest: 0.9, waist: 0.8, hip: 1.1, arm: 0.86, leg: 0.93, curvy: true, bust: true } },
+    kori:     { stance: 'frost', style: 'frost', gear: 'none', hair: 'spikes', hairC: '#e8f6ff', top: '#1f3a5c', topKind: 'vest', pants: '#16263d', boots: '#dff4ff', wraps: '#bfe6ff', extra: 'pauldron', trim: '#bfe6ff', build: { chest: 1.1, arm: 1.12 } },
+    rave:     { stance: 'beat', style: 'beat', gear: 'none', hair: 'mohawk', hairC: '#ff4fd8', face: 'goggles', top: '#16161f', topKind: 'hoodie', sleeve: 'long', trim: '#4fd8ff', pants: '#1c1c28', boots: '#ff4fd8', stripes: true },
     psychic:  { stance: 'calm', gear: 'none', hair: 'part', hairC: '#1c1c22', top: '#1d3a44', topKind: 'hoodie', sleeve: 'long', trim: 'acc', pants: '#22252e', extra: 'orbs' },
   };
   for (const id in W) if (BY_ID[id]) BY_ID[id].look = Object.assign({}, BY_ID[id].look, W[id]);
@@ -1955,6 +2260,21 @@ function drawSlab(ctx, x, y, rot, dir, time, a) {
    stretch jab) are left alone. */
 const PZ = (wind, strike) => ({ wind, strike });
 const STYLE_SETS = {
+  dancer: {
+    l1: { name: 'Fan Flick', w: 0.04, pose: PZ({ fh: [6, -24], lean: -2 }, { fh: [50, 6], lean: 8 }), box: [64, -108, 26] },
+    l2: { name: 'Twirl Strike', pose: PZ({ bh: [-20, -10], lean: -4 }, { bh: [50, -6], fh: [-10, -20], lean: 12 }), box: [64, -110, 26] },
+    h: { name: 'Crescent Kick', pose: PZ({ ff: [-10, -60], lean: -10 }, { ff: [60, -112], lean: -24, bf: [-8, 0], fh: [-16, -40], bh: [-30, -20] }), box: [72, -112, 32], kb: [380, -160] },
+  },
+  frost: {
+    l1: { name: 'Ice Jab', pose: PZ({ fh: [10, 4] }, { fh: [50, -2], lean: 9 }), box: [64, -110, 28] },
+    l2: { name: 'Frost Hook', w: 0.07, pose: PZ({ bh: [-12, 4], lean: -4 }, { bh: [46, -6], lean: 15, crouch: 6 }), box: [62, -110, 30] },
+    h: { name: 'Glacier Stomp', pose: PZ({ ff: [12, -60], crouch: 4, lean: -6 }, { ff: [58, -10], crouch: 18, lean: 12, fh: [30, 20] }), box: [70, -40, 38], kb: [420, -260] },
+  },
+  beat: {
+    l1: { name: 'Snap Jab', w: 0.04, r: 0.12, pose: PZ({ fh: [14, 8] }, { fh: [50, -4], lean: 7 }), box: [64, -114, 22] },
+    l2: { name: 'Spin Elbow', pose: PZ({ bh: [10, 10], lean: -6 }, { bh: [30, -6], fh: [-10, 10], lean: 14 }), box: [54, -110, 30] },
+    h: { name: 'Windmill Sweep', pose: PZ({ crouch: 26, ff: [10, 0] }, { crouch: 38, ff: [74, -6], bf: [-24, 0], lean: 18, fh: [24, 42], bh: [-12, 44] }), box: [80, -24, 34], kb: [300, -520] },
+  },
   karate: {
     l1: { name: 'Straight Punch', pose: PZ({ fh: [8, 8] }, { fh: [50, 0], lean: 7 }) },
     l2: { name: 'Reverse Punch', pose: PZ({ bh: [2, 12], lean: -3 }, { bh: [50, 0], fh: [6, 20], lean: 13, ff: [28, 0] }) },
@@ -2037,7 +2357,7 @@ const STYLE_SETS = {
 };
 (function fightingStyles() {
   for (const d of ROSTER) {
-    const set = STYLE_SETS[d.look.stance];
+    const set = STYLE_SETS[d.look.style || d.look.stance];
     if (!set) continue;
     const R = d.reach || 0;
     for (const k of ['l1', 'l2', 'h']) {
@@ -2049,7 +2369,7 @@ const STYLE_SETS = {
       if (o.kb) mv.hit = Object.assign({}, mv.hit, { kb: o.kb });
       let fn = null;
       if (o.arc) { fn = arcPose(o.arc[0], o.arc[1]); mv.slash = true; }
-      else if (o.pose) { const id = `style_${d.look.stance}_${k}`; POSES[id] = o.pose; mv.pose = id; mv.poseFn = undefined; mv.slash = o.slash != null ? o.slash : false; }
+      else if (o.pose) { const id = `style_${d.look.style || d.look.stance}_${k}`; POSES[id] = o.pose; mv.pose = id; mv.poseFn = undefined; mv.slash = o.slash != null ? o.slash : false; }
       if (fn) mv.poseFn = fn;
       // a lunging heavy carries the body forward
       if (o.step) { const step = o.step; mv.tick = (G, f, act) => { if (phaseOf(act).ph === 1 && act.vx == null) f.root.vx = f.facing * step * f.s / 2; }; }
@@ -2061,8 +2381,12 @@ const STYLE_SETS = {
 const HIT_STYLE = {
   kaze: 'ki', ryo: 'smoke', aoi: 'arcane', homura: 'water', jin: 'crescent', mugi: 'pop', kohei: 'volt', taro: 'spirit',
   saibo: 'shock', ripper: 'metal', monarch: 'shadow', titan: 'quake', kensei: 'points', blaze: 'flame', triblade: 'gold', psychic: 'psi',
+  hana: 'petal', kori: 'frost', rave: 'beat',
 };
 const HIT_FX = {
+  petal: (G, x, y, d) => { for (let i = 0; i < 7; i++) G.fx.add({ kind: 'leaf', x, y, vx: d * rand(80, 380), vy: rand(-320, 60), g: 400, vr: rand(-10, 10), life: 0.55, size: rand(4, 7), color: i % 3 ? '#ffb3d6' : '#ffffff', add: false }); },
+  frost: (G, x, y, d) => { G.fx.ring(x, y, '#dff6ff', 56, 0.22, 4); for (let i = 0; i < 6; i++) G.fx.add({ kind: 'shard', x, y, vx: d * rand(120, 460), vy: rand(-360, 120), life: 0.3, size: rand(4, 7), color: '#dff6ff' }); },
+  beat: (G, x, y) => { G.fx.ring(x, y, '#ff4fd8', 70, 0.2, 5); G.fx.ring(x, y, '#4fd8ff', 44, 0.16, 4); },
   ki: (G, x, y, d) => { G.fx.ring(x, y, '#9fe3ff', 70, 0.22, 5); for (let i = 0; i < 6; i++) G.fx.add({ x, y, vx: Math.cos(i) * 300 + d * 200, vy: Math.sin(i) * 300, life: 0.25, size: 4, color: '#bfefff' }); },
   smoke: (G, x, y) => { for (let i = 0; i < 3; i++) G.fx.add({ kind: 'smoke', x: x + rand(-14, 14), y: y + rand(-10, 10), size: rand(20, 32), life: 0.4, color: '#e9e4d4', add: false }); },
   arcane: (G, x, y) => { G.fx.ring(x, y, '#c9a8ff', 60, 0.3, 4); G.fx.ring(x, y, '#7f5bff', 36, 0.22, 3); },

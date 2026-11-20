@@ -61,14 +61,17 @@ const Game = (() => {
     const c = G.cfg;
     G.projs.length = 0; G.beams.length = 0; G.fields.length = 0; G.summons.length = 0; G.ghosts.length = 0; G.callouts.length = 0; G.corpses.length = 0;
     G.timers.length = 0;
+    G.border.length = 0;
     G.fx.clear();
     G.hitstop = 0; G.slowK = 1; G.slowT = 0; G.cut = null; G.tintS = null; G.windS = null; G.impactQ.length = 0; G.focusS = null; G.flashC = null;
     const hp0 = c.hpStart || [1, 1];
     // in levels and Survival the player gets a sturdier body than the CPU
-    const pBonus = c.mode === 'level' || c.mode === 'survival' || c.mode === 'ascent' ? 1.3 : 1;
+    const pBonus = c.mode === 'level' || c.mode === 'survival' || c.mode === 'ascent' || c.mode === 'event' ? 1.3 : 1;
+    // outfits: the player's equipped skin unless the fight says otherwise
+    const sk = c.skins || [Skins.equipped(c.p1), null];
     G.fighters = [
-      new Rag(BY_ID[c.p1], { side: 0, x: 560, facing: 1, hpMul: (c.hpMul || [1, 1])[0] * pBonus }),
-      new Rag(BY_ID[c.p2], { side: 1, x: 1040, facing: -1, hpMul: (c.hpMul || [1, 1])[1] }),
+      new Rag(Skins.def(c.p1, sk[0]), { side: 0, x: 560, facing: 1, hpMul: (c.hpMul || [1, 1])[0] * pBonus }),
+      new Rag(Skins.def(c.p2, sk[1]), { side: 1, x: 1040, facing: -1, hpMul: (c.hpMul || [1, 1])[1] }),
     ];
     if (c.scale) G.fighters.forEach((f, i) => { f.s *= c.scale[i] || 1; });
     WORLD_G = c.grav || 1;
@@ -155,6 +158,7 @@ const Game = (() => {
   /* -------------------------------------------------------------- spawners */
   // run fn after a delay of fight time (cleared when a round starts)
   G.timers = [];
+  G.border = [];   // ripples on the arena's force-field edges
   G.later = (d, fn) => { G.timers.push({ t: d, fn }); };
   /* ----------------------------------------------------- card effects
      Run-only powers from Ascent cards (meta.js). Each one is visible: a
@@ -215,6 +219,105 @@ const Game = (() => {
     G.flash('#ffffff', 0.18); G.shake(9); G.slow(0.5, 0.18);
     G.say(c.x, c.y - 240, 'BREAK!', '#9ff4ff', 42);
     Sfx.play('counter');
+  }
+
+  /* ------------------------------------------------- the arena border
+     The edges of the arena are not walls but a force: a sheet of light with
+     scrolling bands, like the edge of a world. It is faint from afar, grows
+     as a fighter nears it, and ripples where anything touches it. */
+  const BORDER_TINT = { dojo: '#ffcf7a', city: '#4fd8ff', temple: '#ff9ac6', void: '#b07bff', crater: '#ff8a4a', forest: '#9dffb0', snow: '#bfe6ff', arena: '#ffd34d', lab: '#7fe8ff' };
+  function borderHit(side, y, k = 1) {
+    if (G.border.length > 24) G.border.shift();
+    G.border.push({ side, y, t: 0, k });
+    const x = side < 0 ? WALL_L : WALL_R, col = BORDER_TINT[G.stageId] || '#7fe8ff';
+    for (let i = 0; i < 6 + k * 6; i++) G.fx.add({ x, y: y + rand(-30, 30), vx: -side * rand(80, 420) * k, vy: rand(-300, 300) * k, drag: 3, life: rand(0.25, 0.5), size: rand(2, 4), color: Math.random() < 0.5 ? '#ffffff' : col });
+  }
+  let stripeCanvas = null;
+  function stripePattern() {
+    if (!stripeCanvas) {
+      stripeCanvas = document.createElement('canvas'); stripeCanvas.width = stripeCanvas.height = 64;
+      const g = stripeCanvas.getContext('2d');
+      g.strokeStyle = '#ffffff'; g.lineWidth = 9; g.lineCap = 'square';
+      for (let i = -1; i <= 2; i++) { g.beginPath(); g.moveTo(i * 32 - 32, 64); g.lineTo(i * 32 + 32, 0); g.stroke(); }
+    }
+    return stripeCanvas;
+  }
+  let sheetC = null;
+  function borderSheet(h, col, off, side) {
+    const W = 84, H = Math.max(8, Math.ceil(h));
+    if (!sheetC) sheetC = document.createElement('canvas');
+    if (sheetC.width !== W || sheetC.height !== H) { sheetC.width = W; sheetC.height = H; }
+    const g = sheetC.getContext('2d');
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; g.clearRect(0, 0, W, H);
+    g.globalAlpha = 0.5; g.fillStyle = col; g.fillRect(0, 0, W, H);
+    const pat = g.createPattern(stripePattern(), 'repeat');
+    if (pat.setTransform) pat.setTransform(new DOMMatrix().translate(side * off, -off));
+    g.globalAlpha = 0.55; g.fillStyle = pat; g.fillRect(0, 0, W, H);
+    // the mask: fade up into the sky, and soften both sides of the sheet
+    g.globalAlpha = 1; g.globalCompositeOperation = 'destination-in';
+    const v = g.createLinearGradient(0, 0, 0, H); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(0.55, 'rgba(0,0,0,0.6)'); v.addColorStop(1, 'rgba(0,0,0,1)');
+    g.fillStyle = v; g.fillRect(0, 0, W, H);
+    const hz = g.createLinearGradient(0, 0, W, 0); hz.addColorStop(0, 'rgba(0,0,0,0)'); hz.addColorStop(0.3, 'rgba(0,0,0,1)'); hz.addColorStop(0.7, 'rgba(0,0,0,1)'); hz.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = hz; g.fillRect(0, 0, W, H);
+    g.globalCompositeOperation = 'source-over';
+    return sheetC;
+  }
+  function drawBorders(vr, time) {
+    const col = BORDER_TINT[G.stageId] || '#7fe8ff';
+    const top = vr.y0 - 40, bot = GROUND + 10;
+    for (const side of [-1, 1]) {
+      const x = side < 0 ? WALL_L : WALL_R;
+      if (x < vr.x0 - 200 || x > vr.x1 + 200) continue;
+      // how close the nearest fighter is: the border wakes up as you approach
+      let near = 0;
+      for (const f of G.fighters) near = Math.max(near, clamp(1 - Math.abs(f.root.x - x) / 420, 0, 1));
+      const ripple = G.border.some(b => b.side === side);
+      const a = 0.22 + near * 0.55 + (ripple ? 0.15 : 0);
+      // beyond the border the world is held back: a deep tinted haze
+      const out0 = side < 0 ? vr.x0 - 50 : x, out1 = side < 0 ? x : vr.x1 + 50;
+      const hg = ctx.createLinearGradient(x, 0, x + side * 260, 0);
+      hg.addColorStop(0, rgba(col, 0.22 * a)); hg.addColorStop(1, rgba('#05060c', 0.55));
+      ctx.fillStyle = hg; ctx.fillRect(out0, top, out1 - out0, bot - top + 60);
+      // the sheet: scrolling diagonal bands, fading toward the sky and at its
+      // sides (built on a small offscreen canvas with a smooth mask)
+      const W = 84;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = Math.min(1, a * 1.1);
+      ctx.drawImage(borderSheet(bot - top, col, (time * 70) % 64, side), x - W / 2, top, W, bot - top);
+      ctx.restore();
+      // the edge itself: a bright flickering line with a soft glow
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const flick = 0.75 + Math.sin(time * 23 + side) * 0.12 + Math.sin(time * 7.3) * 0.13;
+      const eg = ctx.createLinearGradient(0, top, 0, bot);
+      eg.addColorStop(0, rgba(col, 0)); eg.addColorStop(0.45, rgba('#ffffff', 0.55 * a * flick)); eg.addColorStop(1, rgba('#ffffff', 0.95 * a * flick));
+      ctx.fillStyle = eg; ctx.fillRect(x - 1.5, top, 3, bot - top);
+      Glow.draw(ctx, col, x, GROUND - 40, 120, 0.35 * a);
+      // runes drifting up the sheet
+      const rnd = mulberry32(side < 0 ? 7 : 11);
+      for (let i = 0; i < 9; i++) {
+        const sp = 30 + rnd() * 50, y = bot - ((time * sp + rnd() * 900) % (bot - top)), dx = (rnd() - 0.5) * 40;
+        const k = clamp((y - top) / (bot - top), 0, 1);
+        ctx.globalAlpha = a * k * (0.5 + 0.5 * Math.sin(time * 4 + i));
+        ctx.strokeStyle = col; ctx.lineWidth = 2;
+        const s = 6 + rnd() * 4;
+        ctx.beginPath(); ctx.moveTo(x + dx, y - s); ctx.lineTo(x + dx + s * 0.6, y); ctx.lineTo(x + dx, y + s); ctx.lineTo(x + dx - s * 0.6, y); ctx.closePath(); ctx.stroke();
+      }
+      // ripples where something touched it: rings on the sheet, seen edge-on
+      for (const b of G.border) {
+        if (b.side !== side) continue;
+        const u = b.t / 0.6, r = 30 + u * 150 * b.k;
+        ctx.globalAlpha = (1 - u) * 0.9;
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3 * (1 - u) + 1;
+        ctx.beginPath(); ctx.ellipse(x, b.y, r * 0.28, r, 0, 0, TAU); ctx.stroke();
+        ctx.strokeStyle = col; ctx.lineWidth = 6 * (1 - u) + 1;
+        ctx.beginPath(); ctx.ellipse(x, b.y, r * 0.2, r * 0.7, 0, 0, TAU); ctx.stroke();
+        Glow.draw(ctx, col, x, b.y, 90 * b.k, (1 - u) * 0.8);
+      }
+      ctx.restore();
+    }
   }
 
   function phoenixRise(f, att) {
@@ -304,6 +407,11 @@ const Game = (() => {
     if (!def || G.state === 'intro' || G.state === 'idle' || G.state === 'over') return null;
     if (def.mode === 'dead') return null;
     if (def.invuln > 0) return null;
+    // a counter stance (Hana's Blossom Veil): struck inside it, she answers instead
+    const ca = def.action;
+    if (ca && ca.move.counter && !ca.countered && att !== def && spec.kind !== 'super' && !spec.unblockable && ca.t >= ca.w && ca.t < ca.w + ca.a) {
+      ca.countered = true; ca.move.counter(G, def, att, ca); return 'block';
+    }
     if (def.barrierT > 0 && !spec.unblockable) { G.fx.ring(x, y, '#9ff4ff', 70, 0.25, 6); Sfx.play('block'); return 'block'; }
     if (def.mode === 'tumble') {
       const low = def.pelvis.y > GROUND - 50 * def.s && Math.hypot(def.pelvis.x - def.pelvis.px, def.pelvis.y - def.pelvis.py) < 3;
@@ -369,7 +477,7 @@ const Game = (() => {
     let bf = false;
     if (spec.bf && !stopped && Math.random() < BF_CHANCE + (n >= 3 ? 0.06 : 0) + att.mods.bf) { bf = true; scale *= 2.0; }
     // in levels and Survival the CPU hits a little softer than the player
-    const easy = att.side === 1 && (G.cfg.mode === 'level' || G.cfg.mode === 'survival') ? 0.8 : 1;
+    const easy = att.side === 1 && (G.cfg.mode === 'level' || G.cfg.mode === 'survival' || G.cfg.mode === 'event') ? 0.8 : 1;
     const exec = att.mods.exec && def.hp < def.maxHp * 0.3 ? 1 + att.mods.exec : 1;
     // cards: Adrenaline (low health) and Momentum (long combos)
     const adren = att.mods.adren && att.hp < att.maxHp * 0.35 ? 1 + att.mods.adren : 1;
@@ -774,7 +882,8 @@ const Game = (() => {
       if (G.stopT > 0 && G.stopOwner !== p.owner) continue;
       p.t += dt;
       p.x += p.vx * dt; p.y += p.vy * dt;
-      if (p.t > p.life || p.x < WALL_L - 200 || p.x > WALL_R + 200) { p.dead = true; continue; }
+      if (p.t > p.life) { p.dead = true; continue; }
+      if (p.x < WALL_L - 10 || p.x > WALL_R + 10) { p.dead = true; borderHit(p.x < 800 ? -1 : 1, p.y, 0.8); continue; }
       const o = G.opp(p.owner);
       if (o && o.barrierT > 0 && p.strength < 9 && dist(p.x, p.y, o.center().x, o.center().y) < 120 * o.s / 2 + p.r) {
         p.owner = o; p.vx = -p.vx * 1.15; p.t = 0; p.spent = false; p.hits = 0;
@@ -974,8 +1083,14 @@ const Game = (() => {
     updateBeams(dt);
     updateFields(dt);
     for (let i = G.timers.length - 1; i >= 0; i--) { const t = G.timers[i]; t.t -= dt; if (t.t <= 0) { G.timers.splice(i, 1); t.fn(); } }
+    for (const b of G.border) b.t += dt;
+    G.border = G.border.filter(b => b.t < 0.6);
     for (const f of G.fighters) {
+      f.borderT = Math.max(0, (f.borderT || 0) - dt);
+      const lo = WALL_L + 24 * f.s, hi = WALL_R - 24 * f.s;
+      if (f.borderT <= 0 && ((f.root.x <= lo + 2 && f.root.vx < -140) || (f.root.x >= hi - 2 && f.root.vx > 140))) { f.borderT = 0.3; borderHit(f.root.x < 800 ? -1 : 1, f.center().y, 0.6); }
       if (f.burstCd > 0) f.burstCd -= dt;
+      if (f.frostT > 0) f.frostT = f.stopT > 0 ? Math.max(f.frostT - dt, 0.01) : 0;
       if (f.breakPending) { const a = f.breakPending; f.breakPending = null; if (fighting && f.alive && f.hp > 0 && f.stopT <= 0 && G.hitstop <= 0.2) comboBreak(f, a); }
       // the floor heal: a short beat, then the bar fills with a green shimmer
       if (f.healLeft > 0 && f.alive) {
@@ -1005,8 +1120,8 @@ const Game = (() => {
         f.splat = true;
         const c = f.center();
         G.fx.ring(c.x, c.y, '#ffffff', 160, 0.35, 10);
-        G.fx.chunks(f.root.x < 800 ? WALL_L : WALL_R, c.y, '#c7c2b8', 10, 500, 8);
-        G.shake(12); Sfx.play('splat');
+        borderHit(f.root.x < 800 ? -1 : 1, c.y, 1.6);
+        G.shake(12); Sfx.play('splat'); Sfx.play('zap');
         if (f.alive) { G.say(c.x, c.y - 140, 'WALL SPLAT', '#ffffff', 34); f.hp -= 15; f.juggle = Math.max(0, f.juggle - 2); f.lastHit = f.lastHit || { att: G.opp(f), kind: 'heavy' }; if (G.stats && f.side === 1 && G.mode !== 'demo') G.stats.splats++; }
       }
       if (f.mode !== 'tumble') { f.splat = false; f.bounce = 0; }
@@ -1270,8 +1385,10 @@ const Game = (() => {
     const halfW = W / (2 * cam.z);
     const visW = cw / (kView * cam.z);
     const half = Math.min(halfW, visW / 2);
-    tx = clamp(tx, WALL_L - 40 + half, WALL_R + 40 - half);
-    if (WALL_R + 40 - half < WALL_L - 40 + half) tx = 800;
+    // the camera may look a little past the border, so its sheet of light
+    // and the haze beyond it read as the edge of the world
+    tx = clamp(tx, WALL_L - 140 + half, WALL_R + 140 - half);
+    if (WALL_R + 140 - half < WALL_L - 140 + half) tx = 800;
     if (G.mode === 'demo' && G.viewShift) tx -= G.viewShift * dpr / (kView * cam.z);
     cam.x = lerp(cam.x, tx, lerpK);
     // keep the floor near the bottom, but rise to follow a juggle into the air
@@ -1279,6 +1396,8 @@ const Game = (() => {
     const floorY = GROUND + (G.floorPad || 110) - visH * 0.5;
     const follow = Math.max(floorY - 240, Math.min(floorY, top - 110 + visH * 0.5));
     cam.y = cam.y == null || !Number.isFinite(cam.y) ? floorY : lerp(cam.y, follow, 1 - Math.exp(-dt * 4));
+    // an outside director (tools/trailer.js) may frame the shot itself
+    if (G.camHook) G.camHook(cam, { cw, ch, kView, W, dt });
     // zoom punches and tilt on big hits ease back out
     G.punchA = (G.punchA || 0) * Math.exp(-dt * 7);
     G.tiltA = (G.tiltA || 0) * Math.exp(-dt * 6);
@@ -1398,10 +1517,13 @@ const Game = (() => {
         ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
       }
     }
+    // fighters held in ice (Kori)
+    for (const f of G.fighters) if (f.frostT > 0 && typeof iceBlock === 'function') iceBlock(ctx, f, Math.min(1, f.frostT * 5));
     for (const b of G.beams) drawBeam(b, time);
     for (const p of G.projs) { if (p.draw) p.draw(ctx, p, time); else orbDraw(ctx, p, time); }
     G.fx.draw(ctx);
     G.fx.drawSlashes(ctx);
+    drawBorders(vr, time);
     Stage.drawFront(ctx, G.stageId, vr, time, G.cam);
     G.fx.drawTexts(ctx);
     drawTint(vr, time, 'front');
@@ -1470,6 +1592,7 @@ const Game = (() => {
     const k = clamp(Math.min(fl.t * 6, (fl.life - fl.t) * 6 + 0.3), 0, 1);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
+    if (typeof fl.draw === 'function') { fl.draw(ctx, fl, time, k); ctx.restore(); return; }
     if (fl.draw === 'hands') {
       // shadow hands burst up through the floor at the end
       const u = fl.t / fl.life;

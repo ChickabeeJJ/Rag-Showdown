@@ -24,11 +24,16 @@
         setItem: (k, v) => { log('data.setItem'); store[k] = String(v); },
         removeItem: k => { delete store[k]; },
       },
+      // the game must never call the ad module: any call is recorded as a failure
       ad: {
-        requestAd: (type, cb) => { log('requestAd', type); setTimeout(() => { cb.adStarted && cb.adStarted(); setTimeout(() => cb.adFinished && cb.adFinished(), 50); }, 10); },
+        requestAd: type => log('requestAd', type),
         hasAdblock: () => Promise.resolve(false),
       },
-      user: { isUserAccountAvailable: false },
+      user: {
+        isUserAccountAvailable: true,
+        getUser: () => { log('user.getUser'); return Promise.resolve({ username: 'TestPlayer', profilePictureUrl: '' }); },
+        addAuthListener: fn => { log('user.authListener'); },
+      },
     },
   };
   // lets the test flip the platform's mute setting
