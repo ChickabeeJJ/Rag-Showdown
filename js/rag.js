@@ -123,6 +123,32 @@ const CELE_BY_STANCE = {
 };
 const CROSSED = { fh: [16, 22], bh: [-6, 22], lean: -2, crouch: 0, ff: [14, 0], bf: [-14, 0] };
 
+/* ---------------------------------------------------------- showcase poses
+   The hero pose a fighter strikes on menus and reward art: taller and more
+   open than the fight guard (which reads as hunched in a still), with a wide
+   planted base and each style's signature hands. */
+const SHOWCASE = {
+  karate:  { fh: [38, -6], bh: [-6, 30], ff: [20, 0], bf: [-25, 0], lean: 2, crouch: 0 },
+  ninja:   { fh: [38, 4], bh: [-34, 18], ff: [24, 0], bf: [-29, 0], lean: 6, crouch: 3 },
+  mystic:  { fh: [30, -30], bh: [-26, 8], ff: [10, 0], bf: [-13, 0], lean: -2, crouch: -3 },
+  sword:   { fh: [30, -10], bh: [18, -2], ff: [22, 0], bf: [-25, 0], lean: 2, crouch: 0 },
+  reaper:  { fh: [30, 26], bh: [-26, 28], ff: [16, 0], bf: [-18, 0], lean: 2, crouch: -2 },
+  loose:   { fh: [22, -34], bh: [-12, 38], ff: [11, 0], bf: [-14, 0], lean: -1, crouch: -3 },
+  boxer:   { fh: [28, -14], bh: [14, -8], ff: [14, 0], bf: [-19, 0], lean: 3, crouch: -2 },
+  monk:    { fh: [36, -8], bh: [8, 4], ff: [13, 0], bf: [-17, 0], lean: 0, crouch: -2 },
+  casual:  { fh: [14, -40], bh: [-8, 40], ff: [8, 0], bf: [-11, 0], lean: -1, crouch: -4 },
+  feral:   { fh: [42, 6], bh: [-36, 2], ff: [20, 0], bf: [-25, 0], lean: 7, crouch: 2 },
+  regal:   { fh: [42, -8], bh: [-8, 32], ff: [8, 0], bf: [-10, 0], lean: -2, crouch: -4 },
+  giant:   { fh: [28, -28], bh: [-26, -24], ff: [19, 0], bf: [-22, 0], lean: 1, crouch: 0 },
+  kungfu:  { fh: [42, -10], bh: [-26, -22], ff: [16, 0], bf: [-18, 0], lean: 0, crouch: 0 },
+  soldier: { fh: [44, -6], bh: [24, 0], ff: [14, 0], bf: [-20, 0], lean: 3, crouch: -1 },
+  dual:    { fh: [40, -14], bh: [-38, -6], ff: [22, 0], bf: [-26, 0], lean: 2, crouch: 1 },
+  calm:    CROSSED,
+  dancer:  { fh: [28, -40], bh: [-36, -4], ff: [12, 0], bf: [-16, 0], lean: -2, crouch: -3 },
+  frost:   { fh: [40, -4], bh: [-4, 24], ff: [19, 0], bf: [-24, 0], lean: 2, crouch: 0 },
+  beat:    { fh: [16, -46], bh: [-16, 12], ff: [12, 0], bf: [-16, 0], lean: -1, crouch: -2 },
+};
+
 function mergePose(base, over) {
   const o = Object.assign({}, base);
   if (over) for (const k in over) o[k] = over[k];

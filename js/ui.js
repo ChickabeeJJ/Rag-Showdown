@@ -241,6 +241,8 @@ const UI = (() => {
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     const g = c.getContext('2d');
     const r = new Rag(def, { side: 0, x: 0, facing: 1 });
+    // a hero pose rather than the crouched fight guard
+    r.pose = SHOWCASE[def.look.style || def.look.stance] || SHOWCASE[def.look.stance] || SHOWCASE.karate;
     for (let k = 0; k < 240; k++) { r.update(1 / 120); r.root.x = 0; }
     let top = Infinity, l = Infinity, rt = -Infinity;
     for (const p of r.pts) { top = Math.min(top, p.y); l = Math.min(l, p.x); rt = Math.max(rt, p.x); }
@@ -1504,6 +1506,7 @@ const UI = (() => {
   U._openEvent = openEvent;
   U._renderEvent = () => { if (U.screen === 'event') renderEvent(); renderHome(); };
   U._cardTilt = cardTilt;
+  U._fullBody = fullBody;
   U._start = { level: i => playLevel(Campaign.levels[i]), levels: () => openLevels(), ascent: startAscent, survival: startSurvival, training: startTraining, select: openSelect };
   return U;
 })();

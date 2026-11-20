@@ -114,7 +114,8 @@ Each limited-time event runs for 35 days (a month and a bit), starting on a Mond
   - **Sakura:** a sakura hairpin, petals circling and drifting off the shoulders (a shower when celebrating), and petal hit bursts.
   - **Frost:** ice crystals grown on the shoulders, frost-glowing fists, cold breath, snow kicked up at the feet, and ice-shard hits.
   - **Neon:** LED strips glowing along every limb, a visor light, neon afterimage trails on fast moves, and pink and cyan ring hits.
-- **The UI:** a compact live event card in the bottom-right corner of the home screen, clear of the menu and the demo fight; Event Battles cut straight into the fight. On the event screen, a themed hero banner (drifting petals, falling snow or a neon grid) with the exclusive fighter. Reward tiers are connected by a progress line, and the top tier has a spinning edge. Every panel has an outline that follows its slanted corners. Skin and fighter rewards get their own reveal.
+- **One accent colour:** every completion tick, claimed tier, ready mission and notification badge uses the game's gold, so nothing on the menus is green. Green is kept only for healing in fights.
+- **The UI:** a compact live event card in the bottom-right corner of the home screen, clear of the menu and the demo fight; Event Battles cut straight into the fight. On the event screen, a themed hero banner (drifting petals, falling snow or a neon grid) with the exclusive fighter, who faces the title in a hero pose. Each fighting style has its own showcase pose for menu and reward art (a tall, planted stance with signature hands instead of the crouched fight guard). Reward tiers are connected by a progress line, and the top tier has a spinning edge. Every panel has an outline that follows its slanted corners. Skin and fighter rewards get their own reveal.
 
 **The event fighters**
 
