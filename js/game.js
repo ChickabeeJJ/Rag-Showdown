@@ -1686,6 +1686,160 @@ const Game = (() => {
       ctx.globalCompositeOperation = 'lighter'; Glow.draw(ctx, '#ff1838', G.cam.x, GROUND - 200, 800, 0.5 * k);
       ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
     }
+    /* ---- each ultimate's own world: the void is Aoi's alone */
+    // Monarch: the shadow realm. A rift opens in the floor, tendrils of
+    // shadow writhe up out of it, and eyes blink open in the dark.
+    if (t.type === 'shadow') {
+      if (layer === 'back') {
+        ctx.globalAlpha = 0.9 * k; ctx.fillStyle = '#06020e'; ctx.fillRect(vr.x0, vr.y0, w, h);
+        ctx.globalCompositeOperation = 'lighter';
+        Glow.draw(ctx, '#5a2bd6', G.cam.x, GROUND, w * 0.5, 0.6 * k);
+        ctx.globalCompositeOperation = 'source-over';
+        const open = easeOut(clamp(t.t / 0.5, 0, 1));
+        ctx.globalAlpha = k; ctx.fillStyle = '#000000';
+        ctx.beginPath(); ctx.ellipse(G.cam.x, GROUND + 6, w * 0.42 * open, 34 * open, 0, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#8a6bff'; ctx.lineWidth = 4; ctx.globalAlpha = 0.8 * k; ctx.stroke();
+        const rnd = mulberry32(7);
+        for (let i = 0; i < 16; i++) {
+          const bx = G.cam.x + (i - 7.5) / 8 * w * 0.4 * open, ph = rnd() * 6, H = (180 + rnd() * 380) * open * (0.75 + 0.25 * Math.sin(time * 2.4 + ph));
+          ctx.strokeStyle = i % 3 ? '#1a0b33' : '#2c1460'; ctx.globalAlpha = 0.95 * k; ctx.lineCap = 'round';
+          let px = bx, py = GROUND;
+          for (let s = 1; s <= 10; s++) {
+            const u = s / 10, nx = bx + Math.sin(time * 3 + ph + u * 5) * 26 * u, ny = GROUND - H * u;
+            ctx.lineWidth = 20 * (1 - u) + 2; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(nx, ny); ctx.stroke();
+            px = nx; py = ny;
+          }
+        }
+        // eyes in the dark, opening one pair at a time
+        ctx.globalCompositeOperation = 'lighter';
+        for (let i = 0; i < 12; i++) {
+          const ex = vr.x0 + (0.06 + rnd() * 0.88) * w, ey = GROUND - 140 - rnd() * 380, on = clamp((t.t - i * 0.08) / 0.15, 0, 1) * (Math.sin(time * 3 + i * 1.7) > -0.85 ? 1 : 0.1);
+          ctx.globalAlpha = k * on;
+          Glow.draw(ctx, '#a58bff', ex, ey, 26, 0.9);
+          ctx.fillStyle = '#e6dcff'; ctx.fillRect(ex - 9, ey - 2, 6, 3); ctx.fillRect(ex + 3, ey - 2, 6, 3);
+        }
+        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      }
+    }
+    // Hana: a crimson sakura night. A huge moon, blossom branches framing
+    // the screen, and rivers of petals pouring across it.
+    if (t.type === 'sakura') {
+      if (layer === 'back') {
+        const g = ctx.createLinearGradient(0, vr.y0, 0, vr.y1);
+        g.addColorStop(0, '#1c0612'); g.addColorStop(0.6, '#6e1c44'); g.addColorStop(1, '#ff6fb5');
+        ctx.globalAlpha = 0.9 * k; ctx.fillStyle = g; ctx.fillRect(vr.x0, vr.y0, w, h);
+        const mx = G.cam.x + w * 0.2, my = vr.y0 + h * 0.3, mr = h * 0.2 * (0.9 + 0.1 * easeOut(clamp(t.t / 0.6, 0, 1)));
+        ctx.globalCompositeOperation = 'lighter'; Glow.draw(ctx, '#ff9cc8', mx, my, mr * 3, 0.7 * k); ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = '#fff0f6'; ctx.globalAlpha = k; ctx.beginPath(); ctx.arc(mx, my, mr, 0, TAU); ctx.fill();
+        // branches reaching in from the top corners, heavy with blossom
+        for (const side of [-1, 1]) {
+          const x0 = side < 0 ? vr.x0 - 20 : vr.x1 + 20, y0 = vr.y0 + h * 0.08;
+          ctx.strokeStyle = '#1a0710'; ctx.lineCap = 'round';
+          const tip = [x0 - side * w * 0.3, y0 + h * 0.16];
+          ctx.lineWidth = 16; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(x0 - side * w * 0.15, y0 + h * 0.02, tip[0], tip[1]); ctx.stroke();
+          ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(x0 - side * w * 0.12, y0 + h * 0.02); ctx.quadraticCurveTo(x0 - side * w * 0.18, y0 + h * 0.12, x0 - side * w * 0.2, y0 + h * 0.22); ctx.stroke();
+          const rnd = mulberry32(side < 0 ? 31 : 37);
+          for (let i = 0; i < 26; i++) {
+            const u = rnd(), bx = lerp(x0, tip[0], u) + (rnd() - 0.5) * 60, by = lerp(y0, tip[1], u) + (rnd() - 0.5) * 50;
+            ctx.fillStyle = rnd() < 0.5 ? '#ffb3d6' : '#ff8fc8'; ctx.beginPath(); ctx.arc(bx, by, 8 + rnd() * 10, 0, TAU); ctx.fill();
+          }
+        }
+        ctx.globalAlpha = 1;
+      } else {
+        // rivers of petals sweeping across in front of everything
+        for (let r = 0; r < 3; r++) {
+          const yb = vr.y0 + h * (0.3 + r * 0.22);
+          for (let i = 0; i < 26; i++) {
+            const u = ((time * (0.55 + r * 0.15) + i / 26) % 1), x = vr.x0 + u * (w + 200) - 100;
+            const y = yb + Math.sin(u * 7 + r * 2 + time * 2) * 46;
+            ctx.globalAlpha = k * Math.sin(u * Math.PI);
+            petalShape(ctx, x, y, 9 + (i % 3) * 2, u * 18 + i, i % 4 ? '#ffb3d6' : '#ffffff');
+          }
+        }
+        ctx.globalAlpha = 1;
+      }
+    }
+    // Kori: a blizzard. Aurora overhead, snow driven sideways, and frost
+    // creeping in from the edges of the screen.
+    if (t.type === 'blizzard') {
+      if (layer === 'back') {
+        const g = ctx.createLinearGradient(0, vr.y0, 0, vr.y1);
+        g.addColorStop(0, '#0a1c34'); g.addColorStop(1, '#5f8fbf');
+        ctx.globalAlpha = 0.88 * k; ctx.fillStyle = g; ctx.fillRect(vr.x0, vr.y0, w, h);
+        ctx.globalCompositeOperation = 'lighter';
+        for (let b = 0; b < 3; b++) {
+          ctx.globalAlpha = 0.28 * k; ctx.fillStyle = ['#4fffc8', '#7fd8ff', '#b07bff'][b];
+          ctx.beginPath(); ctx.moveTo(vr.x0, vr.y0 + h * (0.12 + b * 0.06));
+          for (let i = 0; i <= 24; i++) { const x = vr.x0 + i / 24 * w; ctx.lineTo(x, vr.y0 + h * (0.12 + b * 0.06) + Math.sin(i * 0.6 + time * (1 + b * 0.3) + b) * h * 0.05); }
+          for (let i = 24; i >= 0; i--) { const x = vr.x0 + i / 24 * w; ctx.lineTo(x, vr.y0 + h * (0.2 + b * 0.06) + Math.sin(i * 0.6 + time * (1 + b * 0.3) + b + 0.6) * h * 0.05); }
+          ctx.closePath(); ctx.fill();
+        }
+        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      } else {
+        // snow driven sideways, fast
+        const rnd = mulberry32(53);
+        ctx.strokeStyle = '#ffffff'; ctx.lineCap = 'round';
+        for (let i = 0; i < 150; i++) {
+          const z = rnd(), sp = 900 + z * 1500, y0 = rnd() * h, x = vr.x1 - ((time * sp + rnd() * w * 2) % (w + 200)) + 100, y = vr.y0 + (y0 + (time * sp * 0.25) % h) % h;
+          ctx.globalAlpha = k * (0.35 + z * 0.6); ctx.lineWidth = 1 + z * 2.5;
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 30 + z * 50, y - 8 - z * 12); ctx.stroke();
+        }
+        // frost shards growing in from the four edges
+        const grow = easeOut(clamp(t.t / 0.8, 0, 1)) * k;
+        const shard = (x, y, ang, len) => { ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.fillStyle = 'rgba(223,246,255,0.85)'; ctx.beginPath(); ctx.moveTo(0, -len * 0.18); ctx.lineTo(len, 0); ctx.lineTo(0, len * 0.18); ctx.closePath(); ctx.fill(); ctx.restore(); };
+        const rs = mulberry32(61);
+        for (let i = 0; i < 18; i++) {
+          const u = rs(), len = (60 + rs() * 140) * grow;
+          shard(vr.x0 + u * w, vr.y0, Math.PI / 2 + (rs() - 0.5) * 0.8, len);
+          shard(vr.x0 + rs() * w, vr.y1, -Math.PI / 2 + (rs() - 0.5) * 0.8, len * 0.8);
+          shard(vr.x0, vr.y0 + rs() * h, (rs() - 0.5) * 0.8, len);
+          shard(vr.x1, vr.y0 + rs() * h, Math.PI + (rs() - 0.5) * 0.8, len);
+        }
+        ctx.globalAlpha = 1;
+      }
+    }
+    // Blaze: an inferno. A molten sky, meteors raining down, embers rising.
+    if (t.type === 'inferno') {
+      if (layer === 'back') {
+        const g = ctx.createLinearGradient(0, vr.y0, 0, vr.y1);
+        g.addColorStop(0, '#1a0300'); g.addColorStop(0.55, '#5a1004'); g.addColorStop(1, '#c43c0c');
+        ctx.globalAlpha = 0.88 * k; ctx.fillStyle = g; ctx.fillRect(vr.x0, vr.y0, w, h);
+        ctx.globalCompositeOperation = 'lighter';
+        const rnd = mulberry32(71);
+        for (let i = 0; i < 9; i++) {
+          const sp = 0.6 + rnd() * 0.6, u = (time * sp + rnd()) % 1, x = vr.x1 + 100 - u * (w + 400) + rnd() * 300, y = vr.y0 - 100 + u * (h + 200);
+          const g2 = ctx.createLinearGradient(x, y, x + 260, y - 260);
+          g2.addColorStop(0, 'rgba(255,240,180,0.95)'); g2.addColorStop(0.2, 'rgba(255,120,30,0.7)'); g2.addColorStop(1, 'rgba(255,60,0,0)');
+          ctx.globalAlpha = k; ctx.strokeStyle = g2; ctx.lineWidth = 10 + rnd() * 12; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 260, y - 260); ctx.stroke();
+          Glow.draw(ctx, '#ff7a1a', x, y, 70, 0.8 * k);
+        }
+        for (let i = 0; i < 60; i++) {
+          const u = (time * (0.2 + rnd() * 0.3) + rnd()) % 1, x = vr.x0 + rnd() * w + Math.sin(time * 2 + i) * 20, y = vr.y1 - u * h;
+          ctx.globalAlpha = k * (1 - u); ctx.fillStyle = i % 3 ? '#ff9a3d' : '#ffe08a'; ctx.fillRect(x, y, 3, 3);
+        }
+        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      }
+    }
+    // Rave: the club. Lasers sweep the dark and the room strobes on the beat.
+    if (t.type === 'rave') {
+      if (layer === 'back') {
+        ctx.globalAlpha = 0.9 * k; ctx.fillStyle = '#05020c'; ctx.fillRect(vr.x0, vr.y0, w, h);
+        ctx.globalCompositeOperation = 'lighter';
+        const beat = Math.max(0, 1 - ((t.t % 0.3) / 0.3));
+        for (let i = 0; i < 8; i++) {
+          const ox = vr.x0 + (i + 0.5) / 8 * w, oy = vr.y0 + 10, ang = Math.PI / 2 + Math.sin(time * 1.8 + i * 1.3) * 0.7;
+          const col = i % 2 ? '#4fd8ff' : '#ff4fd8', L = h * 1.4;
+          ctx.globalAlpha = k * (0.5 + beat * 0.5); ctx.strokeStyle = col; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + Math.cos(ang) * L, oy + Math.sin(ang) * L); ctx.stroke();
+          ctx.globalAlpha = k * 0.25; ctx.lineWidth = 16;
+          ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + Math.cos(ang) * L, oy + Math.sin(ang) * L); ctx.stroke();
+          Glow.draw(ctx, col, ox, oy, 60, k);
+        }
+        ctx.globalAlpha = k * beat * 0.18; ctx.fillStyle = '#ffffff'; ctx.fillRect(vr.x0, vr.y0, w, h);
+        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      }
+    }
     if (t.type === 'stop') {
       if (layer === 'back') {
         ctx.globalAlpha = 0.85 * k; ctx.fillStyle = '#6b6478'; ctx.globalCompositeOperation = 'saturation'; ctx.fillRect(vr.x0, vr.y0, w, h);

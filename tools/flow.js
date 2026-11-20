@@ -111,10 +111,13 @@ const SHOTS = process.argv[3] || null;
   console.log('map + play ok');
 
   // ---------------- 4. ascent: a floor, a card choice, then the run ends
+  // ASCENT goes straight in with the fighter already picked: no select screen
+  const pick0 = await ev(() => Save.data.lastPick);
   await click('#btnAscent');
-  if (await ev(() => !!document.getElementById('optP2'))) fail('two-player option still shown');
-  await click('#sdGo');
-  await p.waitForSelector('.sheet.versus'); await p.click('.sheet.versus');
+  await p.waitForSelector('.sheet.versus');
+  if (await ev(() => UI.screen === 'select')) fail('ASCENT opened the select screen');
+  if (await ev(id => UI.run.p1 !== id, pick0)) fail('ASCENT did not use the picked fighter');
+  await p.click('.sheet.versus');
   await p.waitForFunction(() => UI.fightOn && Game.cfg.mode === 'ascent' && Game.state === 'fight', null, { timeout: 15000 });
   if (await ev(() => Game.ctrls[1].human)) fail('ascent P2 is not the CPU');
   await p.mouse.click(640, 400); await p.waitForTimeout(40);

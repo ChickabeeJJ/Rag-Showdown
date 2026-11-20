@@ -51,7 +51,7 @@ The campaign follows Element Rag's stage map: 8 chapters of 6 levels, one per st
   - the first win of each day (+100).
 
 Other modes:
-- **Ascent** (replaces CPU Versus): a roguelite climb, one round per floor against the CPU on a random stage.
+- **Ascent** (replaces CPU Versus): a climb, one round per floor against the CPU on a random stage. ASCENT starts at once with the fighter you already picked (the button shows which); change fighter from the home screen first.
   - Your health and meter carry over. You heal 25% after each floor and 50% after a boss. The heal is shown, not hidden: the cleared sheet shows your health before and after, and the next floor opens with your bar visibly refilling under a **+X% HEALTH** popup.
   - After every win you pick **1 of 3 cards**: powers that last for the run. Cards come in four rarities, and rarer cards are stronger and stranger. Deeper floors and boss rewards tilt the draw toward rarer cards.
 
@@ -97,7 +97,7 @@ Upgrades apply in levels, Survival and Ascent, but not in Training. A fighter's 
 
 ## Events
 
-A new limited-time event starts every Monday (00:00 UTC) and runs for a week, rotating through three. Each has its own exclusive fighter, three skins and its own token.
+Each limited-time event runs for 35 days (a month and a bit), starting on a Monday at 00:00 UTC, then the next takes over, rotating through three. Each has its own exclusive fighter, three skins and its own token.
 
 | Event | Stage | Token | Exclusive fighter | Skins |
 | --- | --- | --- | --- | --- |
@@ -106,15 +106,15 @@ A new limited-time event starts every Monday (00:00 UTC) and runs for a week, ro
 | Neon Nights | Neon Rooftop | Neon Chips | **RAVE**, Neon DJ | Jin Neon Reaper, Kohei Synthwave, Saibo Chrome Cape |
 
 - **Tokens:** every fight in Levels, Ascent and Survival pays tokens (more for wins, finishers and long combos). **Event Battles** on the event's stage pay double. Every third Event Battle is against the exclusive fighter, as a challenger. The other foes often wear the event's skins.
-- **Reward track:** seven tiers up to 700 tokens: coins, the three skins, and the **exclusive fighter** at the top. Claimed skins are equipped at once.
-- **Challenges:** five per event, such as "Win 3 Event Battles", "Land 15 combo finishers" and "Win 3 fights on Sakura Shrine", for bonus tokens.
+- **Reward track:** seven tiers up to 2,100 tokens, paced for a month of play: coins, the three skins, and the **exclusive fighter** at the top. Claimed skins are equipped at once.
+- **Challenges:** five per event, such as "Win 10 Event Battles", "Land 40 combo finishers" and "Win 10 fights on Sakura Shrine", for bonus tokens.
 - **Daily check-in:** tokens every day, growing with your streak (20, then up to 50).
-- **Coming back:** the home screen shows the live event with its countdown, progress and a badge when something is waiting. The event screen teases the next event and its fighter as a silhouette. Exclusive fighters can't be bought; one you missed returns when its event comes back around (every three weeks), and FIGHTERS shows when.
+- **Coming back:** the home screen shows the live event with its countdown, progress and a badge when something is waiting. The event screen teases the next event and its fighter as a silhouette. Exclusive fighters can't be bought; one you missed returns when its event comes back around (every 105 days), and FIGHTERS shows when.
 - **Skins:** a SKINS tab in FIGHTERS shows every outfit for a fighter: wear it, or see which event it comes from. Fighters wear their equipped skin in fights, previews, portraits and the versus card. Each event's skins have their own effects, hit sparks and victory routine:
   - **Sakura:** a sakura hairpin, petals circling and drifting off the shoulders (a shower when celebrating), and petal hit bursts.
   - **Frost:** ice crystals grown on the shoulders, frost-glowing fists, cold breath, snow kicked up at the feet, and ice-shard hits.
   - **Neon:** LED strips glowing along every limb, a visor light, neon afterimage trails on fast moves, and pink and cyan ring hits.
-- **The UI:** a live event card in the bottom-right of the home screen; Event Battles cut straight into the fight. On the event screen, a themed hero banner (drifting petals, falling snow or a neon grid) with the exclusive fighter. Reward tiers are connected by a progress line, and the top tier has a spinning edge. Every panel has an outline that follows its slanted corners. Skin and fighter rewards get their own reveal.
+- **The UI:** a compact live event card in the bottom-right corner of the home screen, clear of the menu and the demo fight; Event Battles cut straight into the fight. On the event screen, a themed hero banner (drifting petals, falling snow or a neon grid) with the exclusive fighter. Reward tiers are connected by a progress line, and the top tier has a spinning edge. Every panel has an outline that follows its slanted corners. Skin and fighter rewards get their own reveal.
 
 **The event fighters**
 
@@ -189,6 +189,13 @@ The skill bar at the bottom of the screen shows your two specials with their key
 Each fighter's hits also spark in their own way: ki rings, smoke puffs, arcane rings, water splashes, dark crescents, rubber pops, volt arcs, spirit wisps, shockwaves, metal sparks, shadow, quake dust, pressure points, flame, gold cross-cuts and psi ripples. Look-alikes now wear different garments: Monarch in charcoal and gold, Aoi in a pale lavender robe, Saibo in a white jacket, Blaze in a tan turnout coat, and Kensei in a maroon Tang jacket. Skill icons are matte, with no glossy highlight.
 
 **Supers worth watching.** Aoi's Violet Void is now a proper spectacle. Blue and red spiral in and collide, then a white-hot sphere fires. Red and blue still swirl inside it, rings counter-rotate around it, lightning crackles off its surface, debris is dragged in, and it leaves a band of erased space behind. Kensei's Already Done says the line in Japanese, お前はもう死んでいる ("you're already dead"), with a small English subtitle. His target answers なにっ!? just before the blast, and his rapid strikes shout アタタタ! Japanese text uses a small bundled subset of Dela Gothic One (OFL), so it looks the same on every device. Ripper's horns are rebuilt as clean tapered curves.
+
+**Every ultimate has its own world.** The void backdrop belongs to Aoi alone. The other supers that used to borrow it now cut to a backdrop of their own:
+- **Monarch:** a shadow rift tears open behind him, tendrils reach out of it and eyes blink in the dark.
+- **Hana:** a dusk sky with a full moon and blossom branches, with rivers of petals sweeping across the front of the screen.
+- **Kori:** aurora bands ripple overhead while snow drives across the screen and frost shards creep in from the edges.
+- **Blaze:** the sky turns molten, meteors streak down and embers rise.
+- **Rave:** the club drops: sweeping lasers and a strobe on the beat.
 
 **Combo finishers.** Light, light, heavy ends in each fighter's own finisher, and they come in two kinds. The move list tags each one.
 
@@ -382,7 +389,7 @@ js/rag.js         Element Rag's active ragdoll and stickman drawing, pose librar
                   whole-body spins, hitstun, knockdowns, getting up, hurtboxes, blades
 js/fx.js          particles, rings, arcs, slash trails, hit stars (from Element Rag, extended)
 js/fighters.js    19 fighters (3 event exclusives): normals, keyframed specials and scripted supers; stage list
-js/events.js      weekly events: schedule, tokens, reward track, challenges, check-in, Event Battles; skins
+js/events.js      month-long events: schedule, tokens, reward track, challenges, check-in, Event Battles; skins
 js/campaign.js    chapters, levels, twists, recruits, stars
 js/meta.js        upgrades, Ascent cards and rarities, training trials, daily missions, fighter mastery
 js/platform.js    CrazyGames SDK v3 wrapper: events, happytime, cloud saves, mute, user (no ads)

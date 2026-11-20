@@ -1195,7 +1195,7 @@ fighter({
       start: (G, f) => { G.cutin(f, 'ARMY OF SHADOWS', 'ARISE'); f.invuln = 1; f.auraT = 2.4; Sfx.play('domain'); },
       tick: (G, f, act) => {
         if (act.t >= act.w && once(act, 'army')) {
-          G.tint('void', 2.2);
+          G.tint('shadow', 2.4); G.shake(10);
           G.say(f.root.x, f.root.y - 330, 'ARISE.', '#c9b8ff', 54);
           const o = G.opp(f);
           for (let i = 0; i < 7; i++) {
@@ -1400,7 +1400,7 @@ fighter({
         const o = G.opp(f);
         const k = act.t - act.w;
         if (k >= 0 && k < 0.5) { act.vy = -2600; act.vx = 0; f.root.grounded = false; for (const ft of [P.FFOOT, P.BFOOT]) { const q = f.pts[ft]; G.fx.add({ kind: 'flame', x: q.x, y: q.y, vx: rand(-100, 100), vy: rand(300, 700), life: 0.4, size: rand(10, 16), color: '#ff7a1a' }); } }
-        if (k >= 0.5 && once(act, 'aim')) { f.hidden = true; G.tint('sun', 1.3); act.tx = o.root.x; }
+        if (k >= 0.5 && once(act, 'aim')) { f.hidden = true; G.tint('inferno', 1.5); act.tx = o.root.x; }
         if (k >= 0.5 && k < 0.9) { act.vy = 0; act.tx = lerp(act.tx, o.root.x, 0.1); G.fx.add({ kind: 'ring', x: act.tx, y: GROUND, color: '#ff4a1c', size: 80, life: 0.1, width: 4 }); }
         if (k >= 0.9 && once(act, 'dive')) { f.hidden = false; G.teleport(f, clamp(act.tx - f.facing * 60, WALL_L + 50, WALL_R - 50), 180); f.root.grounded = false; }
         if (k >= 0.9 && !act.landed) {
@@ -1702,7 +1702,7 @@ fighter({
         const o = G.opp(f);
         if (act.t >= act.w && once(act, 'storm')) {
           const c = o.center();
-          G.tint('void', 1.4);
+          G.tint('sakura', 1.7);
           G.field({ owner: f, x: c.x, y: c.y, r: 130, life: 1.3, every: 0.08, color: '#ff6fb5', pull: 2400,
             spec: { dmg: 9, kb: [0, -40], stun: 0.3, bstun: 0.1, hs: 0.01, chip: 0.2, unblockable: true, color: '#ffb3d6', kind: 'super', sfx: 'cut' },
             final: { dmg: 150, kb: [500, -1100], stun: 1.3, launch: true, hs: 0.22, unblockable: true, color: '#ff6fb5', kind: 'super', big: true, sfx: 'hitH', name: 'Thousand Petal Storm' },
@@ -1781,7 +1781,7 @@ fighter({
       tick: (G, f, act) => {
         const o = G.opp(f), k = act.t - act.w;
         if (k >= 0 && once(act, 'freeze')) {
-          G.tint('void', 1.6); G.flash('#e6fbff', 0.5);
+          G.tint('blizzard', 1.9); G.flash('#e6fbff', 0.5);
           if (o.alive && Math.abs(o.root.x - f.root.x) < 1300 && !(o.invuln > 0 && o.mode !== 'rising')) { o.stopT = 1.35; o.frostT = 1.35; o.clearAction(); act.caught = true; G.say(o.root.x, o.root.y - 300, 'FROZEN SOLID', '#e6fbff', 36); }
           Sfx.play('blue');
         }
@@ -1841,6 +1841,7 @@ fighter({
       start: (G, f) => { G.cutin(f, 'DROP THE BEAT', 'HEADLINER'); f.invuln = 2; f.auraT = 2; Sfx.play('charge'); },
       tick: (G, f, act) => {
         const o = G.opp(f), k = act.t - act.w;
+        if (k >= 0 && once(act, 'club')) G.tint('rave', 1.5);
         // four pulses on the beat; the last one is the drop
         for (let i = 0; i < 4; i++) {
           if (k >= i * 0.3 && once(act, 'p' + i)) {

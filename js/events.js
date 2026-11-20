@@ -1,11 +1,12 @@
 'use strict';
 /* =========================================================================
-   Events: a new limited-time event every week, rotating through three.
+   Events: a new limited-time event every five weeks (a month and a bit),
+   rotating through three.
    Each event has its own token, a reward track (coins, three skins and an
    EXCLUSIVE fighter at the top), five challenges, a daily check-in with a
    streak bonus, and Event Battles on its stage for double tokens.
    An exclusive fighter can only be earned in its event; missed ones return
-   when the rotation comes back around (every three weeks).
+   when the rotation comes back around.
    Skins are cosmetic outfits for existing fighters, equipped in FIGHTERS.
    ========================================================================= */
 
@@ -145,26 +146,27 @@ const Skins = (() => {
 })();
 
 const Events = (() => {
-  const DAY = 86400000, WEEK = 7 * DAY;
+  // one event runs 35 days, a month and a bit; the name WEEK is kept for the period
+  const DAY = 86400000, WEEK = 35 * DAY;
   const EPOCH = Date.UTC(2026, 10, 16);   // a Monday, 00:00 UTC: events turn over every Monday
   const LIST = [
-    { id: 'sakura', name: 'SAKURA FESTIVAL', tag: 'Petals fall on the shrine. Dance through the festival for a week.', stage: 'temple', fighter: 'hana',
+    { id: 'sakura', name: 'SAKURA FESTIVAL', tag: 'Petals fall on the shrine. Dance through the festival all month.', stage: 'temple', fighter: 'hana',
       col: '#ff6fb5', col2: '#ffd1e6', ink: '#3a1024', token: 'PETALS', tokenIcon: 'spiritbloom', skins: ['kaze_sakura', 'mugi_kimono', 'homura_blossom'] },
-    { id: 'frost', name: 'FROST MOON', tag: 'An endless winter falls on the peak. Hold out under the frozen moon.', stage: 'snow', fighter: 'kori',
+    { id: 'frost', name: 'FROST MOON', tag: 'An endless winter falls on the peak. Hold out under the frozen moon all month.', stage: 'snow', fighter: 'kori',
       col: '#6fd0ff', col2: '#e6fbff', ink: '#0c2238', token: 'SNOWFLAKES', tokenIcon: 'snow', skins: ['ryo_snow', 'aoi_frost', 'titan_yeti'] },
-    { id: 'neon', name: 'NEON NIGHTS', tag: 'The rooftop turns into a rave. Fight to the beat until sunrise.', stage: 'city', fighter: 'rave',
+    { id: 'neon', name: 'NEON NIGHTS', tag: 'The rooftop turns into a rave. Fight to the beat all month long.', stage: 'city', fighter: 'rave',
       col: '#ff4fd8', col2: '#4fd8ff', ink: '#220a2e', token: 'NEON CHIPS', tokenIcon: 'bolt', skins: ['jin_neon', 'kohei_synth', 'saibo_chrome'] },
   ];
   const BY = Object.fromEntries(LIST.map(E => [E.id, E]));
   // the reward track: token totals and what each tier pays
   const TRACK = [
-    { at: 40, kind: 'coins', n: 150 },
-    { at: 100, kind: 'skin', i: 0 },
-    { at: 180, kind: 'coins', n: 250 },
-    { at: 280, kind: 'skin', i: 1 },
-    { at: 400, kind: 'coins', n: 400 },
-    { at: 540, kind: 'skin', i: 2 },
-    { at: 700, kind: 'fighter' },
+    { at: 100, kind: 'coins', n: 200 },
+    { at: 300, kind: 'skin', i: 0 },
+    { at: 550, kind: 'coins', n: 350 },
+    { at: 850, kind: 'skin', i: 1 },
+    { at: 1200, kind: 'coins', n: 500 },
+    { at: 1600, kind: 'skin', i: 2 },
+    { at: 2100, kind: 'fighter' },
   ];
   const MAX = TRACK[TRACK.length - 1].at;
   let offset = 0;   // tests move the clock
@@ -193,11 +195,11 @@ const Events = (() => {
 
   /* ------------------------------------------------------------- state */
   const CHALLENGES = E => [
-    { id: 'battle', ev: 'eventwin', goal: 3, pay: 60, icon: 'trophy', text: 'Win 3 Event Battles' },
-    { id: 'wins', ev: 'win', goal: 8, pay: 60, icon: 'fist', text: 'Win 8 fights in any mode' },
-    { id: 'fin', ev: 'finisher', goal: 15, pay: 50, icon: 'burst', text: 'Land 15 combo finishers' },
-    { id: 'sup', ev: 'super', goal: 5, pay: 50, icon: 'star', text: 'Unleash 5 supers' },
-    { id: 'stage', ev: 'stagewin', goal: 3, pay: 70, icon: 'map', text: `Win 3 fights on ${(STAGES[E.stage] || { name: 'the event stage' }).name}` },
+    { id: 'battle', ev: 'eventwin', goal: 10, pay: 150, icon: 'trophy', text: 'Win 10 Event Battles' },
+    { id: 'wins', ev: 'win', goal: 25, pay: 150, icon: 'fist', text: 'Win 25 fights in any mode' },
+    { id: 'fin', ev: 'finisher', goal: 40, pay: 120, icon: 'burst', text: 'Land 40 combo finishers' },
+    { id: 'sup', ev: 'super', goal: 15, pay: 120, icon: 'star', text: 'Unleash 15 supers' },
+    { id: 'stage', ev: 'stagewin', goal: 10, pay: 160, icon: 'map', text: `Win 10 fights on ${(STAGES[E.stage] || { name: 'the event stage' }).name}` },
   ];
   function state() {
     const E = current(), d = Save.data;

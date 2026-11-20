@@ -134,7 +134,8 @@ const UI = (() => {
     Platform.onUser(u => { const el = $('homeUser'); if (!el) return; el.classList.toggle('hidden', !u); el.querySelector('b').textContent = u ? u.name : ''; });
     $('btnLevels').onclick = () => { Sfx.play('ui'); openLevels(); };
     $('btnEvent').onclick = () => { Sfx.play('ui'); openEvent(); };
-    $('btnAscent').onclick = () => { Sfx.play('ui'); openSelect('ascent'); };
+    // ASCENT starts at once with the fighter you already picked
+    $('btnAscent').onclick = () => { Sfx.play('fight'); startAscent(Save.owned(Save.data.lastPick) ? Save.data.lastPick : 'kaze'); };
     $('btnSurvival').onclick = () => { Sfx.play('ui'); openSelect('survival'); };
     $('btnTraining').onclick = () => { Sfx.play('ui'); openSelect('training'); };
     $('btnRoster').onclick = () => { Sfx.play('ui'); openSelect('roster'); };
@@ -179,7 +180,7 @@ const UI = (() => {
     $('playSub').textContent = `LEVEL ${nx.label} · ${CHAPTERS[nx.c].name}`;
     $('homeStars').textContent = Campaign.stars();
     $('survSub').textContent = `BEST ${d.survivalBest}`;
-    $('ascSub').textContent = d.ascentBest ? `BEST FLOOR ${d.ascentBest}` : 'ROGUELITE CLIMB';
+    $('ascSub').textContent = d.ascentBest ? `BEST FLOOR ${d.ascentBest}` : `AS ${(BY_ID[d.lastPick] || ROSTER[0]).name}`;
     const ms0 = Meta.mastery(def.id);
     renderEventCard();
     $('homePick').innerHTML = `${pt(Skins.def(def.id, Skins.equipped(def.id)))}<div class="hp-mid"><small>YOUR FIGHTER</small><b>${def.name}</b><span class="hp-xp"><em style="color:${def.color}">LV ${ms0.lv}</em>${xpBar(ms0, def.color)}</span></div><button class="btn small" id="homeChange"><b>CHANGE</b></button>`;
