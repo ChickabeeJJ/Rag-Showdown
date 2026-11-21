@@ -57,6 +57,18 @@ const UI = (() => {
     $('coach').classList.add('hidden');
     // a sheet replaces the fight's banners: drop any WINS / K.O. callout still on screen
     if (typeof Game !== 'undefined' && Game.callouts && /result/.test(cls)) Game.callouts.length = 0;
+    // a won fight gets the victory layout: the winner's art on a slash of their
+    // colour on the left, the results on the right
+    const vic = /result/.test(cls) && /<h2 class="win"/.test(html) && typeof Game !== 'undefined' && Game.cfg && BY_ID[Game.cfg.p1];
+    if (vic) {
+      const id = Game.cfg.p1, base = BY_ID[id], sk = typeof Skins !== 'undefined' ? Skins.equipped(id) : null, def = sk ? Skins.def(id, sk) : base;
+      const perfect = Game.fighters && Game.fighters[0] && Game.fighters[0].hp >= Game.fighters[0].maxHp;
+      html = `<div class="vic-art" style="--c:${base.color};--c2:${base.aura || base.color}"><span class="vic-bg"></span><span class="vic-rays"></span><span class="vic-lines"></span>
+        <img alt="" src="${fullBody(def, 300, 380)}">
+        <div class="vic-id"><small>${perfect ? 'PERFECT VICTORY' : 'VICTORY'}</small><b>${base.name}</b><em>${esc(base.title)}</em></div></div>
+        <div class="vic-body">${html}</div>`;
+      cls += ' victory';
+    }
     sh.className = 'sheet ' + cls;
     sh.onclick = null;
     U.sheetDismiss = null;
@@ -260,7 +272,7 @@ const UI = (() => {
     el.style.cssText = `--ec:${E.col};--ec2:${E.col2};--eink:${E.ink}`;
     el.className = `event-card ol ev-${E.id}`;
     el.innerHTML = `<span class="ec-bg"></span><img class="ec-art" alt="" src="${fullBody(def, 140, 170)}">
-      <span class="ec-txt"><small><i class="live"></i>LIVE EVENT · <span class="evLeft">${Events.fmtLeft(Events.left(E.end))}</span> LEFT</small><b>${E.name}</b>
+      <span class="ec-txt"><small><span class="evLeft">${Events.fmtLeft(Events.left(E.end))}</span> LEFT</small><b>${E.name}</b>
       <span class="ec-bar"><i style="width:${Math.min(100, s.tokens / Events.MAX * 100)}%"></i></span>
       <em>${tokIc(E)}TIER ${Events.tierOf(s.tokens).tier} / ${Events.TIERS}${Save.owned(E.fighter) ? '' : ` · EARN ${def.name}`}</em></span>
       ${p ? `<span class="ec-badge">${p}</span>` : ''}`;
@@ -316,7 +328,7 @@ const UI = (() => {
       <div class="ev-hero ol ev-${E.id}" style="--ec:${E.col};--ec2:${E.col2};--eink:${E.ink}">
         <span class="ev-bg"></span><canvas class="ev-scene" aria-hidden="true"></canvas>
         <div class="ev-info">
-          <span class="ev-live"><i></i>LIVE EVENT · ENDS IN <span class="evLeft">${Events.fmtLeft(Events.left(E.end))}</span></span>
+          <span class="ev-live">ENDS IN <span class="evLeft">${Events.fmtLeft(Events.left(E.end))}</span></span>
           <h3>${E.name}</h3>
           <p>${esc(E.tag)}</p>
           <div class="ev-prog"><span class="ev-tierb"><small>TIER</small><b>${TO.tier}</b><small>/ ${Events.TIERS}</small></span><span class="ev-pcol"><span>${tokIc(E)}${TO.tier >= Events.TIERS ? `<b>PASS COMPLETE</b>` : `<b>${TO.into}</b> / ${Events.PER_TIER} ${E.token} TO TIER ${TO.tier + 1}`}</span><span class="ev-pbar"><i style="width:${TO.tier >= Events.TIERS ? 100 : Math.round(TO.into / Events.PER_TIER * 100)}%"></i></span></span></div>

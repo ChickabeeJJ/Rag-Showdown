@@ -106,7 +106,8 @@ const Game = (() => {
     });
     G.combo = [null, null];
     G.timer = c.training || c.tutorial ? Infinity : c.timeLimit || 99;
-    G.state = 'intro'; G.stateT = 0; G.winner = -1;
+    G.state = 'intro'; G.stateT = 0; G.winner = -1; G.winCam = false;
+    if (typeof document !== 'undefined') document.body.classList.remove('vcam');
     G.cam.x = 800; G.cam.z = 1.05;
     G.hpShown = G.fighters.map(f => f.hp);
     if (c.training || c.quickStart) { G.stateT = 1.5; }
@@ -134,7 +135,7 @@ const Game = (() => {
   G.say = (x, y, str, color = '#fff', size = 30) => G.fx.text(x, y, str, color, size, { dur: 0.9 });
   G.tint = (type, d) => { G.tintS = { type, t: 0, d, x: 0, y: 0 }; };
   G.wind = (f, d, serious) => { G.windS = { dir: f.facing, t: 0, d, serious, x: f.root.x }; };
-  G.callout = (text, sub, style, d = 1.4) => { G.callouts.push({ text, sub, style, t: 0, d }); };
+  G.callout = (text, sub, style, d = 1.4, o) => { G.callouts.push(Object.assign({ text, sub, style, t: 0, d }, o)); };
   G.cutin = function (f, title, sub) {
     G.cut = { f, title, sub, t: 0, d: 1.25 };
     G.flash(f.def.color, 0.5);
@@ -1242,10 +1243,13 @@ const Game = (() => {
         if (!w.cele) {
           w.celebrate();
           const perfect = w.hp >= w.maxHp && G.koKind !== 'time';
-          G.callout(w.def.name, perfect ? 'PERFECT WIN' : 'WINS', 'win', 2.2);
+          G.callout(w.def.name, perfect ? 'PERFECT VICTORY' : 'VICTORY', 'win', 3.2, { color: w.def.color, title: w.def.title });
+          // the victory camera: letterbox in, HUD out
+          G.winCam = true;
+          if (G.mode !== 'demo' && typeof document !== 'undefined') document.body.classList.add('vcam');
           if (perfect) { G.perfectSaid = true; Sfx.play('perfect'); if (G.winner === 0 && G.stats && G.mode !== 'demo') G.stats.perfects++; }
         }
-        if (!G.winFocus) { G.winFocus = true; const c = w.center(); G.focus(c.x, c.y - 40, 1.3, 2.4); }
+        if (!G.winFocus) { G.winFocus = true; const c = w.center(); G.focus(c.x - (G.mode === 'demo' ? 0 : 140), c.y - 40, 1.3, 3.2); }
       }
       if (G.stateT > 2.1 && !G.perfectSaid && w && w.hp >= w.maxHp && G.koKind !== 'time') { G.perfectSaid = true; G.callout('PERFECT', '', 'perfect', 1.4); Sfx.play('perfect'); if (G.winner === 0 && G.stats && G.mode !== 'demo') G.stats.perfects++; }
       if (G.stateT > 4.6) endRound();
@@ -1565,7 +1569,7 @@ const Game = (() => {
     else if (fr && !flashes) { ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(0, 0, cw, ch); speedLines(G.toScreen(G.impactPos.x, G.impactPos.y), time, 'rgba(255,255,255,0.5)'); }
     if (G.flashC) { ctx.globalAlpha = clamp(G.flashC.a, 0, 1); ctx.fillStyle = G.flashC.color; ctx.fillRect(0, 0, cw, ch); ctx.globalAlpha = 1; }
     const superOn = G.fighters.some(f => f.action && f.action.move.kind === 'super' && f.action.t > f.action.w);
-    G.boxK = lerp(G.boxK || 0, superOn ? 0.75 : G.slowT > 0 && G.slowK < 0.5 ? 1 : 0, 0.15);
+    G.boxK = lerp(G.boxK || 0, superOn ? 0.75 : G.slowT > 0 && G.slowK < 0.5 ? 1 : G.winCam && G.mode !== 'demo' ? 0.85 : 0, G.winCam ? 0.06 : 0.15);
     if (G.boxK > 0.01) letterbox(G.boxK);
     drawCallouts();
   };
@@ -2059,18 +2063,57 @@ const Game = (() => {
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       const base = Math.min(cw * vis, ch * 1.7);
       if (c.style === 'win') {
-        // the winner's name, big and dead centre, with a gold WINS plate under it
-        const sz = base * 0.15;
-        ctx.translate(0, ch * 0.04);
-        ctx.scale(pop * (1 + u * 0.04), pop * (1 + u * 0.04));
+        // A victory title in the style of the genre: a slash of the winner's colour
+        // sweeps in across the left of the frame, a tracked VICTORY label, the
+        // name in clean italic caps with a glint passing through, and the title
+        // under a thin rule. It sits left of the winner, never on top of them.
+        ctx.restore(); ctx.save(); ctx.globalAlpha = a;
+        const vw = cw * vis, left = cw / 2 + shift - vw / 2;
+        const sz = Math.min(vw * 0.1, ch * 0.15), x0 = left + vw * 0.06, yC = ch * 0.55;
+        const ein = k => 1 - Math.pow(1 - clamp(k, 0, 1), 4);
+        const sweep = ein(c.t / 0.45), col = c.color || '#ffc933';
+        // the slash band
+        const bw = vw * 0.5 * sweep, bh = sz * 2.15, by = yC - sz * 1.0, sk = bh * 0.35;
+        const bg = ctx.createLinearGradient(left, 0, left + vw * 0.5, 0);
+        bg.addColorStop(0, rgba(col, 0.92)); bg.addColorStop(0.5, rgba(col, 0.5)); bg.addColorStop(1, rgba(col, 0));
+        ctx.fillStyle = bg; ctx.beginPath(); ctx.moveTo(left, by); ctx.lineTo(left + bw + sk, by); ctx.lineTo(left + bw, by + bh); ctx.lineTo(left, by + bh); ctx.closePath(); ctx.fill();
+        // a dark core under the type for contrast, and the bright leading edge
+        ctx.fillStyle = 'rgba(8,10,16,0.55)'; ctx.beginPath(); ctx.moveTo(left, by + bh * 0.12); ctx.lineTo(left + bw * 0.92 + sk, by + bh * 0.12); ctx.lineTo(left + bw * 0.92, by + bh * 0.88); ctx.lineTo(left, by + bh * 0.88); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fillRect(left, by - 3 * dpr, bw * 0.7, 2 * dpr); ctx.fillRect(left, by + bh + 1 * dpr, bw * 0.45, 2 * dpr);
+        ctx.textAlign = 'left';
+        // the tracked label
+        const lt = ein((c.t - 0.12) / 0.3);
+        ctx.globalAlpha = a * lt;
+        ctx.font = `900 ${Math.round(sz * 0.26)}px Rubik, sans-serif`;
+        if ('letterSpacing' in ctx) ctx.letterSpacing = `${Math.round(sz * 0.12)}px`;
+        ctx.fillStyle = '#ffd34d'; ctx.fillText(c.sub, x0 + (1 - lt) * -30 * dpr, yC - sz * 0.68);
+        if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+        // the name: clean italic caps with a hard drop shadow, sliding in behind the band
+        const nt = ein((c.t - 0.06) / 0.4), nx = x0 + (1 - nt) * -60 * dpr;
+        ctx.globalAlpha = a * nt;
         ctx.font = `italic 900 ${Math.round(sz)}px Rubik, sans-serif`;
-        ctx.lineJoin = 'round'; ctx.lineWidth = sz * 0.2; ctx.strokeStyle = '#000'; ctx.strokeText(c.text, 0, 0);
-        ctx.fillStyle = '#ffffff'; ctx.fillText(c.text, 0, 0);
-        ctx.font = `900 ${Math.round(sz * 0.3)}px Rubik, sans-serif`;
-        const sw = ctx.measureText(c.sub).width + sz * 0.8, sh = sz * 0.46, y0 = sz * 0.62;
-        ctx.fillStyle = '#000'; ctx.fillRect(-sw / 2 - sz * 0.05, y0 - sz * 0.05, sw + sz * 0.1, sh + sz * 0.1);
-        ctx.fillStyle = '#ffc933'; ctx.fillRect(-sw / 2, y0, sw, sh);
-        ctx.fillStyle = '#1a1404'; ctx.fillText(c.sub, 0, y0 + sh / 2 + sz * 0.01);
+        ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillText(c.text, nx + sz * 0.04, yC + sz * 0.15 + sz * 0.05);
+        ctx.fillStyle = '#ffffff'; ctx.fillText(c.text, nx, yC + sz * 0.15);
+        // a glint sweeping through the letters once
+        const gt = (c.t - 0.55) / 0.5;
+        if (gt > 0 && gt < 1) {
+          const tw = ctx.measureText(c.text).width, gx = nx - sz + (tw + sz * 2) * gt;
+          const gg = ctx.createLinearGradient(gx - sz * 0.5, 0, gx + sz * 0.5, 0);
+          gg.addColorStop(0, 'rgba(255,255,255,0)'); gg.addColorStop(0.5, 'rgba(255,255,255,0.95)'); gg.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.save(); ctx.beginPath(); ctx.rect(nx, yC - sz * 0.6, tw + sz * 0.2, sz * 1.1); ctx.clip();
+          ctx.fillStyle = gg; ctx.globalCompositeOperation = 'overlay'; ctx.fillText(c.text, nx, yC + sz * 0.15);
+          ctx.restore();
+        }
+        // the title under a thin rule
+        const tt = ein((c.t - 0.3) / 0.35);
+        if (c.title) {
+          ctx.globalAlpha = a * tt;
+          ctx.fillStyle = col; ctx.fillRect(x0, yC + sz * 0.66, sz * 1.4 * tt, Math.max(2, sz * 0.03));
+          ctx.font = `800 ${Math.round(sz * 0.2)}px Rubik, sans-serif`;
+          if ('letterSpacing' in ctx) ctx.letterSpacing = `${Math.round(sz * 0.05)}px`;
+          ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillText(c.title, x0, yC + sz * 0.88);
+          if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+        }
       } else if (c.style === 'name') {
         // a name card that sweeps in, big and slanted
         const sz = base * 0.085;

@@ -723,6 +723,9 @@ body.short .tut-skip { top: 6px; }
 /* while a panel is open (pause, results, versus), the fight HUD steps aside
    so nothing peeks out around or over it */
 body.modal-open #hud { visibility: hidden; }
+/* the victory camera: the HUD steps aside for the letterboxed win shot */
+#hud { transition: opacity 0.35s ease; }
+body.vcam #hud { opacity: 0; pointer-events: none; }
 /* in a fight, toasts sit low in the middle, clear of the health bars, the
    timer, the guide and tips */
 body.playing #toasts { top: auto; bottom: calc(96px + var(--safe-b)); }
@@ -1324,3 +1327,41 @@ body.playing:has(#modal:not(.hidden)) #toasts { top: calc(12px + var(--safe-t));
 
 .event-card .ec-bar { height: 4px; }
 .event-card .live { width: 6px; height: 6px; }
+
+/* ---------------------------------------------------------------- victory
+   The result screen after a win: the winner's art on a slash of their colour
+   (left) and the results (right). The art slides in, the rays turn slowly,
+   the type is sharp, left-aligned and tracked, like the genre's win screens. */
+.sheet.victory { width: min(940px, 100%); flex-direction: row; align-items: stretch; gap: 0; padding: 0; background: #0e121b; }
+.vic-art { position: relative; flex: 0 0 38%; min-height: 360px; overflow: hidden; clip-path: polygon(0 0, 100% 0, 84% 100%, 0 100%); animation: vicArt 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.vic-bg { position: absolute; inset: 0; background: radial-gradient(120% 80% at 40% 75%, color-mix(in srgb, var(--c2) 55%, transparent), transparent 60%), linear-gradient(160deg, color-mix(in srgb, var(--c) 90%, #000) 0%, color-mix(in srgb, var(--c) 40%, #0b0d14) 62%, #0b0d14 100%); }
+.vic-rays { position: absolute; left: 45%; top: 62%; width: 220%; aspect-ratio: 1; transform: translate(-50%, -50%); background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, 0.09) 0deg 6deg, transparent 6deg 18deg); mask: radial-gradient(circle, #000 0 20%, transparent 62%); animation: vicSpin 30s linear infinite; }
+.vic-lines { position: absolute; inset: 0; background: repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 16px); }
+.vic-art img { position: absolute; left: 44%; bottom: 0; height: 90%; transform: translateX(-50%); filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.85)) drop-shadow(0 0 18px color-mix(in srgb, var(--c2) 70%, transparent)) drop-shadow(0 14px 18px rgba(0, 0, 0, 0.6)); animation: vicHero 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both; }
+.vic-id { position: absolute; left: 18px; bottom: 16px; z-index: 2; display: flex; flex-direction: column; gap: 2px; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6); animation: vicId 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both; }
+.vic-id small { font-weight: 900; font-size: 10px; letter-spacing: 0.32em; color: #ffd34d; }
+.vic-id b { font-weight: 900; font-style: italic; font-size: 38px; line-height: 0.95; letter-spacing: 0.01em; color: #fff; }
+.vic-id em { font-style: normal; font-weight: 800; font-size: 10px; letter-spacing: 0.2em; color: rgba(255, 255, 255, 0.8); padding-top: 4px; border-top: 2px solid var(--c2); align-self: flex-start; }
+.vic-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; padding: 24px 28px 22px 14px; overflow-y: auto; animation: vicBody 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
+.sheet.victory .vic-body > h2.win { position: relative; text-align: left; font-style: italic; font-size: clamp(26px, 3.4vw, 38px); letter-spacing: 0.01em; color: #fff; padding-bottom: 8px; }
+.sheet.victory .vic-body > h2.win::after { content: ''; position: absolute; left: 0; bottom: 0; width: 64px; height: 3px; background: var(--acc); transform-origin: left; animation: vicRule 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both; }
+.sheet.victory .vic-body > .sub, .sheet.victory .vic-body > .hint { text-align: left; }
+.sheet.victory .vic-body > .big-stars { justify-content: flex-start; }
+@keyframes vicArt { from { clip-path: polygon(0 0, 0 0, 0 100%, 0 100%); } }
+@keyframes vicHero { from { opacity: 0; transform: translateX(-50%) translateY(24px) scale(0.96); } }
+@keyframes vicId { from { opacity: 0; transform: translateX(-24px); } }
+@keyframes vicBody { from { opacity: 0; transform: translateX(28px); } }
+@keyframes vicRule { from { transform: scaleX(0); } }
+@keyframes vicSpin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+@media (max-height: 500px) {
+  .sheet.victory { width: min(820px, 100%); }
+  .vic-art { flex-basis: 34%; min-height: 0; }
+  .vic-id b { font-size: 26px; }
+  .vic-body { padding: 14px 18px 14px 8px; gap: 8px; }
+}
+@media (max-width: 560px) {
+  .sheet.victory { flex-direction: column; }
+  .vic-art { flex: none; height: 190px; min-height: 0; clip-path: polygon(0 0, 100% 0, 100% 84%, 0 100%); }
+  .vic-body { padding: 14px 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .vic-art, .vic-art img, .vic-id, .vic-body, .vic-rays, .sheet.victory .vic-body > h2.win::after { animation: none !important; } }
