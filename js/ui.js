@@ -811,7 +811,7 @@ const UI = (() => {
     if (tw === 'tough') { hpMul[1] *= 1.5; cfg.waveHp *= 1.5; }
     if (tw === 'frenzy') cfg.speedMul = 1.2;
     if (tw === 'glass') cfg.dmgMul = 2;
-    if (tw === 'clock') { cfg.timeLimit = 75; cfg.loseOnTime = true; }
+    if (tw === 'clock') { cfg.timeLimit = 60 + 22 * waves.length; cfg.koBonus = 8; cfg.loseOnTime = true; }   // the clock scales with the foes, and each knockout adds 8 seconds
     U.run = { mode: 'level', L };
     beginFight(cfg, instant, U.fastNext);
     U.fastNext = false;
@@ -1290,7 +1290,7 @@ const UI = (() => {
     // (the super has its own meter in the corner)
     $('skillbar').innerHTML = sk('sp1', m.sp1) + sk('sp2', m.sp2);
     const orb = (cls, k, icon, lbl, c) => `<button class="orb ${cls}" data-k="${k}" style="--c:${c || def.color};--d:${shade(c || def.color)}"><span class="ring"></span><span class="orb-icon">${Icons.svg(icon)}</span><span class="lbl">${lbl}</span></button>`;
-    $('orbs').innerHTML = orb('orb-l', 'l', 'fist', 'LIGHT', '#ffc933') + orb('orb-h', 'h', 'burst', 'HEAVY', '#ff8a4a') + orb('orb-s1', 's1', m.sp1.icon, 'SP 1') + orb('orb-s2', 's2', m.sp2.icon, 'SP 2') + orb('orb-sup', 'sup', m.super.icon, 'SUPER') + orb('orb-j', 'jump', 'up', 'JUMP', '#e9ecf4');
+    $('orbs').innerHTML = orb('orb-l', 'l', 'jab', 'LIGHT', '#ffc933') + orb('orb-h', 'h', 'burst', 'HEAVY', '#ff8a4a') + orb('orb-s1', 's1', m.sp1.icon, 'SP 1') + orb('orb-s2', 's2', m.sp2.icon, 'SP 2') + orb('orb-sup', 'sup', m.super.icon, 'SUPER') + orb('orb-j', 'jump', 'jump', 'JUMP', '#e9ecf4');
     $('orbs').querySelectorAll('.orb').forEach(b => {
       b.addEventListener('pointerdown', e => { e.preventDefault(); Sfx.ensure(); document.body.classList.add('touch'); b.classList.add('down'); Input.touchPress(b.dataset.k); });
       const up = () => b.classList.remove('down');
@@ -1409,7 +1409,7 @@ const UI = (() => {
     const m = def.moves;
     openSheet(`<h2 style="color:${def.color}">${def.name} · MOVES</h2>
       <div class="sd-moves">
-        ${['l1', 'l2', 'hEnd'].map((k, i) => `<div class="mv"><span class="move-ic" style="--c:#ffc933;--d:#8a6a10">${Icons.svg(i < 2 ? 'fist' : 'up')}</span><div><b>${esc(m[k].name)}</b><small>${i === 0 ? 'LIGHT' : i === 1 ? 'LIGHT, LIGHT' : 'LIGHT, LIGHT, HEAVY: LAUNCHER'}</small></div><span class="keys2">${seqFor([['l'], ['l', 'l'], ['l', 'l', 'h']][i], def)}</span></div>`).join('')}
+        ${['l1', 'l2', 'hEnd'].map((k, i) => `<div class="mv"><span class="move-ic" style="--c:#ffc933;--d:#8a6a10">${Icons.svg(i < 2 ? 'jab' : m.hEnd.icon)}</span><div><b>${esc(m[k].name)}</b><small>${i === 0 ? 'LIGHT' : i === 1 ? 'LIGHT, LIGHT' : 'LIGHT, LIGHT, HEAVY: LAUNCHER'}</small></div><span class="keys2">${seqFor([['l'], ['l', 'l'], ['l', 'l', 'h']][i], def)}</span></div>`).join('')}
         <div class="mv"><span class="move-ic" style="--c:#ff8a4a;--d:#7a3a1a">${Icons.svg('burst')}</span><div><b>${esc(m.h.name)}</b><small>HEAVY · CAN BLACK SPARK</small></div><span class="keys2">${keyFor('h', def)}</span></div>
         <div class="mv"><span class="move-ic" style="--c:#8fd6ff;--d:#2a5a7a">${Icons.svg('swords')}</span><div><b>Throw</b><small>CLOSE · BEATS GUARD</small></div><span class="keys2">${keyFor('l', def)}+${keyFor('h', def)}</span></div>
         ${moveRows(def)}

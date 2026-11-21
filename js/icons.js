@@ -200,6 +200,80 @@ const Icons = (() => {
     spit: `<path d="M5 19c3-1 5-4 6-8" ${S}/><path d="M15 4c-2 3-3.5 5-3.5 7a3.5 3.5 0 0 0 7 0c0-2-1.5-4-3.5-7z" ${F}/>`,
     cloud: `<path d="M7 18a4 4 0 0 1-.5-8A5.5 5.5 0 0 1 17 8.5 4.75 4.75 0 0 1 17.5 18z" ${F}/><circle cx="10" cy="14" r="1.3" fill="rgba(0,0,0,.35)"/><circle cx="14" cy="13" r="1" fill="rgba(0,0,0,.35)"/>`,
     meteor: `<circle cx="15" cy="15" r="5" ${F}/><path d="M11 11 4 4M13 9.5 8 3M9.5 13 3 8" ${S}/>`,
+
+    /* ---- one glyph per move: every skill button has its own, drawn to match the move ---- */
+    // a fist punching up, ki flaring off the knuckles
+    kiupper: `<path d="M12.5 1.5c1.9 2.2 3.3 3.8 3.3 5.9a3.3 3.3 0 0 1-6.6 0c0-1.1.5-2 1.2-2.8.2.9.7 1.5 1.3 1.8-.1-1.6.1-3.1.8-4.9z" ${F} opacity=".75"/><rect x="7.5" y="11" width="10" height="8.5" rx="2.6" ${F}/><path d="M10.5 11v3.6M14 11v3.6" stroke="rgba(0,0,0,.32)" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M9 19.5V23h7v-3.5" ${F}/>`,
+    // three of you: one solid, two afterimages
+    clones: `<g ${F} opacity=".38"><circle cx="5.5" cy="9" r="2.6"/><path d="M1.5 19.5a4 4 0 0 1 8 0z"/><circle cx="18.5" cy="9" r="2.6"/><path d="M14.5 19.5a4 4 0 0 1 8 0z"/></g><circle cx="12" cy="7.5" r="3.3" ${F}/><path d="M6.6 21a5.4 5.4 0 0 1 10.8 0z" ${F}/><path d="M9 7h6" stroke="rgba(0,0,0,.32)" stroke-width="1.5" fill="none" stroke-linecap="round"/>`,
+    // a curved four-blade shuriken with its hub
+    shuriken: `<path d="M12 1.8c1.6 3 1.8 5.6.9 8.1l9.3 2.1c-3 1.6-5.6 1.8-8.1.9L12 22.2c-1.6-3-1.8-5.6-.9-8.1L1.8 12c3-1.6 5.6-1.8 8.1-.9z" ${F}/><circle cx="12" cy="12" r="2.1" fill="rgba(0,0,0,.4)"/>`,
+    // a red orb bursting outward
+    redburst: `<circle cx="12" cy="12" r="4.4" ${F}/><circle cx="12" cy="12" r="8.6" ${S} stroke-width="1.8" stroke-dasharray="2.4 3"/><path d="M12 1.5v2.5M12 20v2.5M1.5 12H4M20 12h2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8" ${S} stroke-width="2"/>`,
+    // an opened psychic eye radiating power
+    psyburst: `<path d="M2 12s3.8-6.2 10-6.2S22 12 22 12s-3.8 6.2-10 6.2S2 12 2 12z" ${F}/><circle cx="12" cy="12" r="3.3" fill="rgba(0,0,0,.45)"/><circle cx="13.1" cy="10.9" r="1" ${F}/><path d="M12 1v2.6M5 2.8l1.4 2.2M19 2.8 17.6 5M12 23v-2.6M5 21.2 6.4 19M19 21.2 17.6 19" ${S} stroke-width="1.9"/>`,
+    // a flip that turns over a breaking wave
+    tideflip: `<path d="M5.5 17.5a7.6 7.6 0 1 1 12.8-8.6" ${S} stroke-width="2.6"/><path d="M19.6 4.2 18.4 9l-4.8-1.1" ${S} stroke-width="2.4"/><path d="M3 22c1.4-2.6 3.6-3.6 6-2.4 1.4.7 2.6.4 3.4-.8-.2 2.5-2.4 3.9-4.8 3.2z" ${F}/>`,
+    // water rushing forward
+    riverrush: `<path d="M2 7.5c1.8-1.5 3.6-1.5 5.4 0s3.6 1.5 5.4 0M2 12c1.8-1.5 3.6-1.5 5.4 0s3.6 1.5 5.4 0M2 16.5c1.8-1.5 3.6-1.5 5.4 0s3.6 1.5 5.4 0" ${S} stroke-width="2"/><path d="M15 5.5 22 12l-7 6.5z" ${F}/>`,
+    // a total eclipse: the dark disc and its corona
+    eclipse: `<circle cx="12" cy="12" r="7.4" ${F}/><circle cx="13.2" cy="10.9" r="6" fill="rgba(0,0,0,.6)"/><path d="M12 1.2v2.2M12 20.6v2.2M1.2 12h2.2M20.6 12h2.2M4.4 4.4l1.5 1.5M18.1 18.1l1.5 1.5M4.4 19.6l1.5-1.5M18.1 5.9l1.5-1.5" ${S} stroke-width="1.8"/>`,
+    // a crescent blade rising
+    crescentup: `<path d="M4.5 21c.6-7.4 4.6-13 11.4-17-3.2 4.8-4.6 10.3-3.6 17z" ${F}/><path d="M19 22V9.5M15.6 13 19 9.5l3.4 3.5" ${S} stroke-width="2.3"/>`,
+    // a blur of fists
+    barrage: `<g ${F}><rect x="1.5" y="8" width="6.5" height="8" rx="2" opacity=".3"/><rect x="6.5" y="7" width="7" height="9" rx="2.2" opacity=".6"/><rect x="12" y="5.5" width="10" height="11.5" rx="3"/></g><path d="M15.5 5.5v4.2M19 5.5v4.2" stroke="rgba(0,0,0,.32)" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M12 13.5h4" stroke="rgba(0,0,0,.32)" stroke-width="1.5" fill="none" stroke-linecap="round"/>`,
+    // a fan of fists
+    hundredfists: `<g ${F}><rect x="9" y="1.5" width="7.5" height="7" rx="2.2" transform="rotate(-24 12 12)"/><rect x="11.5" y="8.5" width="9" height="7.5" rx="2.4"/><rect x="9" y="15.5" width="7.5" height="7" rx="2.2" transform="rotate(24 12 12)"/></g><path d="M2 12h7M3 7.5h5M3 16.5h5" ${S} stroke-width="1.8" opacity=".7"/>`,
+    // one giant fist with a glint
+    giantfist: `<rect x="2.5" y="5.5" width="16" height="13" rx="3.8" ${F}/><path d="M6.8 5.5v5.2M10.8 5.5v5.2M14.8 5.5v5.2M2.5 13.5h6" stroke="rgba(0,0,0,.32)" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-width="1.8"/><path d="M20.5 2.5v4M18.5 4.5h4" ${S} stroke-width="1.8"/><path d="M6 18.5V22h9v-3.5" ${F}/>`,
+    // a flick of the fingers that pops the air
+    flick: `<path d="M1.5 9.4h5.6a2.6 2.6 0 0 1 0 5.2H1.5z" ${F}/><path d="M4.5 9.4v5.2" stroke="rgba(0,0,0,.3)" stroke-width="1.4"/><ellipse cx="12.6" cy="12" rx="1.7" ry="3.8" ${S} stroke-width="2"/><ellipse cx="18.8" cy="12" rx="2.3" ry="6.2" ${S} stroke-width="2"/>`,
+    // a fist cracking the air open
+    smash: `<path d="M12 .8l1.4 4.6 3.6-3-.6 4.7 4.6-1.4-2.6 4 4.8 1.3-4.4 2 3 3.6-4.7-.5 1.2 4.6-3.8-2.8L12 23.2l-1.3-4.7-3.8 2.8 1.2-4.6-4.7.5 3-3.6-4.4-2 4.8-1.3-2.6-4 4.6 1.4L7 2.4l3.6 3z" ${F} opacity=".4"/><rect x="7" y="7.5" width="10" height="8.5" rx="2.6" ${F}/><path d="M10.3 7.5v3.4M13.7 7.5v3.4" stroke="rgba(0,0,0,.32)" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M8.6 16v3h6.8v-3" ${F}/>`,
+    // one serious punch inside its impact lines
+    seriouspunch: `<path d="M12 1v3.5M12 19.5V23M1 12h3.5M19.5 12H23M4.2 4.2l2.5 2.5M17.3 17.3l2.5 2.5M4.2 19.8l2.5-2.5M17.3 6.7l2.5-2.5" ${S} stroke-width="1.6"/><rect x="7.2" y="7" width="9.6" height="8.2" rx="2.5" ${F}/><path d="M10.4 7v3.2M13.6 7v3.2M7.2 12.4h4" stroke="rgba(0,0,0,.32)" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M8.8 15.2V18h6.4v-2.8" ${F}/>`,
+    // a casual uppercut: a lazy swoosh and a fist
+    casualup: `<path d="M3.5 21c0-5.5 2.5-10 7-13" ${S} stroke-width="2" stroke-dasharray="2.5 2.5"/><rect x="11" y="3" width="9" height="8" rx="2.4" ${F}/><path d="M14 3v3.2M17 3v3.2" stroke="rgba(0,0,0,.32)" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M12.4 11v3.5h6.2V11" ${F}/><path d="M22 14.5c0 1-.6 1.6-1.3 1.6s-1.3-.6-1.3-1.6c0-.8 1.3-2.6 1.3-2.6s1.3 1.8 1.3 2.6z" ${F} opacity=".7"/>`,
+    // ghost flame dashing forward
+    spiritrush: `<path d="M14 3.5c3.6 0 6.5 2.8 6.5 6.8v9.7l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4-2 1.4v-9.7c0-4 2.9-6.8 6.5-6.8z" ${F}/><circle cx="12.4" cy="10" r="1.3" fill="rgba(0,0,0,.4)"/><circle cx="16.4" cy="10" r="1.3" fill="rgba(0,0,0,.4)"/><path d="M1.5 9h4.5M2.5 13h3.5M1.5 17h4.5" ${S} stroke-width="1.8"/>`,
+    // a pointed finger loosing a spirit shot
+    finger: `<path d="M3.5 21.5v-5.2l7.8-7.8a1.6 1.6 0 0 1 2.3 2.3l-3.4 3.4 2 2a2.2 2.2 0 0 1 0 3.1l-2.3 2.2z" ${F}/><path d="M19 2.5l.9 2.6 2.6.9-2.6.9L19 9.5l-.9-2.6-2.6-.9 2.6-.9z" ${F}/><path d="M13.5 9.5 16.5 6.5" ${S} stroke-width="1.8" stroke-dasharray="1.6 2"/>`,
+    // a chainsaw revving
+    chainsaw: `<rect x="1.5" y="7" width="7.5" height="10" rx="2.2" ${F}/><path d="M9 9h10.5a3 3 0 0 1 0 6H9z" ${F}/><path d="M10 9l1.2-1.6L12.4 9l1.2-1.6L14.8 9 16 7.4 17.2 9l1.2-1.6L19.6 9M10 15l1.2 1.6L12.4 15l1.2 1.6 1.2-1.6 1.2 1.6 1.2-1.6 1.2 1.6 1.2-1.6" ${S} stroke-width="1.4"/><path d="M3.5 7V4.5h4" ${S} stroke-width="1.8"/>`,
+    // a saw blade cutting upward
+    sawup: `<path d="M12 10.5l1.7 2.3 2.8-.8.4 2.9 2.7 1.1-1.5 2.5 1.5 2.5H5.4l1.5-2.5-1.5-2.5 2.7-1.1.4-2.9 2.8.8z" ${F}/><circle cx="12" cy="18" r="2.2" fill="rgba(0,0,0,.4)"/><path d="M12 9V1.5M8.5 5 12 1.5 15.5 5" ${S} stroke-width="2.3"/>`,
+    // a huge hand closing on you
+    bighand: `<path d="M4 10.5c0-1.2.9-2 2-2h11c1.6 0 3 1.3 3 3v3.5c0 3-2.4 5.5-5.5 5.5h-5A5.5 5.5 0 0 1 4 15z" ${F}/><path d="M6 8.5c0-3 .5-5.5 2-5.5s2 2.5 2 5.5M10 8.5c0-3.5.6-6 2-6s2 2.5 2 6M14 8.5c0-3 .5-5 2-5s1.8 2 1.8 5" ${S} stroke-width="2.4"/><path d="M8 14h8" stroke="rgba(0,0,0,.32)" stroke-width="1.5" fill="none" stroke-linecap="round"/>`,
+    // the colossus: broad shoulders, power rising
+    colossus: `<circle cx="12" cy="6" r="2.8" ${F}/><path d="M2.5 14.5c0-3.4 2.3-5.5 5.3-5.5h8.4c3 0 5.3 2.1 5.3 5.5v2.3h-3.4V22H5.9v-5.2H2.5z" ${F}/><path d="M12 10.5v5M8 13.5l4 2 4-2" stroke="rgba(0,0,0,.32)" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M4 5.5 2.5 3M20 5.5 21.5 3" ${S} stroke-width="1.8"/>`,
+    // two fists brought down like a hammer
+    hammerfist: `<rect x="6" y="1.5" width="12" height="9" rx="2.8" ${F}/><path d="M12 1.5v9M9 1.5v3.5M15 1.5v3.5" stroke="rgba(0,0,0,.32)" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M12 12.5v4M9.5 14.5 12 17l2.5-2.5" ${S} stroke-width="2.2"/><path d="M2 21h20" ${S} stroke-width="2.4"/><path d="M12 21l-2-2.4M12 21l2.2-2.6M7.5 21l-1.4-1.8M16.5 21l1.4-1.8" ${S} stroke-width="1.5"/>`,
+    // a fist with a hundred strikes streaking ahead of it
+    rapidjab: `<rect x="1.5" y="7" width="8.5" height="10" rx="2.6" ${F}/><path d="M4.5 7v3.6M7.5 7v3.6" stroke="rgba(0,0,0,.32)" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M11.5 8h6M11.5 12h8M11.5 16h6" ${S} stroke-width="1.8"/><circle cx="19.8" cy="8" r="1.4" ${F}/><circle cx="22" cy="12" r="1.4" ${F}/><circle cx="19.8" cy="16" r="1.4" ${F}/>`,
+    // seven stars, the dipper
+    sevenstar: `<path d="M2.5 6.5l5 2 4.5-.5 3.5 3 1 5.5 4.5 2-2 3.5M16.5 16.5l-4.5 1.5" ${S} stroke-width="1.4" opacity=".7"/><g ${F}><circle cx="2.5" cy="6.5" r="1.7"/><circle cx="7.5" cy="8.5" r="1.7"/><circle cx="12" cy="8" r="1.7"/><circle cx="15.5" cy="11" r="1.7"/><circle cx="16.5" cy="16.5" r="1.9"/><circle cx="21" cy="18.5" r="1.7"/><circle cx="12" cy="18" r="1.7"/></g>`,
+    // a boot driven forward on a jet of flame
+    firekick: `<path d="M9 3h5v8.5l5.5 1.4c1.6.4 2.6 1.8 2.6 3.4V20H9z" ${F}/><path d="M9 16h13" stroke="rgba(0,0,0,.32)" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M7.5 12C5 13 3 11.5 2 9c1.6.8 2.6.4 3-.8-1.7-1.6-1.6-3.6.2-5.2-.1 2 .9 3.2 2.3 3.6z" ${F} opacity=".75"/><path d="M7.5 18c-2.2.6-4-.4-5-2.4 1.4.5 2.3.2 2.7-.8" ${F} opacity=".55"/>`,
+    // a spinning ring of flame
+    firespin: `<path d="M19.5 12a7.5 7.5 0 1 1-4.4-6.8" ${S} stroke-width="3"/><path d="M15.5 2c2.6 1.4 4 3.2 4 5.4a2.6 2.6 0 0 1-5.2 0c0-.9.5-1.6 1-2.2.1.6.4 1.1.8 1.4 0-1.6-.3-2.9-.6-4.6z" ${F}/><path d="M8 13.5c0-2 1.6-3.4 2.4-4.8.8 1.4 2.4 2.8 2.4 4.8a2.4 2.4 0 0 1-4.8 0z" ${F}/>`,
+    // three blades sweeping upward
+    triplerise: `<g ${F}><path d="M12 22 10.6 7.5 12 1.5l1.4 6z"/><path d="M12 22 5.6 9.6 4.8 3.6l3.6 5z" opacity=".75"/><path d="M12 22 18.4 9.6l.8-6-3.6 5z" opacity=".75"/></g><path d="M8.5 19.5h7" ${S} stroke-width="2.4"/>`,
+    // a folding fan
+    fan: `<path d="M12 21 2.3 10.2a14 14 0 0 1 19.4 0z" ${F}/><path d="M12 21 5.4 6.6M12 21 9.4 5.2M12 21l2.6-15.8M12 21l6.6-14.4" stroke="rgba(0,0,0,.32)" stroke-width="1.5" fill="none" stroke-linecap="round"/><circle cx="12" cy="21" r="1.6" ${F}/>`,
+    // a sakura blossom held up as a veil
+    veil: `<g ${F}><path d="M12 11.6c-2.2-1.6-2.8-4.6-1.4-7.6l.7 1.2.7-1.2c1.4 3 .8 6-1.4 7.6z" transform="rotate(0 12 12)"/><path d="M12 11.6c-2.2-1.6-2.8-4.6-1.4-7.6l.7 1.2.7-1.2c1.4 3 .8 6-1.4 7.6z" transform="rotate(72 12 12)"/><path d="M12 11.6c-2.2-1.6-2.8-4.6-1.4-7.6l.7 1.2.7-1.2c1.4 3 .8 6-1.4 7.6z" transform="rotate(144 12 12)"/><path d="M12 11.6c-2.2-1.6-2.8-4.6-1.4-7.6l.7 1.2.7-1.2c1.4 3 .8 6-1.4 7.6z" transform="rotate(216 12 12)"/><path d="M12 11.6c-2.2-1.6-2.8-4.6-1.4-7.6l.7 1.2.7-1.2c1.4 3 .8 6-1.4 7.6z" transform="rotate(288 12 12)"/></g><circle cx="12" cy="12" r="1.8" fill="rgba(0,0,0,.35)"/><circle cx="12" cy="12" r="10.5" ${S} stroke-width="1.4" opacity=".55"/>`,
+    // a storm of petals
+    petalstorm: `<path d="M12 12.5a2 2 0 1 1 2-2 4 4 0 1 1-4 4 6 6 0 1 1 6-6" ${S} stroke-width="2"/><g ${F}><ellipse cx="4.5" cy="5" rx="1.4" ry="2.4" transform="rotate(-30 4.5 5)"/><ellipse cx="20" cy="17.5" rx="1.4" ry="2.4" transform="rotate(40 20 17.5)"/><ellipse cx="5" cy="19.5" rx="1.2" ry="2.1" transform="rotate(70 5 19.5)"/><ellipse cx="20.5" cy="4.5" rx="1.1" ry="2" transform="rotate(20 20.5 4.5)"/></g>`,
+    // a faceted icicle spear
+    icicle: `<path d="M2.5 2.5 9 4.8 21.8 21.8 4.8 9z" ${F}/><path d="M2.5 2.5l8.8 8.8M9 4.8l-2.3 4.4" stroke="rgba(0,0,0,.32)" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M17 4.5l1.2 2.2M20.5 8.5l-2.3-.2" ${S} stroke-width="1.6"/>`,
+    // glacier spikes bursting up out of the ground
+    glacier: `<path d="M1.5 21.5 5 12l2.4 4.4L11 3l3.2 10.5 2.4-5L22.5 21.5z" ${F}/><path d="M11 3l-.6 11M5 12l.3 6.5M16.6 8.5l.8 8" stroke="rgba(0,0,0,.32)" stroke-width="1.5" fill="none" stroke-linecap="round"/>`,
+    // a record on the deck and the tonearm
+    turntable: `<circle cx="10.5" cy="12.5" r="8.5" ${F}/><circle cx="10.5" cy="12.5" r="5.6" fill="none" stroke="rgba(0,0,0,.3)" stroke-width="1.2"/><circle cx="10.5" cy="12.5" r="2.4" fill="rgba(0,0,0,.4)"/><path d="M20.5 2.5V12l-4.2 4.2" ${S} stroke-width="2.2"/><circle cx="20.5" cy="2.8" r="1.6" ${F}/>`,
+    // jump: a leap off the ground
+    jump: `<path d="M6 12.5 12 6.5l6 6M6 18l6-6 6 6" ${S} stroke-width="2.8"/><path d="M4 22h16" ${S} stroke-width="1.8" opacity=".6"/>`,
+    // the training dummy
+    dummy: `<circle cx="12" cy="5" r="3" ${F}/><path d="M4 9.5h16" ${S} stroke-width="2.6"/><path d="M8.5 9.5h7v8h-7z" ${F}/><circle cx="12" cy="13.5" r="2" fill="rgba(0,0,0,.35)"/><path d="M12 17.5V22M8 22h8" ${S} stroke-width="2.4"/>`,
   };
   function svg(name) { return `<svg viewBox="0 0 24 24" aria-hidden="true">${P[name] || ICON_PATHS[name] || ''}</svg>`; }
   function hydrate(root = document) {

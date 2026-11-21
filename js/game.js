@@ -1270,6 +1270,8 @@ const Game = (() => {
       if (lh.kind === 'super') { G.impact('super', c.x, c.y); G.slow(0.25, 0.9); G.callout('FINISH', (lh.name || '').toUpperCase(), 'finish', 1.3); if (att.side === 0 && G.stats) G.stats.finishers++; }
       else { G.slow(0.35, 0.6); G.callout('K.O.', '', 'ko', 0.9); }
       G.shake(14); Sfx.play('ko');
+      // BEAT THE CLOCK: every knockout before the last buys time back
+      if (G.cfg.koBonus && Number.isFinite(G.timer)) { G.timer += G.cfg.koBonus; G.say(c.x, c.y - 200, `+${G.cfg.koBonus} SEC`, '#ffd34d', 40); Sfx.play('clock'); }
       for (const f of G.fighters) if (f.action && f.action.move.kind !== 'super') endAction(f);
       return;
     }
@@ -2072,14 +2074,19 @@ const Game = (() => {
         const sz = Math.min(vw * 0.1, ch * 0.15), x0 = left + vw * 0.06, yC = ch * 0.55;
         const ein = k => 1 - Math.pow(1 - clamp(k, 0, 1), 4);
         const sweep = ein(c.t / 0.45), col = c.color || '#ffc933';
-        // the slash band
-        const bw = vw * 0.5 * sweep, bh = sz * 2.15, by = yC - sz * 1.0, sk = bh * 0.35;
-        const bg = ctx.createLinearGradient(left, 0, left + vw * 0.5, 0);
-        bg.addColorStop(0, rgba(col, 0.92)); bg.addColorStop(0.5, rgba(col, 0.5)); bg.addColorStop(1, rgba(col, 0));
-        ctx.fillStyle = bg; ctx.beginPath(); ctx.moveTo(left, by); ctx.lineTo(left + bw + sk, by); ctx.lineTo(left + bw, by + bh); ctx.lineTo(left, by + bh); ctx.closePath(); ctx.fill();
-        // a dark core under the type for contrast, and the bright leading edge
-        ctx.fillStyle = 'rgba(8,10,16,0.55)'; ctx.beginPath(); ctx.moveTo(left, by + bh * 0.12); ctx.lineTo(left + bw * 0.92 + sk, by + bh * 0.12); ctx.lineTo(left + bw * 0.92, by + bh * 0.88); ctx.lineTo(left, by + bh * 0.88); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fillRect(left, by - 3 * dpr, bw * 0.7, 2 * dpr); ctx.fillRect(left, by + bh + 1 * dpr, bw * 0.45, 2 * dpr);
+        // the slash: one solid dark core that holds every line of type (label,
+        // name, rule, title) with even margins, and thin bands of the winner's
+        // colour above and below it, so no text ever straddles two zones
+        const top = yC - sz * 1.02, bot = yC + sz * 1.08, edge = sz * 0.1, sk = (bot - top) * 0.32;
+        const bw = vw * 0.48 * sweep, L0 = left;
+        const slab = (y0, y1, w, fill) => { ctx.fillStyle = fill; ctx.beginPath(); ctx.moveTo(L0, y0); ctx.lineTo(L0 + w + sk * (bot - y0) / (bot - top), y0); ctx.lineTo(L0 + w + sk * (bot - y1) / (bot - top), y1); ctx.lineTo(L0, y1); ctx.closePath(); ctx.fill(); };
+        const cg = ctx.createLinearGradient(L0, 0, L0 + vw * 0.48, 0);
+        cg.addColorStop(0, 'rgba(8,10,16,0.86)'); cg.addColorStop(0.7, 'rgba(8,10,16,0.7)'); cg.addColorStop(1, 'rgba(8,10,16,0)');
+        slab(top, bot, bw, cg);
+        const bg = ctx.createLinearGradient(L0, 0, L0 + vw * 0.48, 0);
+        bg.addColorStop(0, rgba(col, 1)); bg.addColorStop(0.6, rgba(col, 0.7)); bg.addColorStop(1, rgba(col, 0));
+        slab(top - edge, top, bw * 1.02, bg); slab(bot, bot + edge, bw * 0.9, bg);
+        ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fillRect(L0, top - edge - 3 * dpr, bw * 0.6, 2 * dpr); ctx.fillRect(L0, bot + edge + 1 * dpr, bw * 0.4, 2 * dpr);
         ctx.textAlign = 'left';
         // the tracked label
         const lt = ein((c.t - 0.12) / 0.3);

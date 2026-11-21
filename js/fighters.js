@@ -2534,3 +2534,38 @@ for (const d of ROSTER) for (const k of ['sp1', 'sp2']) {
   m.r = Math.max(m.r, 0.45);
   m.cd = Math.max(m.cd || 0, 2.4);
 }
+
+/* Skill icons: every move has its own glyph, drawn to match it. This table is
+   the one place they are assigned; the check below logs any icon used twice
+   (by two moves, or by a move and a menu / touch button). */
+const MOVE_ICONS = {
+  kaze:     { sp1: 'orb', sp2: 'blink', super: 'beam', hEnd: 'kiupper' },
+  ryo:      { sp1: 'swirl', sp2: 'clones', super: 'cyclone', hEnd: 'shuriken' },
+  aoi:      { sp1: 'rift', sp2: 'redburst', super: 'void', hEnd: 'lance' },
+  homura:   { sp1: 'tideflip', sp2: 'riverrush', super: 'sun', hEnd: 'wave' },
+  jin:      { sp1: 'crescent', sp2: 'shadowstep', super: 'eclipse', hEnd: 'crescentup' },
+  mugi:     { sp1: 'stretch', sp2: 'barrage', super: 'giantfist', hEnd: 'rubber' },
+  kohei:    { sp1: 'flick', sp2: 'bolt', super: 'smash', hEnd: 'arcdash' },
+  taro:     { sp1: 'spiritrush', sp2: 'finger', super: 'timestop', hEnd: 'palm' },
+  saibo:    { sp1: 'hundredfists', sp2: 'fist', super: 'seriouspunch', hEnd: 'casualup' },
+  ripper:   { sp1: 'saw', sp2: 'grapple', super: 'chainsaw', hEnd: 'sawup' },
+  monarch:  { sp1: 'spirit', sp2: 'grasp', super: 'swarm', hEnd: 'thorns' },
+  titan:    { sp1: 'quake', sp2: 'bighand', super: 'colossus', hEnd: 'hammerfist' },
+  kensei:   { sp1: 'rapidjab', sp2: 'target', super: 'skull', hEnd: 'sevenstar' },
+  blaze:    { sp1: 'firekick', sp2: 'jetpack', super: 'meteor', hEnd: 'firespin' },
+  triblade: { sp1: 'tornado', sp2: 'swords', super: 'blade', hEnd: 'triplerise' },
+  psychic:  { sp1: 'antigrav', sp2: 'shield', super: 'psyburst', hEnd: 'boulder' },
+  hana:     { sp1: 'fan', sp2: 'veil', super: 'petalstorm', hEnd: 'wind' },
+  kori:     { sp1: 'icicle', sp2: 'crystal', super: 'snow', hEnd: 'glacier' },
+  rave:     { sp1: 'soundwave', sp2: 'rhythm', super: 'turntable', hEnd: 'sonic' },
+};
+// the buttons outside the move list (home menu, touch controls) have their own too
+const BUTTON_ICONS = ['play', 'up', 'infinity', 'map', 'user', 'dummy', 'book', 'gear', 'pause', 'next', 'back', 'jab', 'burst', 'jump'];
+for (const d of ROSTER) { const t = MOVE_ICONS[d.id]; if (t) for (const k in t) if (d.moves[k]) d.moves[k].icon = t[k]; }
+(() => {
+  const seen = {};
+  for (const d of ROSTER) for (const k of ['sp1', 'sp2', 'super', 'hEnd']) { const ic = d.moves[k].icon; (seen[ic] = seen[ic] || []).push(d.id + '.' + k); }
+  for (const b of BUTTON_ICONS) (seen[b] = seen[b] || []).push('button');
+  const dup = Object.entries(seen).filter(([, v]) => v.length > 1);
+  if (dup.length) console.warn('icons used more than once:', dup.map(([k, v]) => k + ' ' + v.join('/')).join('; '));
+})();
