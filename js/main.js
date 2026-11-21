@@ -77,6 +77,7 @@
   window.addEventListener('keyup', e => Input.keyup(e));
   window.addEventListener('blur', () => Input.clearAll());
   window.addEventListener('resize', () => { Game.resize(); fitUi(); UI.checkRotate(); });
+  window.addEventListener('orientationchange', () => setTimeout(() => UI.checkRotate(), 120));
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { if (inFight() && Game.state !== 'over') UI.openPause(); Sfx.suspend(true); }
     else Sfx.suspend(false);

@@ -239,6 +239,12 @@ kbd { display: inline-block; font-family: var(--font); font-weight: 800; font-si
 .toast { padding: 8px 18px; clip-path: var(--cut-s); background: rgba(18, 22, 32, 0.96); position: relative; font-weight: 800; font-size: 13px; letter-spacing: 0.04em; text-align: center; animation: fade 0.2s ease, toastOut 0.4s ease 2.2s forwards; }
 @keyframes toastOut { to { opacity: 0; transform: translateY(-6px); } }
 
+/* phone held upright, anywhere in the game: a full screen asks for landscape (PLAY ANYWAY lets you carry on) */
+#rotate { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: var(--ink); text-align: center; padding: 24px; }
+#rotate > div { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+#rotate .ic { width: 60px; height: 60px; color: var(--acc); animation: tilt 2.2s ease-in-out infinite; }
+#rotate p { font-weight: 900; font-size: 16px; letter-spacing: 0.04em; }
+#rotate small { margin-top: -8px; font-weight: 700; font-size: 12px; color: var(--muted); }
 @keyframes tilt { 50% { transform: rotate(-90deg); } }
 
 .sheet.versus { width: min(820px, 100%); padding: 26px 24px 20px; background: radial-gradient(120% 120% at 50% 0%, #1c2236, #0f121b); gap: 18px; }
@@ -643,8 +649,6 @@ body.touch { --ob: clamp(46px, 12.75vh, 65px); --om: clamp(63px, 17.85vh, 88px);
 .mouse-ic.l .btnL, .mouse-ic.r .btnR { fill: var(--acc); }
 .tut-vis .mouse-ic { width: 34px; height: 46px; animation: capPress 1.2s ease-in-out infinite; color: #fff; }
 .coach p b { color: var(--acc); }
-/* the rotate hint: a phone glyph that tips over to landscape */
-.coach p .ic[data-icon="rotate"] { display: inline-block; width: 18px; height: 18px; vertical-align: -4px; margin-right: 6px; color: var(--acc); animation: tilt 2.2s ease-in-out infinite; }
 .coach p kbd { margin: 0 2px; }
 .coach.show { animation: coachIn 0.3s ease; }
 @keyframes coachIn { from { transform: translate(-50%, -10px); opacity: 0; } }
@@ -728,8 +732,6 @@ body.vcam #hud { opacity: 0; pointer-events: none; }
    timer, the guide and tips */
 body.playing #toasts { top: auto; bottom: calc(96px + var(--safe-b)); }
 body.playing.touch #toasts { bottom: calc(18px + var(--safe-b)); }
-/* phone held upright: the controls fill the bottom, so notices sit up top */
-@media (orientation: portrait) { body.playing.touch #toasts { top: calc(26vh + var(--safe-t)); bottom: auto; } }
 
 /* ------------------------------------------------------------ how to play */
 .how-tabs { flex: none; }

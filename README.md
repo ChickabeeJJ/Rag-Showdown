@@ -205,11 +205,7 @@ Each fighter's hits also spark in their own way: ki rings, smoke puffs, arcane r
 
 **The win, shot like a fighting game.** When the winner strikes their pose, letterbox bars slide in, the HUD steps aside and the camera frames the winner right of centre. A slash sweeps across the left of the frame: one solid dark core holds the tracked VICTORY (or PERFECT VICTORY) label, the name in clean italic caps with a glint passing through it, and their title under a thin rule, with thin bands of the winner's colour above and below so no line of type straddles two zones. It never covers the fighter. The result screen that follows uses a two-column victory layout: the winner's full-body art on a slash of their colour with slowly turning rays and their name plate (left), the results with a sharp left-aligned heading (right), all sliding in. It folds to a stacked layout on narrow screens.
 
-**Landscape advice, not a wall.** On a phone held upright, the game advises the landscape layout through its own notices instead of blocking the screen:
-- In a fight, the coach line says **TURN YOUR PHONE SIDEWAYS** with a tipping-phone icon. It waits behind the level intro, reserves the line so gameplay tips hold back until it has shown, and waits until the guided first fight's guide is done.
-- In the menus, a toast says the same.
-- It shows when you turn the phone upright and once per fight started that way, never again while nothing changes, and never in landscape.
-- When the phone is upright during a fight, toasts move up out of the way of the touch controls.
+**Landscape, everywhere.** On a phone held upright, at any point in the game (the home screen, every menu, the event screen, result sheets and fights), a full screen asks you to **TURN YOUR DEVICE SIDEWAYS** with a tipping-phone icon. **PLAY ANYWAY** lets you carry on in portrait; turning to landscape and back upright asks again. A fight waits (paused) behind the screen and picks up where it was.
 
 **Combo input that reads like you meant it.** Light, light, heavy comes out at any natural rhythm:
 - Presses wait up to 0.3 s for the current swing (was 0.22 s), and attacks always come out in the order you pressed them. A later button can no longer jump ahead of an earlier attack.
