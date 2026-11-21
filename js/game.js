@@ -654,6 +654,8 @@ const Game = (() => {
   function endAction(f) {
     const act = f.action;
     if (!act) return;
+    // remember a jab that just finished, for the chain grace window
+    f.lastChain = (act.key === 'l1' || act.key === 'l2') && f.mode === 'active' ? { key: act.key, t: G.t, hit: act.connected } : null;
     if (act.move.end) act.move.end(G, f, act);
     f.action = null;
     f.root.hover = false;
@@ -675,6 +677,17 @@ const Game = (() => {
   // time, so a ranged move can't be fired again until the last one is gone
   function ownShot(f) { return G.projs.some(p => p.owner === f && !p.dead && p.strength < 9 && p.t < p.life); }
   G.ownShot = ownShot;
+  // a string keeps going if the next button comes a moment after the swing
+  // finished, not only while it is still out: players press on rhythm, and a
+  // press a few frames late should still read as the combo (a fresh jab
+  // otherwise restarts it)
+  const CHAIN_GRACE = 0.14;
+  function chainGrace(f, key) {
+    const c = f.lastChain;
+    if (!c || c.key !== key || G.t - c.t > CHAIN_GRACE || f.mode !== 'active') return false;
+    f.lastChain = null;
+    return true;
+  }
   function tryAction(f, k) {
     if (!(G.state === 'fight')) return false;
     if (!f.canAct) return false;
@@ -701,17 +714,23 @@ const Game = (() => {
         return f.dash(k === 'dashF' ? toward : -toward);
       }
       case 'l':
+        if (!act && g && chainGrace(f, 'l1')) return startAction(f, 'l2', { chained: true });
         if (!act) { if (!g) f.airCombo = (f.airCombo || 0); return startAction(f, g ? 'l1' : 'airL', { chained: false }); }
         if (chainOk && act.key === 'l1') return startAction(f, 'l2', { chained: true });
         // air chain: two air jabs, then an air heavy
         if (chainOk && act.key === 'airL' && !g && (f.airCombo || 0) < 2) { f.airCombo = (f.airCombo || 0) + 1; return startAction(f, 'airL', { chained: true, alt: true }); }
         return false;
       case 'h':
+        const lc = f.lastChain;
+        if (!act && g && chainGrace(f, 'l2')) {
+          if (f.def.moves.hEnd.far && (ownShot(f) || !(lc.hit || Math.abs(G.opp(f).root.x - f.root.x) < 300 * f.s / 2))) return startAction(f, 'h', { chained: true });
+          return startAction(f, 'hEnd', { chained: true });
+        }
         if (!act) return startAction(f, g ? 'h' : 'airH');
         // light, light, heavy is the finisher; light, heavy is just a heavy
         if (chainOk && act.key === 'l2' && g) {
           // a ranged finisher needs the chain to touch: whiffing light, light, heavy from full screen is just a heavy
-          if (f.def.moves.hEnd.far && (ownShot(f) || !(act.connected || G.t - (f.touchT ?? -9) < 0.6))) return startAction(f, 'h', { chained: true });
+          if (f.def.moves.hEnd.far && (ownShot(f) || !(act.connected || G.t - (f.touchT ?? -9) < 0.6 || Math.abs(G.opp(f).root.x - f.root.x) < 300 * f.s / 2))) return startAction(f, 'h', { chained: true });
           return startAction(f, 'hEnd', { chained: true });
         }
         if (chainOk && act.key === 'l1' && g) return startAction(f, 'h', { chained: true });
@@ -741,9 +760,14 @@ const Game = (() => {
   function handleInput(f) {
     if (!f.buf || !f.buf.length) return;
     const now = G.t;
-    f.buf = f.buf.filter(p => now - p.t < 0.22);
+    // presses wait up to 0.3 s for the current swing, and attacks come out in
+    // the order they were pressed: a later button never jumps the queue ahead of
+    // an earlier attack (that turned a fast light, light, heavy into light, heavy)
+    f.buf = f.buf.filter(p => now - p.t < 0.3);
     for (let i = 0; i < f.buf.length; i++) {
-      if (tryAction(f, f.buf[i].k)) { f.buf.splice(0, i + 1); break; }
+      const k = f.buf[i].k;
+      if (tryAction(f, k)) { f.buf.splice(0, i + 1); break; }
+      if (k === 'l' || k === 'h') break;
     }
   }
   // any button during the round intro skips straight to FIGHT!

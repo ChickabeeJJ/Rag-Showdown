@@ -1290,7 +1290,7 @@ const UI = (() => {
     // (the super has its own meter in the corner)
     $('skillbar').innerHTML = sk('sp1', m.sp1) + sk('sp2', m.sp2);
     const orb = (cls, k, icon, lbl, c) => `<button class="orb ${cls}" data-k="${k}" style="--c:${c || def.color};--d:${shade(c || def.color)}"><span class="ring"></span><span class="orb-icon">${Icons.svg(icon)}</span><span class="lbl">${lbl}</span></button>`;
-    $('orbs').innerHTML = orb('orb-l', 'l', 'jab', 'LIGHT', '#ffc933') + orb('orb-h', 'h', 'burst', 'HEAVY', '#ff8a4a') + orb('orb-s1', 's1', m.sp1.icon, 'SP 1') + orb('orb-s2', 's2', m.sp2.icon, 'SP 2') + orb('orb-sup', 'sup', m.super.icon, 'SUPER') + orb('orb-j', 'jump', 'jump', 'JUMP', '#e9ecf4');
+    $('orbs').innerHTML = orb('orb-l', 'l', 'jab', 'LIGHT', '#ffc933') + orb('orb-h', 'h', 'burst', 'HEAVY', '#ff8a4a') + orb('orb-s1', 's1', m.sp1.icon, 'SP 1') + orb('orb-s2', 's2', m.sp2.icon, 'SP 2') + orb('orb-sup', 'sup', m.super.icon, 'SUPER') + orb('orb-j', 'jump', 'up', 'JUMP', '#e9ecf4');
     $('orbs').querySelectorAll('.orb').forEach(b => {
       b.addEventListener('pointerdown', e => { e.preventDefault(); Sfx.ensure(); document.body.classList.add('touch'); b.classList.add('down'); Input.touchPress(b.dataset.k); });
       const up = () => b.classList.remove('down');

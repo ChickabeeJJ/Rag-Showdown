@@ -2560,7 +2560,7 @@ const MOVE_ICONS = {
   rave:     { sp1: 'soundwave', sp2: 'rhythm', super: 'turntable', hEnd: 'sonic' },
 };
 // the buttons outside the move list (home menu, touch controls) have their own too
-const BUTTON_ICONS = ['play', 'up', 'infinity', 'map', 'user', 'dummy', 'book', 'gear', 'pause', 'next', 'back', 'jab', 'burst', 'jump'];
+const BUTTON_ICONS = ['play', 'up', 'infinity', 'map', 'user', 'dummy', 'book', 'gear', 'pause', 'next', 'back', 'jab', 'burst'];   // (JUMP shares ASCENT's up arrow by choice)
 for (const d of ROSTER) { const t = MOVE_ICONS[d.id]; if (t) for (const k in t) if (d.moves[k]) d.moves[k].icon = t[k]; }
 (() => {
   const seen = {};
