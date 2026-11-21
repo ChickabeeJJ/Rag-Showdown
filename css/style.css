@@ -1193,7 +1193,18 @@ body.playing:has(#modal:not(.hidden)) #toasts { top: calc(12px + var(--safe-t));
 .ev-plate span { font-weight: 800; font-size: 10px; letter-spacing: 0.12em; color: rgba(255, 255, 255, 0.75); }
 
 .ev-track { --cc: 14px; padding: 14px 16px 16px; background: #121620; }
-.ev-tiers-wrap { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
+.ev-tiers-wrap { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; scroll-behavior: auto;
+  /* soft fades at the ends say there's more to drag to */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%); }
+.ev-tiers-wrap.at-start { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent 100%); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent 100%); }
+.ev-tiers-wrap.at-end { -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 28px); mask-image: linear-gradient(90deg, transparent 0, #000 28px); }
+.ev-tiers-wrap.at-start.at-end { -webkit-mask-image: none; mask-image: none; }
+.ev-tiers { will-change: transform; }
+/* mouse: grab the pass and throw it */
+body:not(.touch) .ev-tiers-wrap { cursor: grab; user-select: none; -webkit-user-select: none; }
+body:not(.touch) .ev-tiers-wrap.dragging { cursor: grabbing; }
+.ev-tiers-wrap.dragging .ev-tier { pointer-events: none; }
+.ev-tiers-wrap img { -webkit-user-drag: none; user-select: none; }
 /* the pass: a long horizontal strip; milestone tiers (chests, skins, the fighter) are wider */
 .ev-tiers { position: relative; display: flex; align-items: stretch; gap: 8px; padding: 4px 2px 6px; width: max-content; }
 .ev-tier { flex: none; width: 96px; }
@@ -1243,7 +1254,8 @@ body.playing:has(#modal:not(.hidden)) #toasts { top: calc(12px + var(--safe-t));
 .ev-tier.final .et-art { background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--ec) 60%, #1a1f2c), #12151e 78%); }
 .ev-tier.final .et-name { font-size: 15px; font-style: italic; }
 
-.ev-bottom { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+/* both columns end on the same line: the challenges panel stretches, and the side column's last card fills the rest */
+.ev-bottom { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 12px; align-items: stretch; }
 .ev-chals { --cc: 14px; padding: 14px 16px; background: #121620; display: flex; flex-direction: column; gap: 6px; }
 .ev-chal { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; background: rgba(255, 255, 255, 0.045); }
 .ev-chal .mi-ic { background: var(--ec); }
@@ -1252,6 +1264,7 @@ body.playing:has(#modal:not(.hidden)) #toasts { top: calc(12px + var(--safe-t));
 .ev-chal.claimed { opacity: 0.55; }
 .ev-chal .btn b, #evCheck b { display: inline-flex; align-items: center; gap: 4px; }
 .ev-side { display: flex; flex-direction: column; gap: 10px; }
+.ev-side > .ev-next { flex: 1 1 auto; }
 .ev-battle { min-height: 70px; }
 .ev-battle .bt { display: flex; flex-direction: column; align-items: center; }
 .ev-battle .bt b { font-size: 24px; letter-spacing: 0.04em; }

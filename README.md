@@ -110,6 +110,8 @@ Each limited-time event runs for 35 days (a month and a bit), starting on a Mond
   - Rewards: a skin at tiers 10, 20 and 30, a coin chest at tiers 5, 15, 25 and 35, mastery XP for the fighter you play every third tier, coins in between, and the **exclusive fighter** at tier 40.
   - Over the whole pass: about 6,100 coins, about 2,200 mastery XP, three skins and the fighter.
   - The hero shows your tier and progress to the next; the strip marks claimed, ready, current (with its own progress bar) and locked tiers, and milestones are wider. **CLAIM ALL** takes everything that's ready (coins and XP add into one toast; a skin or the fighter still gets its reveal). Claimed skins are equipped at once.
+  - On PC the pass is **draggable**: grab it and throw it. It follows the cursor 1:1, keeps the release speed and glides to a stop, stretches like a rubber band past either end and springs back, and a drag never claims the tier it ends on. The mouse wheel scrolls it sideways (handing back to the page at the ends), and soft fades at the edges show there's more. Touch keeps native scrolling. `tools/pass-drag.js` checks all of this.
+  - The challenges panel and the right-hand column end on the same line at every screen size.
   - Fights pay a little more to match: 20 for a win, 6 for a loss, plus finishers and combo length, up to 42 (double in Event Battles).
   - Saves from the old 7-tier track carry over: skins, the fighter and the coins already claimed stay claimed on the matching tiers.
 - **Challenges:** five per event, such as "Win 10 Event Battles", "Land 40 combo finishers" and "Win 10 fights on Sakura Shrine", for bonus tokens.

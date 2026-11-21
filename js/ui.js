@@ -366,6 +366,93 @@ const UI = (() => {
     const firstOpen = Math.max(0, Events.TRACK.findIndex((T, i) => !s.claimed.includes(i)) - 1);
     const tw = W.querySelector('.ev-tiers-wrap'), tile = W.querySelectorAll('.ev-tier')[firstOpen];
     if (tw && tile && tw.scrollWidth > tw.clientWidth) tw.scrollLeft = Math.max(0, tile.offsetLeft - 24);
+    dragScroll(tw);
+  }
+  /* Drag to scroll (mouse): grab the pass and throw it. The strip follows the
+     cursor 1:1, keeps the release velocity and glides to a stop with an
+     exponential decay, stretches like a rubber band past either end and
+     springs back, and a drag never counts as a click on a tier. The mouse
+     wheel scrolls it sideways (and hands back to the page at the ends).
+     Touch keeps the browser's own native scrolling. */
+  function dragScroll(el) {
+    if (!el || el.dataset.drag) return;
+    el.dataset.drag = '1';
+    const inner = el.firstElementChild;
+    let down = false, sx = 0, s0 = 0, lastX = 0, lastT = 0, v = 0, moved = 0, raf = 0, over = 0, pid = null;
+    const max = () => Math.max(0, el.scrollWidth - el.clientWidth);
+    const band = x => Math.sign(x) * Math.min(90, Math.pow(Math.abs(x), 0.82) * 0.55);   // rubber-band resistance
+    const setOver = o => { over = o; inner.style.transform = o ? `translate3d(${-o}px,0,0)` : ''; };
+    const edges = () => { const m = max(); el.classList.toggle('at-start', el.scrollLeft <= 1); el.classList.toggle('at-end', el.scrollLeft >= m - 1); };
+    const stop = () => { cancelAnimationFrame(raf); raf = 0; };
+    function glide() {
+      stop();
+      let prev = performance.now();
+      const step = now => {
+        const dt = Math.min(40, now - prev); prev = now;
+        if (Math.abs(over) > 0.4) {
+          // spring back from the stretch
+          setOver(over * Math.exp(-dt / 90)); v = 0;
+        } else {
+          if (over) setOver(0);
+          const m = max(), next = el.scrollLeft - v * dt;
+          if (next <= 0 || next >= m) {
+            // hit an end while moving: a small bounce in the same direction
+            el.scrollLeft = next <= 0 ? 0 : m;
+            if (Math.abs(v) > 0.25) setOver(band((next <= 0 ? -1 : 1) * Math.min(160, Math.abs(v) * 70)));
+            v = 0;
+          } else el.scrollLeft = next;
+          v *= Math.exp(-dt / 325);
+        }
+        edges();
+        if (Math.abs(v) > 0.015 || Math.abs(over) > 0.4) raf = requestAnimationFrame(step); else { setOver(0); raf = 0; }
+      };
+      raf = requestAnimationFrame(step);
+    }
+    el.addEventListener('pointerdown', e => {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return;
+      stop(); down = true; moved = 0; pid = e.pointerId;
+      sx = lastX = e.clientX; s0 = el.scrollLeft + over; lastT = performance.now(); v = 0;
+    });
+    el.addEventListener('pointermove', e => {
+      if (!down || e.pointerId !== pid) return;
+      const dx = e.clientX - sx;
+      moved = Math.max(moved, Math.abs(dx));
+      if (moved < 5) return;
+      if (!el.classList.contains('dragging')) { el.classList.add('dragging'); try { el.setPointerCapture(pid); } catch (_) {} }
+      const m = max(), want = s0 - dx;
+      if (want < 0) { el.scrollLeft = 0; setOver(band(want)); }
+      else if (want > m) { el.scrollLeft = m; setOver(band(want - m)); }
+      else { el.scrollLeft = want; setOver(0); }
+      const now = performance.now(), dt = now - lastT;
+      if (dt > 0) { const inst = (e.clientX - lastX) / dt; v = v * 0.55 + inst * 0.45; }
+      lastX = e.clientX; lastT = now;
+      edges();
+    });
+    const up = e => {
+      if (!down || (e && e.pointerId !== pid)) return;
+      down = false;
+      el.classList.remove('dragging');
+      if (performance.now() - lastT > 90) v = 0;   // held still before letting go: no throw
+      v = clamp(v, -4.5, 4.5);
+      glide();
+    };
+    el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
+    // a drag is not a click on whatever tier it ended over
+    el.addEventListener('click', e => { if (moved >= 5) { e.stopPropagation(); e.preventDefault(); moved = 0; } }, true);
+    el.addEventListener('dragstart', e => e.preventDefault());
+    // the wheel scrolls the strip sideways, eased; at either end it hands back to the page
+    let wheelTo = null;
+    el.addEventListener('wheel', e => {
+      const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      const m = max();
+      if (!m || (d < 0 && el.scrollLeft <= 0) || (d > 0 && el.scrollLeft >= m)) return;
+      e.preventDefault(); stop();
+      wheelTo = clamp((wheelTo == null || Math.abs(wheelTo - el.scrollLeft) > 600 ? el.scrollLeft : wheelTo) + d * (e.deltaMode === 1 ? 40 : 1.1), 0, m);
+      const ease = () => { const diff = wheelTo - el.scrollLeft; if (Math.abs(diff) < 0.6) { el.scrollLeft = wheelTo; wheelTo = null; edges(); return; } el.scrollLeft += diff * 0.22; edges(); raf = requestAnimationFrame(ease); };
+      raf = requestAnimationFrame(ease);
+    }, { passive: false });
+    el.addEventListener('scroll', edges, { passive: true });
+    edges();
   }
   // claiming a tier: coins quietly, skins and the fighter with a reveal
   function claimTier(i) {
