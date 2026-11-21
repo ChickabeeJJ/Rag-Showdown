@@ -12,7 +12,7 @@ class CpuCtrl {
     this.lv = clamp(level, 0, 9);
     this.human = false;
   }
-  reset(f) { this.stunPlan = null; this.t = rand(0.1, 0.4); this.hold = 0; this.holdT = 0; this.guardT = 0; this.combo = 0; this.lastThreat = 0; this.idleT = 0; }
+  reset(f) { this.shotPlan = null; this.seen = new WeakSet(); this.zoneHeat = 0; this.stunPlan = null; this.t = rand(0.1, 0.4); this.hold = 0; this.holdT = 0; this.guardT = 0; this.combo = 0; this.lastThreat = 0; this.idleT = 0; }
 
   update(G, f, dt) {
     const o = G.opp(f);
@@ -53,6 +53,35 @@ class CpuCtrl {
     // ----- time stopped or opponent helpless: rush in
     const helpless = o.stopT > 0.3 || (o.mode === 'hit' && o.stunT > 0.2) || (o.mode === 'tumble' && o.airborneHit && o.juggle < 4);
 
+    // ----- projectiles, read the way a player reads a fireball: it is on screen
+    // long before it lands, so the CPU sees it coming, doesn't walk or swing into
+    // it, blocks it or jumps it, then uses the thrower's recovery to close in.
+    // A fighter who keeps throwing heats up the CPU, which then rushes them down.
+    this.zoneHeat = Math.max(0, this.zoneHeat - dt * 0.12);
+    for (const p of G.projs) if (p.owner === o && !this.seen.has(p)) { this.seen.add(p); if (p.strength < 9) this.zoneHeat = Math.min(4, this.zoneHeat + 1); }
+    const shot = this.incoming(G, f, o);
+    if (shot && f.root.grounded && f.mode === 'active') {
+      if (!this.shotPlan || this.shotPlan.p !== shot.p) {
+        const r = Math.random();
+        const pJump = d > 300 * s / 2 && shot.p.r < 80 && !shot.big ? Math.min(0.55, 0.06 + L * 0.045 + this.zoneHeat * 0.06) : 0;
+        const pBlock = Math.min(0.97, 0.62 + L * 0.05);
+        this.shotPlan = { p: shot.p, kind: r < pJump ? 'jump' : r < pJump + (1 - pJump) * pBlock ? 'guard' : 'none' };
+      }
+      const plan = this.shotPlan.kind;
+      if (plan !== 'none') this.t = Math.max(this.t, shot.tti + 0.08);   // don't start anything that would eat it
+      if (plan === 'guard' && !act) { this.hold = -toward; this.holdT = Math.max(this.holdT, shot.tti + 0.22); this.guardT = this.holdT; }
+      if (plan === 'jump' && !act && shot.tti < 0.34 && shot.tti > 0.08) { this.shotPlan.kind = 'done'; G.press(f.side, 'jump'); this.hold = toward; this.holdT = 0.55; this.airAttack = true; }
+      if (plan === 'jump' && shot.tti <= 0.08 && !act) { this.shotPlan.kind = 'guard'; this.hold = -toward; this.holdT = 0.3; this.guardT = 0.3; }
+    } else if (!shot) this.shotPlan = null;
+    // the throw itself is the tell: a ranged move's wind-up is big and readable, so
+    // block on the startup (that's what stops point-blank fireballs) instead of
+    // waiting to see the projectile
+    const oa0 = o.action;
+    if (oa0 && o.mode === 'active' && oa0.move.kind !== 'super' && (oa0.move.ranged || (oa0.move.ai && oa0.move.ai.zone)) && oa0.t < oa0.w + oa0.a && f.root.grounded && d < 900) {
+      if (!this.startPlan || this.startPlan.a !== oa0) this.startPlan = { a: oa0, go: Math.random() < Math.min(0.92, 0.45 + L * 0.06 + this.zoneHeat * 0.06), at: react * 0.4 };
+      if (this.startPlan.go && !act && oa0.t >= this.startPlan.at) { this.hold = -toward; this.holdT = Math.max(this.holdT, 0.4); this.guardT = this.holdT; this.t = Math.max(this.t, 0.25); }
+    }
+
     // ----- guard
     const threat = this.threatOf(G, f, o, d);
     if (threat && !act && f.root.grounded) {
@@ -84,6 +113,19 @@ class CpuCtrl {
     if (this.holdT > 0) f.input.x = this.hold;
     else f.input.x = 0;
     if (!f.root.grounded && this.holdT <= 0) f.input.x = 0;
+  }
+
+  // the nearest of the opponent's projectiles heading this way, and how soon it lands
+  incoming(G, f, o) {
+    let best = null;
+    for (const p of G.projs) {
+      if (p.owner !== o || p.dead || !p.vx || Math.sign(p.vx) !== Math.sign(f.root.x - p.x)) continue;
+      const gap = Math.abs(p.x - f.root.x) - p.r - 30 * f.s / 2;
+      const tti = Math.max(0, gap) / Math.abs(p.vx);
+      if (tti > 0.8) continue;
+      if (!best || tti < best.tti) best = { p, tti, big: p.strength >= 9 };
+    }
+    return best;
   }
 
   threatOf(G, f, o, d) {
@@ -142,6 +184,18 @@ class CpuCtrl {
       const sp = this.pickSpecial(G, f, o, d);
       if (sp) { G.press(f.side, sp); return; }
       this.hold = -toward; this.holdT = rand(0.15, 0.35); return;
+    }
+
+    // the thrower is stuck in a ranged move's recovery: close the gap now
+    const oa = o.action, recovering = oa && oa.move.ranged && oa.t > oa.w + oa.a;
+    if (recovering && f.root.grounded && d > meleeR && rnd < 0.5 + L * 0.05) {
+      if (d > 520 * s / 2 || rnd < 0.5) { G.press(f.side, 'dashF'); return; }
+      G.press(f.side, 'jump'); this.hold = toward; this.holdT = 0.55; this.airAttack = true; return;
+    }
+    // against a zoner, don't trade fireballs from far away: walk them down
+    if (this.zoneHeat >= 1.5 && d > meleeR && !G.projs.some(p => p.owner === o)) {
+      if (f.root.grounded && d > 380 && rnd < 0.35 + L * 0.04) { G.press(f.side, 'dashF'); return; }
+      this.hold = toward; this.holdT = rand(0.25, 0.45); return;
     }
 
     // mid / long range

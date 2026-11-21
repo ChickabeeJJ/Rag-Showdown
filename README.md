@@ -191,6 +191,13 @@ Each fighter's hits also spark in their own way: ki rings, smoke puffs, arcane r
 
 **Supers worth watching.** Aoi's Violet Void is now a proper spectacle. Blue and red spiral in and collide, then a white-hot sphere fires. Red and blue still swirl inside it, rings counter-rotate around it, lightning crackles off its surface, debris is dragged in, and it leaves a band of erased space behind. Kensei's Already Done says the line in Japanese, お前はもう死んでいる ("you're already dead"), with a small English subtitle. His target answers なにっ!? just before the blast, and his rapid strikes shout アタタタ! Japanese text uses a small bundled subset of Dela Gothic One (OFL), so it looks the same on every device. Ripper's horns are rebuilt as clean tapered curves.
 
+**Fireballs, the Street Fighter way.** Ranged attacks control space but can't win a stage on their own:
+- **One at a time:** you can't throw another projectile while your last one is still on screen.
+- **A commitment:** projectile specials recover for at least 0.45 s and have a cooldown of at least 2.4 s, so a fighter who blocks, jumps or dashes through can punish the thrower. They also hit 20% softer than a close-range special.
+- **Finishers need contact:** light, light, heavy only fires a ranged finisher if the chain touched (hit or block). Whiffing it from full screen gives a plain heavy. Light, heavy is always just a heavy.
+- **CPUs read projectiles:** they react to the throw's wind-up (so point-blank shots get blocked), don't walk or swing into an incoming shot, block it or jump it (more often against a fighter who keeps throwing), and use the thrower's recovery to dash or jump in. A fighter who keeps zoning gets rushed down.
+- Measured with a bot that only throws projectiles: against level 2, 4 and 6 CPUs it went from 58% of shots landing clean and 5% blocked to about 25% clean and 41% blocked, and it lost all 48 matches at each level.
+
 **Crashing Tide is real water.** Homura's ranged finisher is a breaking wave ported from the Tide element's Tidal Wave in Elements: a row of water columns on damped springs rises, rolls, throws its lip forward into a curl and collapses into a wash, with foam on the crest, light through the thin lip, spray and mist. It hits twice, then washes on through instead of popping.
 
 **Shots fly at torso height.** A ranged attack fired by a grounded fighter leaves the hand and settles onto the torso line within a few frames, so Ki Blasts, shuriken, crescents, lances, icicles and sound waves come at the chest instead of the head. Low shots (ground waves, saw discs, stomps) stay low.

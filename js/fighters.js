@@ -2074,7 +2074,7 @@ function drawSlab(ctx, x, y, rot, dir, time, a) {
     poseFn: phasePose({}, { fh: [-18, -30], bh: [20, 10], lean: -8, crouch: 6 }, { fh: [56, -6], bh: [-24, 16], lean: 14, ff: [34, 0], bf: [-30, 0] }, { lean: 4 }),
     tick: (G, f, act) => fire(act, f, () => {
       const m = f.local(62, -112);
-      G.proj({ owner: f, x: m.x, y: m.y, vx: f.facing * 1350, vy: 0, r: 34, life: 1.1, multi: 3, every: 0.06, grind: 0.45, color: '#ffe27a',
+      G.proj({ owner: f, x: m.x, y: m.y, vx: f.facing * 1350, vy: 0, r: 34, life: 1.1, multi: 3, every: 0.06, tk: 0.06, grind: 0.45, color: '#ffe27a',
         spec: { dmg: 16, kb: [60, -40], stun: 0.4, bstun: 0.12, hs: 0.03, kind: 'heavy', sfx: 'cut', color: '#ffe27a', noLaunch: true },
         final: blow(36, [920, -300], '#ffe27a', 'Windmill Shuriken'),
         draw: (ctx, p, time) => {
@@ -2523,3 +2523,14 @@ const STAGES = {
   arena:  { name: 'GRAND ARENA', sky: ['#120c1e', '#2a1a3a', '#4a2a4a'], ground: '#8a7a68', line: '#6f6150', far: '#2a2236', near: '#1c1626' },
   lab:    { name: 'TRAINING ROOM', sky: ['#11141d', '#161b27', '#1d2333'], ground: '#1a1e2a', line: '#2a3146', far: '#141824', near: '#10131c', grid: true },
 };
+
+/* Fireball balance, the Street Fighter way: a projectile special is a commitment.
+   It recovers slowly enough that a fighter who jumps or dashes through it can
+   punish the thrower, and it comes back on a cooldown (on top of the one-on-
+   screen rule in game.js), so zoning controls space but can't win on its own. */
+for (const d of ROSTER) for (const k of ['sp1', 'sp2']) {
+  const m = d.moves[k];
+  if (!(m.ai && m.ai.zone)) continue;
+  m.r = Math.max(m.r, 0.45);
+  m.cd = Math.max(m.cd || 0, 2.4);
+}

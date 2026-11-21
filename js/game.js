@@ -338,9 +338,15 @@ const Game = (() => {
   G.proj = o => {
     const p = Object.assign({ t: 0, hits: 0, tk: 0, every: 0.1, multi: 1, strength: 1, life: 1.5 }, o);
     const f = p.owner;
+    if (f && f.action && f.action.move && f.action.move.kind !== 'super') {
+      f.action.move.ranged = true;
+      // projectile specials hit a little softer than a committed close-range special
+      if (f.action.move.kind === 'special') { if (p.spec) p.spec = Object.assign({}, p.spec, { dmg: Math.round(p.spec.dmg * 0.8) }); if (p.final) p.final = Object.assign({}, p.final, { dmg: Math.round(p.final.dmg * 0.8) }); }
+    }
     if (f && f.root && f.root.grounded && !p.keepY && Math.abs(p.vx) > Math.abs(p.vy || 0)) {
       const dy = f.root.y - TORSO * f.s - p.y;
-      if (dy > 4) p.settleY = dy;
+      // a combo finisher's shot comes out at torso height at once so it keeps the combo; others glide down from the hand
+      if (dy > 4) { if (f.action && f.action.key === 'hEnd') p.y += dy; else p.settleY = dy; }
     }
     G.projs.push(p); return p;
   };
@@ -426,7 +432,7 @@ const Game = (() => {
       if (low && !spec.otg) return null;
       if (def.juggle >= JUGGLE_MAX && spec.kind !== 'super') return null;
     }
-    if (act) { act.connected = true; act.connT = act.t; }
+    if (act) { act.connected = true; act.connT = act.t; att.touchT = G.t; }
     const dir = spec.dir || Math.sign(def.root.x - att.root.x) || att.facing;
     const kind = spec.kind || 'light';
     const stopped = def.stopT > 0;
@@ -664,6 +670,10 @@ const Game = (() => {
     if (f.action === act && (act.move.air || act.move.endOnLand)) endAction(f);
   }
 
+  // Street Fighter's fireball rule: one projectile of your own on screen at a
+  // time, so a ranged move can't be fired again until the last one is gone
+  function ownShot(f) { return G.projs.some(p => p.owner === f && !p.dead && p.strength < 9 && p.t < p.life); }
+  G.ownShot = ownShot;
   function tryAction(f, k) {
     if (!(G.state === 'fight')) return false;
     if (!f.canAct) return false;
@@ -697,13 +707,20 @@ const Game = (() => {
         return false;
       case 'h':
         if (!act) return startAction(f, g ? 'h' : 'airH');
-        if (chainOk && kindNow === 'light' && g) return startAction(f, 'hEnd', { chained: true });
+        // light, light, heavy is the finisher; light, heavy is just a heavy
+        if (chainOk && act.key === 'l2' && g) {
+          // a ranged finisher needs the chain to touch: whiffing light, light, heavy from full screen is just a heavy
+          if (f.def.moves.hEnd.far && (ownShot(f) || !(act.connected || G.t - (f.touchT ?? -9) < 0.6))) return startAction(f, 'h', { chained: true });
+          return startAction(f, 'hEnd', { chained: true });
+        }
+        if (chainOk && act.key === 'l1' && g) return startAction(f, 'h', { chained: true });
         if (chainOk && act.key === 'airL' && !g) return startAction(f, 'airH', { chained: true, spike: true });
         return false;
       case 's1': case 's2': {
         const key = k === 's1' ? 'sp1' : 'sp2';
         const mv = f.def.moves[key];
         if (f.cds[key] > 0) return false;
+        if ((mv.ranged || (mv.ai && mv.ai.zone)) && ownShot(f)) return false;
         if (!g && !mv.air) return false;
         if (!act || (cancel && (kindNow === 'light' || kindNow === 'heavy'))) return startAction(f, key);
         return false;
