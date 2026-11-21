@@ -1118,6 +1118,11 @@ body.playing:has(#modal:not(.hidden)) #toasts { top: calc(12px + var(--safe-t));
 /* event themes: a backdrop and drifting particles for each event */
 .ev-bg, .ec-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
 .ev-fx { position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0.9; }
+/* the cinematic scene (js/evscene.js) paints over the gradient fallback */
+/* the scene carries its own key light, so the old spinning halo goes; the fighter gets a rim light in the event colour */
+.ev-hero .ev-halo { display: none; }
+.ev-hero .ev-star img { filter: drop-shadow(0 0 1.5px color-mix(in srgb, var(--ec2) 90%, #fff)) drop-shadow(0 0 14px color-mix(in srgb, var(--ec) 70%, transparent)) drop-shadow(0 12px 18px rgba(0, 0, 0, 0.55)); }
+.ev-scene { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; display: block; }
 .ev-sakura .ev-bg, .ev-sakura .ec-bg { background: radial-gradient(circle at 80% 30%, rgba(255, 209, 230, 0.45), transparent 45%), linear-gradient(120deg, #2a0c1c, #6e2449 55%, #c45a8c); }
 .ev-frost .ev-bg, .ev-frost .ec-bg { background: radial-gradient(circle at 78% 22%, rgba(230, 251, 255, 0.55), transparent 42%), linear-gradient(120deg, #081a2e, #1d4a74 55%, #5f9cc9); }
 .ev-neon .ev-bg, .ev-neon .ec-bg { background: radial-gradient(circle at 80% 40%, rgba(255, 79, 216, 0.4), transparent 45%), radial-gradient(circle at 20% 90%, rgba(79, 216, 255, 0.3), transparent 50%), linear-gradient(120deg, #0b0618, #26093a 55%, #3e0c55); }
@@ -1161,8 +1166,13 @@ body.playing:has(#modal:not(.hidden)) #toasts { top: calc(12px + var(--safe-t));
 .ev-info h3 { font-weight: 900; font-style: italic; font-size: 50px; line-height: 0.95; letter-spacing: 0.01em; color: #fff; text-shadow: 3px 3px 0 var(--eink), 0 0 30px color-mix(in srgb, var(--ec) 60%, transparent); }
 .ev-info p { max-width: 440px; font-weight: 600; font-size: 14px; line-height: 1.4; color: rgba(255, 255, 255, 0.85); }
 .ev-info p.ev-how { font-size: 12px; color: rgba(255, 255, 255, 0.7); }
-.ev-prog { display: flex; flex-direction: column; gap: 6px; max-width: 420px; padding: 10px 12px; border-radius: 8px; background: rgba(0, 0, 0, 0.35); }
-.ev-prog > span:first-child { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 12px; letter-spacing: 0.08em; }
+.ev-prog { display: flex; flex-direction: row; align-items: center; gap: 12px; max-width: 440px; padding: 10px 12px; border-radius: 8px; background: rgba(0, 0, 0, 0.35); }
+.ev-pcol { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.ev-pcol > span:first-child { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 11px; letter-spacing: 0.08em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the tier badge: a cut-corner plate in the event colour */
+.ev-tierb { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 58px; padding: 4px 8px; clip-path: var(--cut-s); background: var(--ec); color: var(--eink, #111); line-height: 1; }
+.ev-tierb b { font-size: 26px !important; font-weight: 900; font-style: italic; }
+.ev-tierb small { font-weight: 900; font-size: 8px; letter-spacing: 0.16em; }
 .ev-prog b { font-size: 17px; }
 .ev-prog .ic, .ev-gain .ic, .et-at .ic, .ev-chal .btn .ic, #evCheck .ic { width: 15px; height: 15px; color: var(--ec2, var(--ec)); }
 .ev-pbar { height: 10px; border-radius: 5px; }
@@ -1181,8 +1191,26 @@ body.playing:has(#modal:not(.hidden)) #toasts { top: calc(12px + var(--safe-t));
 
 .ev-track { --cc: 14px; padding: 14px 16px 16px; background: #121620; }
 .ev-tiers-wrap { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
-.ev-tiers { position: relative; display: grid; grid-template-columns: repeat(7, minmax(118px, 1fr)); gap: 10px; padding-top: 4px; }
-.ev-line { position: absolute; left: 4%; right: 4%; top: 15px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); z-index: 0; }
+/* the pass: a long horizontal strip; milestone tiers (chests, skins, the fighter) are wider */
+.ev-tiers { position: relative; display: flex; align-items: stretch; gap: 8px; padding: 4px 2px 6px; width: max-content; }
+.ev-tier { flex: none; width: 96px; }
+.ev-tier.big { width: 128px; }
+.ev-tier.final { width: 150px; }
+.ev-tier.cur { --olc: color-mix(in srgb, var(--ec) 70%, #fff); }
+.et-at b { font-size: 13px; }
+.et-cur { flex-direction: column; gap: 3px; width: 100%; color: #fff; }
+.et-cbar { display: block; position: relative; width: 100%; height: 5px; border-radius: 3px; overflow: hidden; background: rgba(0, 0, 0, 0.45); }
+.et-cbar i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, var(--ec), #fff); }
+.et-coins em { font-style: normal; font-weight: 900; font-size: 9px; letter-spacing: 0.14em; color: #b9c7ff; margin-top: -3px; }
+.et-xp .ic { color: #9fb4ff; } .et-xp b { color: #dfe6ff; font-size: 15px; }
+.et-chest { position: relative; }
+.et-chest .ic { width: 42px; height: 42px; color: #ffd34d; position: relative; z-index: 1; }
+.et-chest b { position: relative; z-index: 1; }
+.et-glow { position: absolute; left: 50%; top: 40%; width: 90px; height: 90px; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(circle, rgba(255, 211, 77, 0.45), transparent 65%); }
+.ev-head .ev-all { margin-left: auto; min-height: 28px; }
+.ev-head .ev-all b { display: inline-flex; align-items: center; gap: 6px; }
+.ev-head .ev-all .ic { width: 14px; height: 14px; }
+.ev-line { position: absolute; left: 40px; right: 40px; top: 15px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); z-index: 0; }
 .ev-line i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: linear-gradient(90deg, var(--ec), #fff); box-shadow: 0 0 10px var(--ec); }
 .ev-tier { --cc: 10px; --olc: rgba(255, 255, 255, 0.16); z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 0 8px 10px; background: #1a1f2c; text-align: center;
   animation: cardIn 0.45s cubic-bezier(0.2, 1.2, 0.35, 1) calc(var(--i) * 0.05s) backwards; }
@@ -1287,7 +1315,7 @@ body.playing:has(#modal:not(.hidden)) #toasts { top: calc(12px + var(--safe-t));
   .ev-info h3 { font-size: 28px; } .ev-info p { font-size: 12px; } .ev-info p.ev-how { display: none; }
   .ev-star img { height: 168px; margin-bottom: 2px; }
   .ev-plate b { font-size: 20px; }
-  .ev-tiers { grid-template-columns: repeat(7, 112px); }
+  .ev-tier { width: 86px; } .ev-tier.big { width: 112px; } .ev-tier.final { width: 132px; }
   .et-art { height: 76px; }
   .ev-battle { min-height: 56px; } .ev-battle .bt b { font-size: 19px; }
 }

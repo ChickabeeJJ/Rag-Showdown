@@ -158,16 +158,20 @@ const Events = (() => {
       col: '#ff4fd8', col2: '#4fd8ff', ink: '#220a2e', token: 'NEON CHIPS', tokenIcon: 'bolt', skins: ['jin_neon', 'kohei_synth', 'saibo_chrome'] },
   ];
   const BY = Object.fromEntries(LIST.map(E => [E.id, E]));
-  // the reward track: token totals and what each tier pays
-  const TRACK = [
-    { at: 100, kind: 'coins', n: 200 },
-    { at: 300, kind: 'skin', i: 0 },
-    { at: 550, kind: 'coins', n: 350 },
-    { at: 850, kind: 'skin', i: 1 },
-    { at: 1200, kind: 'coins', n: 500 },
-    { at: 1600, kind: 'skin', i: 2 },
-    { at: 2100, kind: 'fighter' },
-  ];
+  // the reward track: a 40-tier battle pass, 100 tokens a tier. A skin every
+  // ten tiers, a coin chest on every other fifth, mastery XP for the fighter you
+  // play on every third, coins in between, and the exclusive fighter at the top.
+  const TIERS = 40, PER_TIER = 100;
+  const TRACK = Array.from({ length: TIERS }, (_, k) => {
+    const n = k + 1, at = n * PER_TIER;
+    if (n === TIERS) return { at, tier: n, kind: 'fighter' };
+    if (n % 10 === 0) return { at, tier: n, kind: 'skin', i: n / 10 - 1 };
+    if (n % 5 === 0) return { at, tier: n, kind: 'chest', n: 500 + n * 15 };
+    if (n % 3 === 0) return { at, tier: n, kind: 'xp', n: 120 + n * 4 };
+    return { at, tier: n, kind: 'coins', n: 60 + n * 4 };
+  });
+  // the tier you are on and how far into the next one
+  const tierOf = tokens => { const t = Math.min(TIERS, Math.floor(tokens / PER_TIER)); return { tier: t, into: t >= TIERS ? PER_TIER : tokens - t * PER_TIER }; };
   const MAX = TRACK[TRACK.length - 1].at;
   let offset = 0;   // tests move the clock
   const now = () => Date.now() + offset;
@@ -206,8 +210,18 @@ const Events = (() => {
     if (!d.event || d.event.key !== E.key) {
       // a new event: progress starts fresh (skins and fighters you earned stay yours)
       const lastCheck = d.event ? d.event.checkin : '', streak = d.event ? d.event.streak : 0;
-      d.event = { key: E.key, tokens: 0, claimed: [], ch: {}, chClaimed: [], checkin: lastCheck || '', streak: streak || 0, battles: 0 };
+      d.event = { key: E.key, tv: 2, tokens: 0, claimed: [], ch: {}, chClaimed: [], checkin: lastCheck || '', streak: streak || 0, battles: 0 };
       Save.save();
+    }
+    if (d.event.tv !== 2) {
+      // a save from the old 7-tier track: keep what was claimed (skins, the fighter
+      // and coins up to the same token total) on the matching battle-pass tiers
+      const OLD = [100, 300, 550, 850, 1200, 1600, 2100], OLD_SPECIAL = { 1: 9, 3: 19, 5: 29, 6: 39 };
+      const was = d.event.claimed || [], now = [];
+      let coinsTo = 0;
+      for (const i of was) { if (OLD_SPECIAL[i] != null) now.push(OLD_SPECIAL[i]); else coinsTo = Math.max(coinsTo, OLD[i] || 0); }
+      TRACK.forEach((T, i) => { if (T.at <= coinsTo && (T.kind === 'coins' || T.kind === 'xp' || T.kind === 'chest') && !now.includes(i)) now.push(i); });
+      d.event.claimed = now; d.event.tv = 2; Save.save();
     }
     return d.event;
   }
@@ -222,8 +236,8 @@ const Events = (() => {
   }
   // tokens for one fight (Levels, Ascent, Survival; Event Battles pay double)
   function fightTokens(res, battle) {
-    const base = (res.winner === 0 ? 12 : 4) + (res.stats.finishers || 0) * 3 + Math.min(6, Math.floor((res.stats.maxCombo || 0) / 2));
-    return Math.min(30, base) * (battle ? 2 : 1);
+    const base = (res.winner === 0 ? 20 : 6) + (res.stats.finishers || 0) * 3 + Math.min(8, Math.floor((res.stats.maxCombo || 0) / 2));
+    return Math.min(42, base) * (battle ? 2 : 1);
   }
   const reachable = () => { const s = state(); return TRACK.filter((T, i) => s.tokens >= T.at && !s.claimed.includes(i)).length; };
 
@@ -231,6 +245,8 @@ const Events = (() => {
   function reward(i) {
     const E = current(), T = TRACK[i];
     if (T.kind === 'coins') return { kind: 'coins', n: T.n, name: `${T.n} COINS` };
+    if (T.kind === 'chest') return { kind: 'chest', n: T.n, name: 'COIN CHEST' };
+    if (T.kind === 'xp') { const fid = Save.owned(Save.data.lastPick) ? Save.data.lastPick : 'kaze'; return { kind: 'xp', n: T.n, fighter: fid, name: `${T.n} MASTERY XP` }; }
     if (T.kind === 'skin') { const S = Skins.LIST[E.skins[T.i]]; return { kind: 'skin', id: S.id, skin: S, name: S.name, fighter: S.fighter }; }
     const owned = Save.owned(E.fighter);
     return { kind: 'fighter', id: E.fighter, name: BY_ID[E.fighter].name, already: owned, n: owned ? 1000 : 0 };
@@ -239,12 +255,20 @@ const Events = (() => {
     const s = state(), T = TRACK[i];
     if (!T || s.claimed.includes(i) || s.tokens < T.at) return null;
     const R = reward(i);
-    if (R.kind === 'coins') Save.addCoins(R.n);
+    if (R.kind === 'coins' || R.kind === 'chest') Save.addCoins(R.n);
+    else if (R.kind === 'xp') Meta.addXp(R.fighter, R.n);
     else if (R.kind === 'skin') { Skins.grant(R.id); Skins.equip(R.fighter, R.id); }
     else if (R.already) Save.addCoins(R.n);
     else Save.unlock(R.id);
     s.claimed.push(i); Save.save();
     return R;
+  }
+
+  // claim every reward that's ready at once; returns them in tier order
+  function claimAll() {
+    const s = state(), out = [];
+    TRACK.forEach((T, i) => { if (s.tokens >= T.at && !s.claimed.includes(i)) { const R = claim(i); if (R) out.push(R); } });
+    return out;
   }
 
   /* -------------------------------------------------------- challenges */
@@ -304,7 +328,7 @@ const Events = (() => {
   function battleDone(won) { const s = state(); s.battles++; Save.save(); return won ? track('eventwin') : []; }
 
   return {
-    LIST, BY, TRACK, MAX, current, next, nextStart, left, fmtLeft, state, addTokens, fightTokens, reachable, reward, claim,
+    LIST, BY, TRACK, MAX, TIERS, PER_TIER, tierOf, claimAll, current, next, nextStart, left, fmtLeft, state, addTokens, fightTokens, reachable, reward, claim,
     challenges, track, claimChallenge, checkinReady, checkinPay, checkIn, pending, battle, battleDone,
     set _offset(ms) { offset = ms; }, get _offset() { return offset; },
   };

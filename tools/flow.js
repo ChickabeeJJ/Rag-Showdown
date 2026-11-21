@@ -162,12 +162,15 @@ const SHOTS = process.argv[3] || null;
   await p.waitForFunction(() => UI.screen === 'event' && !UI.fightOn, null, { timeout: 10000 });
   // the whole track: claim every tier; the last one unlocks the exclusive fighter
   await ev(() => Events.addTokens(Events.MAX)); await ev(() => UI._renderEvent());
-  for (let i = 0; i < 7; i++) {
-    await click(`[data-claim="${i}"]`);
-    if (await p.$('#rvOk')) await click('#rvOk');
-  }
-  const ev3 = await ev(f => ({ owned: Save.owned(f), claimed: Events.state().claimed.length, skins: Save.data.skins.owned.length }), ev0.f);
-  if (!ev3.owned || ev3.claimed !== 7 || ev3.skins !== 3) fail('event rewards: ' + JSON.stringify(ev3));
+  // the event pass: claim one tier by hand, then CLAIM ALL takes the rest (the fighter gets its reveal)
+  const coinsB = await ev(() => Save.data.coins);
+  await click('[data-claim="0"]');
+  if ((await ev(() => Save.data.coins)) <= coinsB) fail('tier 1 paid nothing');
+  await click('#evAll');
+  if (await p.$('#rvOk')) await click('#rvOk');
+  const ev3 = await ev(f => ({ owned: Save.owned(f), claimed: Events.state().claimed.length, skins: Save.data.skins.owned.length, tier: Events.tierOf(Events.state().tokens).tier }), ev0.f);
+  if (!ev3.owned || ev3.claimed !== 40 || ev3.skins !== 3 || ev3.tier !== 40) fail('event rewards: ' + JSON.stringify(ev3));
+  if (await p.$('#evAll')) fail('CLAIM ALL still offered with nothing left');
   if (await ev(() => Events.claim(0))) fail('a tier could be claimed twice');
   // a skin is worn in the next fight
   const sk = await ev(() => { const S = Skins.LIST[Events.current().skins[0]]; return S; });

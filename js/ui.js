@@ -262,7 +262,7 @@ const UI = (() => {
     el.innerHTML = `<span class="ec-bg"></span><img class="ec-art" alt="" src="${fullBody(def, 140, 170)}">
       <span class="ec-txt"><small><i class="live"></i>LIVE EVENT · <span class="evLeft">${Events.fmtLeft(Events.left(E.end))}</span> LEFT</small><b>${E.name}</b>
       <span class="ec-bar"><i style="width:${Math.min(100, s.tokens / Events.MAX * 100)}%"></i></span>
-      <em>${tokIc(E)}${fmt(s.tokens)} / ${fmt(Events.MAX)} ${E.token}${Save.owned(E.fighter) ? '' : ` · EARN ${def.name}`}</em></span>
+      <em>${tokIc(E)}TIER ${Events.tierOf(s.tokens).tier} / ${Events.TIERS}${Save.owned(E.fighter) ? '' : ` · EARN ${def.name}`}</em></span>
       ${p ? `<span class="ec-badge">${p}</span>` : ''}`;
     hydrate(el);
   }
@@ -283,6 +283,8 @@ const UI = (() => {
   }
   function tierArt(R, E) {
     if (R.kind === 'coins') return `<span class="et-coins">${ic('coins', 'coin')}<b>${fmt(R.n)}</b></span>`;
+    if (R.kind === 'chest') return `<span class="et-coins et-chest"><span class="et-glow"></span>${ic('gift')}<b>${fmt(R.n)}</b></span>`;
+    if (R.kind === 'xp') return `<span class="et-coins et-xp">${ic('ranks')}<b>+${fmt(R.n)}</b><em>XP</em></span>`;
     if (R.kind === 'skin') return `<img alt="" src="${fullBody(Skins.def(R.fighter, R.id), 120, 150)}">`;
     return `<img alt="" src="${fullBody(BY_ID[R.id], 140, 170)}">`;
   }
@@ -290,14 +292,16 @@ const UI = (() => {
     const E = Events.current(), s = Events.state(), N = Events.next(), def = BY_ID[E.fighter];
     $('evTok').innerHTML = `${tokIc(E)}<b>${fmt(s.tokens)}</b>`;
     $('evTitle').textContent = 'EVENTS';
+    const TO = Events.tierOf(s.tokens), nReady = Events.reachable();
     const tiers = Events.TRACK.map((T, i) => {
       const R = Events.reward(i), got = s.claimed.includes(i), ready = !got && s.tokens >= T.at, fin = R.kind === 'fighter';
-      const lbl = R.kind === 'coins' ? 'COINS' : R.kind === 'skin' ? `SKIN · ${BY_ID[R.fighter].name}` : R.already ? 'ALREADY YOURS · +1,000 COINS' : 'EXCLUSIVE FIGHTER';
-      return `<div class="ev-tier ol ${got ? 'got' : ready ? 'ready' : 'locked'} ${fin ? 'final' : ''} k-${R.kind}" style="--i:${i}">
-        <span class="et-at">${tokIc(E)}${T.at}</span>
+      const big = R.kind === 'skin' || R.kind === 'chest' || fin, cur = !got && !ready && T.tier === TO.tier + 1;
+      const lbl = R.kind === 'coins' ? 'COINS' : R.kind === 'chest' ? 'COINS · MILESTONE' : R.kind === 'xp' ? `FOR ${BY_ID[R.fighter].name}` : R.kind === 'skin' ? `SKIN · ${BY_ID[R.fighter].name}` : R.already ? 'ALREADY YOURS · +1,000 COINS' : 'EXCLUSIVE FIGHTER';
+      return `<div class="ev-tier ol ${got ? 'got' : ready ? 'ready' : 'locked'} ${fin ? 'final' : ''} ${big ? 'big' : ''} ${cur ? 'cur' : ''} k-${R.kind}" style="--i:${Math.min(i, 12)}" data-tier="${T.tier}">
+        <span class="et-at">TIER <b>${T.tier}</b></span>
         <div class="et-art">${tierArt(R, E)}</div>
         <b class="et-name">${R.name}</b><small>${lbl}</small>
-        ${got ? `<span class="et-ok">${ic('check')}CLAIMED</span>` : ready ? `<button class="btn small primary" data-claim="${i}"><b>CLAIM</b></button>` : `<span class="et-need">${ic('lock')}${fmt(T.at - s.tokens)} MORE</span>`}
+        ${got ? `<span class="et-ok">${ic('check')}CLAIMED</span>` : ready ? `<button class="btn small primary" data-claim="${i}"><b>CLAIM</b></button>` : cur ? `<span class="et-need et-cur"><span class="et-cbar"><i style="width:${Math.round(TO.into / Events.PER_TIER * 100)}%"></i></span>${TO.into} / ${Events.PER_TIER}</span>` : `<span class="et-need">${ic('lock')}${fmt(T.at - s.tokens)}</span>`}
       </div>`;
     }).join('');
     const ch = Events.challenges().map(C => `<div class="ev-chal ${C.claimed ? 'claimed' : C.n >= C.goal ? 'done' : ''}"><span class="mi-ic">${ic(C.icon)}</span>
@@ -310,12 +314,12 @@ const UI = (() => {
     const me = BY_ID[Save.owned(Save.data.lastPick) ? Save.data.lastPick : 'kaze'];
     $('evWrap').innerHTML = `
       <div class="ev-hero ol ev-${E.id}" style="--ec:${E.col};--ec2:${E.col2};--eink:${E.ink}">
-        <span class="ev-bg"></span><span class="ev-fx"></span>
+        <span class="ev-bg"></span><canvas class="ev-scene" aria-hidden="true"></canvas>
         <div class="ev-info">
           <span class="ev-live"><i></i>LIVE EVENT · ENDS IN <span class="evLeft">${Events.fmtLeft(Events.left(E.end))}</span></span>
           <h3>${E.name}</h3>
           <p>${esc(E.tag)}</p>
-          <div class="ev-prog"><span>${tokIc(E)}<b>${fmt(s.tokens)}</b> / ${fmt(Events.MAX)} ${E.token}</span><span class="ev-pbar"><i style="width:${Math.min(100, s.tokens / Events.MAX * 100)}%"></i></span></div>
+          <div class="ev-prog"><span class="ev-tierb"><small>TIER</small><b>${TO.tier}</b><small>/ ${Events.TIERS}</small></span><span class="ev-pcol"><span>${tokIc(E)}${TO.tier >= Events.TIERS ? `<b>PASS COMPLETE</b>` : `<b>${TO.into}</b> / ${Events.PER_TIER} ${E.token} TO TIER ${TO.tier + 1}`}</span><span class="ev-pbar"><i style="width:${TO.tier >= Events.TIERS ? 100 : Math.round(TO.into / Events.PER_TIER * 100)}%"></i></span></span></div>
           <p class="ev-how">Earn ${E.token} from every fight in Levels, Ascent and Survival. Event Battles pay double.</p>
         </div>
         <div class="ev-star">
@@ -325,7 +329,7 @@ const UI = (() => {
         </div>
       </div>
       <div class="ev-track ol" style="--ec:${E.col}">
-        <div class="ev-head"><b>REWARD TRACK</b><small>CLAIM EACH REWARD AS YOU REACH IT</small></div>
+        <div class="ev-head"><b>EVENT PASS</b><small>${Events.TIERS} TIERS · ${Events.PER_TIER} ${E.token} EACH · ${s.claimed.length} / ${Events.TIERS} CLAIMED</small>${nReady > 1 ? `<button class="btn small primary ev-all" id="evAll"><b>${ic('gift')}CLAIM ALL · ${nReady}</b></button>` : ''}</div>
         <div class="ev-tiers-wrap"><div class="ev-tiers"><span class="ev-line"><i style="width:${(trackFill(s.tokens) * 100).toFixed(1)}%"></i></span>${tiers}</div></div>
       </div>
       <div class="ev-bottom" style="--ec:${E.col}">
@@ -340,12 +344,14 @@ const UI = (() => {
       </div>`;
     hydrate($('event'));
     const W = $('evWrap');
+    EvScene.mount(W.querySelector('.ev-scene'), E.id, W.querySelector('.ev-star img'));
     W.querySelectorAll('[data-claim]').forEach(b => { b.onclick = () => claimTier(+b.dataset.claim); });
+    if ($('evAll')) $('evAll').onclick = claimAllTiers;
     W.querySelectorAll('[data-ch]').forEach(b => { b.onclick = () => { const n = Events.claimChallenge(b.dataset.ch); if (n) { Sfx.play('coin'); toast(`+${n} ${E.token}`); renderEvent(); } }; });
     if ($('evCheck')) $('evCheck').onclick = () => { const n = Events.checkIn(); if (n) { Sfx.play('unlock'); toast(`CHECKED IN · +${n} ${E.token}`); renderEvent(); } };
     $('evBattle').onclick = () => { Sfx.play('fight'); startEventBattle(); };
     // keep the next unclaimed tier in view
-    const firstOpen = Math.max(0, Events.TRACK.findIndex((T, i) => !s.claimed.includes(i)));
+    const firstOpen = Math.max(0, Events.TRACK.findIndex((T, i) => !s.claimed.includes(i)) - 1);
     const tw = W.querySelector('.ev-tiers-wrap'), tile = W.querySelectorAll('.ev-tier')[firstOpen];
     if (tw && tile && tw.scrollWidth > tw.clientWidth) tw.scrollLeft = Math.max(0, tile.offsetLeft - 24);
   }
@@ -354,7 +360,23 @@ const UI = (() => {
     const E = Events.current(), R = Events.claim(i);
     if (!R) return;
     coinsUI();
-    if (R.kind === 'coins' || R.already) { Sfx.play('coin'); toast(`+${fmt(R.n)} COINS`); renderEvent(); return; }
+    if (R.kind === 'coins' || R.kind === 'chest' || R.already) { Sfx.play('coin'); toast(`+${fmt(R.n)} COINS`); renderEvent(); return; }
+    if (R.kind === 'xp') { Sfx.play('coin'); toast(`+${fmt(R.n)} MASTERY XP · ${BY_ID[R.fighter].name}`); renderEvent(); return; }
+    reveal(R);
+  }
+  // CLAIM ALL: coins and XP add up into one toast, a skin or the fighter still gets its reveal
+  function claimAllTiers() {
+    const got = Events.claimAll();
+    if (!got.length) return;
+    coinsUI();
+    const coins = got.filter(R => R.kind === 'coins' || R.kind === 'chest' || R.already).reduce((a, R) => a + R.n, 0);
+    const xp = got.filter(R => R.kind === 'xp').reduce((a, R) => a + R.n, 0);
+    const big = got.filter(R => (R.kind === 'skin' || R.kind === 'fighter') && !R.already);
+    toast(`CLAIMED ${got.length} REWARDS${coins ? ` · +${fmt(coins)} COINS` : ''}${xp ? ` · +${fmt(xp)} XP` : ''}`);
+    if (big.length) reveal(big[big.length - 1]); else { Sfx.play('coin'); renderEvent(); }
+  }
+  function reveal(R) {
+    const E = Events.current();
     Sfx.play('perfect'); Platform.happytime();
     const def = R.kind === 'skin' ? Skins.def(R.fighter, R.id) : BY_ID[R.id];
     openSheet(`<div class="reveal ev-${E.id}" style="--ec:${E.col};--ec2:${E.col2}">
@@ -389,8 +411,8 @@ const UI = (() => {
     if (won && ready) Platform.happytime();
     openSheet(`<h2 class="${won ? 'win' : 'lose'}">${won ? 'EVENT BATTLE WON' : 'DEFEATED'}</h2><p class="sub">${E.name} · ${BY_ID[r.p1].name} VS ${BY_ID[r.cur.id].name}</p>
       <div class="ev-gain" style="--ec:${E.col}">${tokIc(E)}<b>+${n}</b><small>${E.token} · 2× EVENT BATTLE</small></div>
-      <div class="ev-mini" style="--ec:${E.col}"><span class="ev-pbar"><i style="width:${Math.min(100, s.tokens / Events.MAX * 100)}%"></i></span>
-        <small>${fmt(s.tokens)} / ${fmt(Events.MAX)} ${E.token}${nextR ? ` · NEXT: ${nextR.name} AT ${Events.TRACK[nextT].at}` : ' · TRACK COMPLETE'}</small></div>
+      <div class="ev-mini" style="--ec:${E.col}"><span class="ev-pbar"><i style="width:${Events.tierOf(s.tokens).tier >= Events.TIERS ? 100 : Math.round(Events.tierOf(s.tokens).into / Events.PER_TIER * 100)}%"></i></span>
+        <small>EVENT PASS TIER ${Events.tierOf(s.tokens).tier} / ${Events.TIERS}${nextR ? ` · NEXT: ${nextR.name} AT TIER ${Events.TRACK[nextT].tier}` : ' · PASS COMPLETE'}</small></div>
       ${Events.reachable() ? `<p class="tip ev-ready">${ic('gift')} A REWARD IS READY TO CLAIM</p>` : ''}
       ${statTiles(res.stats)}${xpLine()}
       <div class="actions"><button class="btn" id="rMenu"><b>MENU</b></button><button class="btn" id="rEvent"><b>EVENT</b></button><button class="btn primary" id="rRetry"><b>NEXT BATTLE</b></button></div>`, 'result');

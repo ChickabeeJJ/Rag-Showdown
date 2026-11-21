@@ -106,7 +106,12 @@ Each limited-time event runs for 35 days (a month and a bit), starting on a Mond
 | Neon Nights | Neon Rooftop | Neon Chips | **RAVE**, Neon DJ | Jin Neon Reaper, Kohei Synthwave, Saibo Chrome Cape |
 
 - **Tokens:** every fight in Levels, Ascent and Survival pays tokens (more for wins, finishers and long combos). **Event Battles** on the event's stage pay double. Every third Event Battle is against the exclusive fighter, as a challenger. The other foes often wear the event's skins.
-- **Reward track:** seven tiers up to 2,100 tokens, paced for a month of play: coins, the three skins, and the **exclusive fighter** at the top. Claimed skins are equipped at once.
+- **Event pass:** a 40-tier battle pass, 100 tokens a tier, paced for a month of play.
+  - Rewards: a skin at tiers 10, 20 and 30, a coin chest at tiers 5, 15, 25 and 35, mastery XP for the fighter you play every third tier, coins in between, and the **exclusive fighter** at tier 40.
+  - Over the whole pass: about 6,100 coins, about 2,200 mastery XP, three skins and the fighter.
+  - The hero shows your tier and progress to the next; the strip marks claimed, ready, current (with its own progress bar) and locked tiers, and milestones are wider. **CLAIM ALL** takes everything that's ready (coins and XP add into one toast; a skin or the fighter still gets its reveal). Claimed skins are equipped at once.
+  - Fights pay a little more to match: 20 for a win, 6 for a loss, plus finishers and combo length, up to 42 (double in Event Battles).
+  - Saves from the old 7-tier track carry over: skins, the fighter and the coins already claimed stay claimed on the matching tiers.
 - **Challenges:** five per event, such as "Win 10 Event Battles", "Land 40 combo finishers" and "Win 10 fights on Sakura Shrine", for bonus tokens.
 - **Daily check-in:** tokens every day, growing with your streak (20, then up to 50).
 - **Coming back:** the home screen shows the live event with its countdown, progress and a badge when something is waiting. The event screen teases the next event and its fighter as a silhouette. Exclusive fighters can't be bought; one you missed returns when its event comes back around (every 105 days), and FIGHTERS shows when.
@@ -115,6 +120,11 @@ Each limited-time event runs for 35 days (a month and a bit), starting on a Mond
   - **Frost:** ice crystals grown on the shoulders, frost-glowing fists, cold breath, snow kicked up at the feet, and ice-shard hits.
   - **Neon:** LED strips glowing along every limb, a visor light, neon afterimage trails on fast moves, and pink and cyan ring hits.
 - **One accent colour:** every completion tick, claimed tier, ready mission and notification badge uses the game's gold, so nothing on the menus is green. Green is kept only for healing in fights.
+- **Cinematic hero scenes** (`js/evscene.js`): each event's banner is a layered, animated scene framed on the fighter, drawn like a film plate:
+  - **Sakura Festival:** golden hour on the shrine hill. A setting sun off the fighter's shoulder throws light shafts across pink hills that fade into haze, with a torii on the far ridge, a blossom bough framing the corner, and petals tumbling at three depths.
+  - **Frost Moon:** a clear arctic night. Stars, a huge moon with a halo behind the fighter, aurora ribbons rolling across the sky, snow peaks lit on the moon side, a pine line, drifting ground mist, snow at three depths and the odd ice glint.
+  - **Neon Nights:** a rooftop rave. A striped synth sun, two skylines with lit windows and neon roof edges, flickering neon signs, sweeping searchlights, a perspective floor that pulses on the beat, rising bokeh and fine rain.
+  - Each has a slow camera drift with parallax between layers, a colour grade that keeps the title side dark and readable, and a rim light on the fighter in the event colour. Static layers are painted once; only light and particles draw per frame (about 0.2 ms for sakura and neon, 1.4 ms for frost, whose aurora renders at quarter resolution). It stops when you leave the screen and holds a still frame with reduced motion.
 - **The UI:** a compact live event card in the bottom-right corner of the home screen, clear of the menu and the demo fight; Event Battles cut straight into the fight. On the event screen, a themed hero banner (drifting petals, falling snow or a neon grid) with the exclusive fighter, who faces the title in a hero pose. Each fighting style has its own showcase pose for menu and reward art (a tall, planted stance with signature hands instead of the crouched fight guard). Reward tiers are connected by a progress line, and the top tier has a spinning edge. Every panel has an outline that follows its slanted corners. Skin and fighter rewards get their own reveal.
 
 **The event fighters**
