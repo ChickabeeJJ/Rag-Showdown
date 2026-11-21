@@ -43,11 +43,11 @@ const UI = (() => {
   const ic = (name, cls = '') => `<span class="ic ${cls}" data-icon="${name}"></span>`;
   const pt = (def, cls = '') => `<span class="pt ${cls}" style="--c:${def.color}"><img alt="" src="${Portraits.url(def)}"></span>`;
   const shade = c => mixHex(c, '#000000', 0.45);
-  function toast(msg) {
+  function toast(msg, ms = 2700) {
     const t = document.createElement('div');
     t.className = 'toast'; t.textContent = msg;
     $('toasts').appendChild(t);
-    setTimeout(() => t.remove(), 2700);
+    setTimeout(() => t.remove(), ms);
   }
   function coinsUI() { document.querySelectorAll('.coin-val').forEach(e => { e.textContent = fmt(Save.data.coins); }); }
   function hydrate(root) { Icons.hydrate(root || document); }
@@ -154,7 +154,6 @@ const UI = (() => {
     $('btnHow').onclick = () => { Sfx.play('ui'); openHow(); };
     $('btnSettings').onclick = () => { Sfx.play('ui'); openSettings(); };
     $('btnPause').onclick = () => U.openPause();
-    $('btnRotateOk').onclick = () => { U.rotateOk = true; checkRotate(); };
     document.querySelectorAll('[data-back]').forEach(b => { b.onclick = () => { Sfx.play('uiBack'); const wasPreview = Game.cfg && Game.cfg.preview; show('home'); if (wasPreview) { U.previewId = null; startDemo(); } }; });
     $('modal').addEventListener('pointerdown', e => { if (e.target === $('modal') && U.sheetDismiss) { const f = U.sheetDismiss; U.sheetDismiss = null; f(); } });
     setupTouch();
@@ -772,6 +771,7 @@ const UI = (() => {
       buildHud(cfg);
       renderWaveDots();
       $('hud').classList.remove('hidden');
+      U.fightSeq = (U.fightSeq || 0) + 1;
       checkRotate();
     });
   }
@@ -1068,12 +1068,12 @@ const UI = (() => {
   /* ------------------------------------------------------------ tips */
   function coach(html, dur = 4.5) {
     const c = $('coach');
-    $('coachText').innerHTML = html;
+    $('coachText').innerHTML = html; hydrate(c);
     c.classList.remove('hidden', 'show'); void c.offsetWidth; c.classList.add('show');
     clearTimeout(U.coachT); U.coachT = setTimeout(() => c.classList.add('hidden'), dur * 1000);
   }
   function tip(id, html) {
-    if (Save.data.tips[id] || U.tut) return;
+    if (Save.data.tips[id] || U.tut || performance.now() < (U.coachLock || 0)) return;   // a tip waits while the rotate advice is up
     Save.data.tips[id] = 1; Save.save();
     coach(html, 5);
   }
@@ -1615,9 +1615,33 @@ const UI = (() => {
     joy.addEventListener('pointerup', end); joy.addEventListener('pointercancel', end);
   }
 
+  // Holding a phone upright: advise the landscape layout through the game's own
+  // notices (the coach line in a fight, a toast in the menus) instead of
+  // blocking the screen. It shows when you turn the phone upright, and once per
+  // fight if you start one that way; it never repeats while nothing changes.
   function checkRotate() {
     const portrait = window.innerHeight > window.innerWidth && document.body.classList.contains('touch');
-    $('rotate').classList.toggle('hidden', !(portrait && U.fightOn && !U.rotateOk));
+    if (!portrait) { U.rotKey = null; return; }
+    const inFight = U.fightOn && U.screen === null;
+    const key = inFight ? 'fight' + (U.fightSeq || 0) : 'menu';
+    if (U.rotKey === key || (U.rotKey && !inFight)) return;
+    U.rotKey = key;
+    clearTimeout(U.rotT);
+    // let the layout settle (and the fight's intro start) before speaking up
+    let waits = 0;
+    const speak = () => {
+      const still = window.innerHeight > window.innerWidth;
+      // wait its turn behind any notice already on screen (a level twist, a tip)
+      if (!still) { U.coachLock = 0; return; }
+      if (inFight && !$('coach').classList.contains('hidden') && waits++ < 12) { U.rotT = setTimeout(speak, 800); return; }
+      // during the guided first fight the guide's own card owns the screen: advise once it's done
+      if (inFight && U.tut) { U.coachLock = performance.now() + 4000; waits = 0; U.rotT = setTimeout(speak, 1500); return; }
+      if (inFight && !U.fightOn) { U.coachLock = 0; return; }
+      if (inFight) (U.coachLock = performance.now() + 6000), coach(`${ic('rotate')}<b>TURN YOUR PHONE SIDEWAYS</b><br>Rag Showdown plays best in landscape: bigger fighters and room for every button.`, 6);
+      else toast('TIP: TURN YOUR PHONE SIDEWAYS · THE GAME PLAYS BEST IN LANDSCAPE', 4500);
+    };
+    if (inFight) U.coachLock = performance.now() + 12000;   // reserve the notice: tips hold back until the advice has shown
+    U.rotT = setTimeout(speak, inFight ? 900 : 600);
   }
   U.checkRotate = checkRotate;
 
