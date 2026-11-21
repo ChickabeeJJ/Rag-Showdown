@@ -191,6 +191,10 @@ Each fighter's hits also spark in their own way: ki rings, smoke puffs, arcane r
 
 **Supers worth watching.** Aoi's Violet Void is now a proper spectacle. Blue and red spiral in and collide, then a white-hot sphere fires. Red and blue still swirl inside it, rings counter-rotate around it, lightning crackles off its surface, debris is dragged in, and it leaves a band of erased space behind. Kensei's Already Done says the line in Japanese, お前はもう死んでいる ("you're already dead"), with a small English subtitle. His target answers なにっ!? just before the blast, and his rapid strikes shout アタタタ! Japanese text uses a small bundled subset of Dela Gothic One (OFL), so it looks the same on every device. Ripper's horns are rebuilt as clean tapered curves.
 
+**Crashing Tide is real water.** Homura's ranged finisher is a breaking wave ported from the Tide element's Tidal Wave in Elements: a row of water columns on damped springs rises, rolls, throws its lip forward into a curl and collapses into a wash, with foam on the crest, light through the thin lip, spray and mist. It hits twice, then washes on through instead of popping.
+
+**Shots fly at torso height.** A ranged attack fired by a grounded fighter leaves the hand and settles onto the torso line within a few frames, so Ki Blasts, shuriken, crescents, lances, icicles and sound waves come at the chest instead of the head. Low shots (ground waves, saw discs, stomps) stay low.
+
 **Every ultimate has its own world.** The void backdrop belongs to Aoi alone. The other supers that used to borrow it now cut to a backdrop of their own:
 - **Monarch:** a shadow rift tears open behind him, tendrils reach out of it and eyes blink in the dark.
 - **Hana:** a dusk sky with a full moon and blossom branches, with rivers of petals sweeping across the front of the screen.

@@ -1032,6 +1032,131 @@ function sawDraw(ctx, p, time) {
   ctx.restore();
   if (Math.random() < 0.6) Game.fx.add({ kind: 'spark', x: p.x, y: p.y + p.r * 0.8, vx: -Math.sign(p.vx) * rand(200, 600), vy: rand(-400, -100), life: 0.2, size: 4, color: '#ffcf6a' });
 }
+/* Homura's Crashing Tide: a breaking wave simulated as a row of water columns
+   (ported from the Tide element's Tidal Wave). Each column is a damped spring
+   pulled toward the wave's shape and coupled to its neighbours, so the surface
+   ripples and sloshes; over its life the wave rises, rolls, peaks, throws its
+   lip forward into a curl and collapses into a spreading wash. */
+const TIDE_COLS = 34, TIDE_H = 150;
+function tideShape(i, ph) {
+  const u = i / (TIDE_COLS - 1);
+  const grow = clamp(ph / 0.18, 0, 1), fall = clamp((ph - 0.6) / 0.4, 0, 1);
+  const crestU = 0.72 + fall * 0.1;
+  const hgt = u <= crestU ? Math.pow(u / crestU, 2.4) : Math.max(0, 1 - Math.pow((u - crestU) / (1 - crestU), 0.6) * (1.05 - fall * 0.4));
+  return TIDE_H * grow * (1 - fall * 0.75) * hgt;
+}
+function tideSim(w, dt) {
+  if (!w.cols) { w.cols = Array.from({ length: TIDE_COLS }, () => ({ h: 0, v: 0 })); w.len = 260 * (TIDE_H / 95); }
+  const ph = clamp(w.t / w.life, 0, 1);
+  w.len += dt * 60 * clamp((ph - 0.55) * 4, 0, 1);
+  const C = w.cols, K = 140, NB = 900, D = 7;
+  for (let it = 0; it < 2; it++) {
+    const sdt = dt / 2;
+    for (let i = 0; i < C.length; i++) {
+      const c = C[i], l = C[i - 1] || c, r = C[i + 1] || c;
+      c.v += ((tideShape(i, ph) - c.h) * K + (l.h + r.h - 2 * c.h) * NB - c.v * D) * sdt;
+    }
+    for (const c of C) c.h += c.v * sdt;
+  }
+  let crest = 0; for (let i = 1; i < C.length; i++) if (C[i].h > C[crest].h) crest = i;
+  const Hc = Math.max(1, C[crest].h);
+  const lip = w.lip || (w.lip = { x: 0, y: 0, vx: 0, vy: 0 });
+  const reach = Hc * (0.22 + clamp(ph * 1.2, 0, 0.26)), drop = Hc * (0.15 + clamp((ph - 0.35) * 1.6, 0, 0.6));
+  const ax = (reach - lip.x) * 60 - lip.vx * 9, ay = (drop - lip.y) * 60 - lip.vy * 9 + (ph > 0.45 ? 260 : 0);
+  lip.vx += ax * dt; lip.vy += ay * dt; lip.x += lip.vx * dt; lip.y += lip.vy * dt;
+  lip.y = Math.min(lip.y, Hc * 0.98);
+  w.crest = crest;
+}
+function tideWaveDraw(c, w, time) {
+  // step the water by however much the projectile has aged since the last frame
+  const dt = Math.min(1 / 30, w.t - (w.simT || 0));
+  if (dt > 0 || !w.cols) { w.simT = w.t; for (let left = Math.max(dt, 1 / 240); left > 1e-6; left -= 1 / 120) tideSim(w, Math.min(1 / 120, left)); }
+  const k = clamp((1 - w.t / w.life) * 1.6, 0, 1);
+  const d = Math.sign(w.vx) || 1, X = w.x, Y = GROUND, C = w.cols, n = C.length, L = w.len;
+  const px = i => X - d * L * (1 - i / (n - 1)) + d * 40;
+  const cr = w.crest || 0, H = Math.max(1, C[cr].h);
+  if (H < 4 || !w.lip) return;
+  const ph = clamp((w.lip.x / H - 0.22) / 0.26, 0, 1);
+  const rh = H * (0.13 + 0.19 * ph), Oy = Y - H * 0.1 - rh, ro = Oy - (Y - H), thick = ro - rh, Ox = px(cr);
+  const P = (A, r) => [Ox + d * Math.cos(A) * r, Oy + Math.sin(A) * r];
+  const As = -Math.PI / 2 - 0.75, E = -0.75 + ph * 0.5;
+  const tail = [px(0), Y], s0 = P(As, ro), tg = [-d * Math.sin(As), Math.cos(As)];
+  const reach = Math.max(30, Math.abs(s0[0] - tail[0]));
+  const c1 = [tail[0] + d * reach * 0.45, Y - H * 0.04], c2 = [s0[0] - tg[0] * reach * 0.35, s0[1] - tg[1] * reach * 0.35];
+  const top = [];
+  for (let i = 0; i <= 24; i++) {
+    const t = i / 24, u = 1 - t;
+    top.push([u * u * u * tail[0] + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * s0[0], u * u * u * tail[1] + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * s0[1]]);
+  }
+  const nSlope = top.length, NA = 34, inner = [];
+  for (let i = 1; i <= NA; i++) {
+    const u = i / NA, A = As + (E - As) * u;
+    const bl = clamp((A + Math.PI / 2 + 0.4) / 0.8, 0, 1), sm = bl * bl * (3 - 2 * bl);
+    top.push(P(A, Math.max(rh * 0.9, ro - (ro - rh) * Math.pow(u, 2.2) * (0.4 + 0.6 * sm))));
+  }
+  const tip = top[top.length - 1], Cend = Math.PI / 2 - 0.55;
+  for (let i = 0; i <= 40; i++) { const u = i / 40, A = E + (Cend - Math.PI * 2 - E) * u; inner.push(P(A, rh * (u < 0.12 ? 0.82 + 1.5 * u : 1))); }
+  const lipOff = inner[inner.length - 1];
+  const front = [Ox + d * (rh * 1.6 + thick * 0.4), Y - H * 0.06], toe = [Ox + d * (rh * 2.6 + thick), Y];
+  const outline = () => {
+    c.beginPath(); c.moveTo(tail[0], tail[1]);
+    for (const q of top) c.lineTo(q[0], q[1]);
+    for (const q of inner) c.lineTo(q[0], q[1]);
+    c.quadraticCurveTo(lerp(lipOff[0], front[0], 0.6), lipOff[1] + (Y - lipOff[1]) * 0.15, front[0], front[1]);
+    c.quadraticCurveTo(lerp(front[0], toe[0], 0.5), front[1], toe[0], toe[1]);
+    c.closePath();
+  };
+  const normal = (pts, j) => {
+    const a0 = pts[Math.max(0, j - 2)], a1 = pts[Math.min(pts.length - 1, j + 2)];
+    const tx = a1[0] - a0[0], ty = a1[1] - a0[1], l = Math.hypot(tx, ty) || 1;
+    return [d * -ty / l, d * tx / l];
+  };
+  const ribbon = (pts, i0, i1, depth, wf, fill) => {
+    const A = [], B = [];
+    for (let j = i0; j <= i1; j++) {
+      const nn = normal(pts, j), u = (j - i0) / Math.max(1, i1 - i0), wd = wf(u), dd = depth(u);
+      A.push([pts[j][0] + nn[0] * dd, pts[j][1] + nn[1] * dd]); B.push([pts[j][0] + nn[0] * (dd + wd), pts[j][1] + nn[1] * (dd + wd)]);
+    }
+    c.fillStyle = fill; c.beginPath(); c.moveTo(A[0][0], A[0][1]);
+    for (const q of A) c.lineTo(q[0], q[1]);
+    for (let j = B.length - 1; j >= 0; j--) c.lineTo(B[j][0], B[j][1]);
+    c.closePath(); c.fill();
+  };
+  c.save();
+  // the water body
+  const g = c.createLinearGradient(0, Y - H, 0, Y);
+  g.addColorStop(0, rgba('#5ed0e6', 0.95 * k)); g.addColorStop(0.55, rgba('#2f9fd0', 0.95 * k)); g.addColorStop(1, rgba('#1a6db0', 0.95 * k));
+  c.fillStyle = g; outline(); c.fill();
+  // streaks that follow the water up the back slope and round into the curl
+  c.save(); outline(); c.clip();
+  const T = top.length - 1, sw = (m, q) => u => H * m * Math.pow(Math.sin(Math.PI * u), q);
+  ribbon(top, Math.floor(nSlope * 0.35), T - 8, u => H * (0.07 + 0.02 * u), sw(0.045, 0.7), rgba('#1c64b4', 0.55 * k));
+  ribbon(top, Math.floor(nSlope * 0.5), T - 13, u => H * (0.15 + 0.03 * u), sw(0.035, 0.7), rgba('#8fe6f5', 0.5 * k));
+  ribbon(top, Math.floor(nSlope * 0.25), T - 18, u => H * (0.23 + 0.02 * u), sw(0.04, 0.7), rgba('#1c64b4', 0.45 * k));
+  ribbon(inner, 6, inner.length - 4, () => 0, sw(0.06, 0.6), rgba('#165a9e', 0.45 * k));
+  c.restore();
+  // light through the thin lip
+  c.globalCompositeOperation = 'lighter';
+  const lp = P(-0.3, ro * 0.9), lg = c.createRadialGradient(lp[0], lp[1], 1, lp[0], lp[1], ro);
+  lg.addColorStop(0, rgba('#b4f2ff', 0.2 * k)); lg.addColorStop(1, rgba('#b4f2ff', 0));
+  c.fillStyle = lg; c.fillRect(lp[0] - ro, lp[1] - ro, ro * 2, ro * 2);
+  c.globalCompositeOperation = 'source-over';
+  // the foam cap piled on the crest and over the lip
+  const f0 = nSlope - 9, f1 = Math.min(T - 2, nSlope + Math.floor(NA * (0.55 + 0.35 * ph)));
+  const foamW = u => H * (0.13 + 0.09 * ph) * Math.pow(Math.sin(Math.PI * Math.min(1, u * 1.05)), 0.9) * (1 + 0.3 * Math.sin(u * 17 + time * 3) * Math.sin(Math.PI * u));
+  ribbon(top, f0, f1, () => -H * 0.012, u => foamW(u) * 1.08, rgba('#cdeefa', 0.95 * k));
+  ribbon(top, f0, f1, () => -H * 0.012, u => foamW(u) * 0.8, rgba('#ffffff', 0.95 * k));
+  // mist where the lip lands, once it has plunged
+  if (ph > 0.75) { c.globalAlpha = (ph - 0.75) * 4 * k * 0.3; Glow.draw(c, '#eaf8ff', tip[0], Y - 6, H * 0.4, 1); }
+  c.restore();
+  // spray thrown forward off the pitching lip
+  if (dt > 0 && typeof Game !== 'undefined') {
+    const wph = w.t / w.life;
+    if (wph > 0.4 && Math.random() < 0.55) Game.fx.add({ x: tip[0] + d * rand(-6, 14), y: tip[1] + rand(-6, 6), vx: d * rand(140, 320), vy: -rand(120, 320), g: 1500, color: pick(['#9fd8ff', '#c9ecff', '#ffffff']), size: rand(2, 4), life: 0.5 });
+    if (Math.random() < 0.3) Game.fx.add({ kind: 'smoke', x: tail[0] + d * 30, y: Y - 8, vx: -d * 60, vy: -20, life: 0.4, size: 16, color: '#d9f6ff', add: false });
+  }
+}
+
 function fireWaveDraw(ctx, p, time) {
   ctx.globalCompositeOperation = 'lighter';
   for (let i = 0; i < 5; i++) Game.fx.add({ kind: 'flame', x: p.x + rand(-p.r, p.r) * 0.6, y: p.y + rand(-p.r, p.r * 0.8), vx: -p.vx * 0.15 + rand(-80, 80), vy: rand(-380, -120), life: 0.28, size: rand(8, 14), color: i % 2 ? '#ff5a1c' : '#ffc23d' });
@@ -1976,29 +2101,10 @@ function drawSlab(ctx, x, y, rot, dir, time, a) {
     poseFn: arcPose(0.6, -0.6, ph => (ph === 1 ? { crouch: 16, ff: [40, 0], bf: [-36, 0] } : { crouch: 10 })),
     tick: (G, f, act) => fire(act, f, () => {
       const x0 = f.root.x + f.facing * 36 * f.s / 2;
-      G.proj({ owner: f, x: x0, y: GROUND - 64, vx: f.facing * 1250, vy: 0, r: 66, life: 0.85, multi: 2, every: 0.07, tk: 0.07, color: '#4fd2ff',
+      G.proj({ owner: f, x: x0, y: GROUND - 64, vx: f.facing * 1100, vy: 0, r: 66, life: 0.95, multi: 2, every: 0.07, tk: 0.07, wash: true, keepY: true, color: '#4fd2ff',
         spec: { dmg: 20, kb: [140, -60], stun: 0.45, bstun: 0.14, hs: 0.04, kind: 'heavy', sfx: 'swishH', color: '#4fd2ff', noLaunch: true },
         final: blow(40, [980, -380], '#4fd2ff', 'Crashing Tide'),
-        draw: (ctx, p, time) => {
-          const d = Math.sign(p.vx) || 1, k = Math.min(1, p.t / 0.12), H = 140 * k, x = p.x, gy = GROUND;
-          const crest = [x + d * 12, gy - H], lip = [x + d * 46, gy - H * 0.72];
-          const grad = ctx.createLinearGradient(0, gy - H, 0, gy);
-          grad.addColorStop(0, '#bff3ff'); grad.addColorStop(0.35, '#4fd2ff'); grad.addColorStop(1, '#0f5a7a');
-          ctx.fillStyle = grad; ctx.globalAlpha = 0.92;
-          ctx.beginPath(); ctx.moveTo(x - d * 110, gy);
-          ctx.quadraticCurveTo(x - d * 40, gy - H * 0.3, crest[0], crest[1]);
-          ctx.quadraticCurveTo(x + d * 52, gy - H * 1.02, lip[0], lip[1]);
-          ctx.quadraticCurveTo(x + d * 30, gy - H * 0.55, x + d * 58, gy);
-          ctx.closePath(); ctx.fill();
-          // foam along the crest and the curling lip
-          ctx.globalAlpha = 1; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 5; ctx.lineCap = 'round';
-          ctx.beginPath(); ctx.moveTo(x - d * 30, gy - H * 0.55); ctx.quadraticCurveTo(x - d * 4, gy - H * 0.98, crest[0], crest[1]); ctx.quadraticCurveTo(x + d * 50, gy - H * 1.0, lip[0], lip[1]); ctx.stroke();
-          ctx.lineWidth = 2.5; ctx.globalAlpha = 0.6;
-          for (let i = 0; i < 3; i++) { const yy = gy - H * (0.2 + i * 0.16); ctx.beginPath(); ctx.moveTo(x - d * (70 - i * 14), yy + 8); ctx.quadraticCurveTo(x - d * (40 - i * 12), yy - 6, x - d * (8 - i * 8), yy); ctx.stroke(); }
-          ctx.globalAlpha = 1;
-          if (Math.random() < 0.8) G.fx.add({ x: lip[0] + rand(-10, 10), y: lip[1] + rand(-6, 6), vx: d * rand(60, 260), vy: rand(-320, -80), g: 1400, life: 0.4, size: rand(3, 6), color: Math.random() < 0.5 ? '#ffffff' : '#9fe6ff' });
-          if (Math.random() < 0.3) G.fx.add({ kind: 'smoke', x: x - d * 80, y: gy - 10, vx: -d * 80, vy: -30, life: 0.4, size: 18, color: '#d9f6ff', add: false });
-        } });
+        draw: tideWaveDraw });
       Sfx.play('wind'); G.fx.dust(x0, GROUND, 4, f.facing);
     }) }, FAR));
 
@@ -2241,7 +2347,7 @@ function drawSlab(ctx, x, y, rot, dir, time, a) {
     kensei:   { stance: 'kungfu', gear: 'band', hair: 'part', hairC: '#262028', top: '#7a2633', topKind: 'gi', sleeve: 'short', trim: 'acc', pants: '#2a2228', belt: 'acc', wraps: true, cape: false },
     blaze:    { stance: 'soldier', gear: 'none', hair: 'spikes', hairC: '#3a1e14', face: 'goggles', top: '#b98a4a', topKind: 'jacket', sleeve: 'long', stripes: true, trim: 'acc', pants: '#9a7038', boots: '#2a2018' },
     triblade: { stance: 'dual', gear: 'band', hair: 'mohawk', hairC: '#2f3a22', top: '#4a3a1e', topKind: 'tank', pants: '#2a261c', belt: 'acc', beltTails: true, wraps: true },
-    hana:     { stance: 'dancer', style: 'dancer', gear: 'none', hair: 'long', hairC: '#2a1a26', top: '#ffd1e6', topKind: 'robe', sleeve: 'long', wideSleeve: true, trim: 'acc', sash: true, pants: '#ff8fc8', pantsKind: 'robe', boots: '#f2e6ef', build: { chest: 0.9, waist: 0.8, hip: 1.1, arm: 0.86, leg: 0.93, curvy: true, bust: true } },
+    hana:     { stance: 'dancer', style: 'dancer', gear: 'none', hair: 'long', hairC: '#ee5a9f', top: '#ffd1e6', topKind: 'robe', sleeve: 'long', wideSleeve: true, trim: 'acc', sash: true, pants: '#ff8fc8', pantsKind: 'robe', boots: '#f2e6ef', build: { chest: 0.9, waist: 0.8, hip: 1.1, arm: 0.86, leg: 0.93, curvy: true, bust: true } },
     kori:     { stance: 'frost', style: 'frost', gear: 'none', hair: 'spikes', hairC: '#e8f6ff', top: '#1f3a5c', topKind: 'vest', pants: '#16263d', boots: '#dff4ff', wraps: '#bfe6ff', extra: 'pauldron', trim: '#bfe6ff', build: { chest: 1.1, arm: 1.12 } },
     rave:     { stance: 'beat', style: 'beat', gear: 'none', hair: 'mohawk', hairC: '#ff4fd8', face: 'goggles', top: '#16161f', topKind: 'hoodie', sleeve: 'long', trim: '#4fd8ff', pants: '#1c1c28', boots: '#ff4fd8', stripes: true },
     psychic:  { stance: 'calm', gear: 'none', hair: 'part', hairC: '#1c1c22', top: '#1d3a44', topKind: 'hoodie', sleeve: 'long', trim: 'acc', pants: '#22252e', extra: 'orbs' },

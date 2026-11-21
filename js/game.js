@@ -331,7 +331,19 @@ const Game = (() => {
     Sfx.play('flame'); Sfx.play('rise');
   }
 
-  G.proj = o => { const p = Object.assign({ t: 0, hits: 0, tk: 0, every: 0.1, multi: 1, strength: 1, life: 1.5 }, o); G.projs.push(p); return p; };
+  // Ranged attacks fly at torso height, not head height: a shot fired from a
+  // raised hand or the shoulder by a grounded fighter leaves the hand, then
+  // settles onto the torso line within a few frames (low shots are untouched).
+  const TORSO = 62;
+  G.proj = o => {
+    const p = Object.assign({ t: 0, hits: 0, tk: 0, every: 0.1, multi: 1, strength: 1, life: 1.5 }, o);
+    const f = p.owner;
+    if (f && f.root && f.root.grounded && !p.keepY && Math.abs(p.vx) > Math.abs(p.vy || 0)) {
+      const dy = f.root.y - TORSO * f.s - p.y;
+      if (dy > 4) p.settleY = dy;
+    }
+    G.projs.push(p); return p;
+  };
   G.beam = o => { const b = Object.assign({ t: 0, len: 0, tk: 1, lastHit: -9 }, o); G.beams.push(b); return b; };
   G.field = o => { const fl = Object.assign({ t: 0, tk: 0, dead: false }, o); G.fields.push(fl); return fl; };
   G.teleport = function (f, x, y) {
@@ -879,6 +891,7 @@ const Game = (() => {
       if (G.stopT > 0 && G.stopOwner !== p.owner) continue;
       p.t += dt;
       p.x += p.vx * dt; p.y += p.vy * dt;
+      if (p.settleY) { const m = p.settleY * Math.min(1, dt * 22); p.y += m; p.settleY -= m; if (p.settleY < 0.3) { p.y += p.settleY; p.settleY = 0; } }
       if (p.t > p.life) { p.dead = true; continue; }
       if (p.x < WALL_L - 10 || p.x > WALL_R + 10) { p.dead = true; borderHit(p.x < 800 ? -1 : 1, p.y, 0.8); continue; }
       const o = G.opp(p.owner);
@@ -909,7 +922,7 @@ const Game = (() => {
           p.tk = 0; p.hits++;
           const last = p.hits >= p.multi && p.final;
           const r = G.hit(p.owner, o, last ? p.final : p.spec, res.x, res.y, null);
-          if (last && r) p.dead = true;
+          if (last && r) { if (p.wash) { p.multi = 1; p.spent = true; } else p.dead = true; }   // a wave washes on through after its last hit
           if (r === 'block' && !p.pierce) p.dead = true;
         }
       } else {
